@@ -1,0 +1,5 @@
+{
+  "name": "Storyboard Studio AI",
+  "description": "An advanced text-to-image generator powered by Gemini. Users can specify positive and negative prompts, aspect ratio, guidance scale, and other parameters to create multiple high-quality images at once.",
+  "requestFramePermissions": []
+}
