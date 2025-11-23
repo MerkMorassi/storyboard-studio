@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { LoreEntry } from '../types';
-import { LoreIcon } from './icons';
+import { LoreEntry } from '../types.ts';
+import { LoreIcon } from './icons.tsx';
 
 interface LoreStudioProps {
     lore: LoreEntry[];

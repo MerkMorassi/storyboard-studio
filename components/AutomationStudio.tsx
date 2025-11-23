@@ -1,8 +1,5 @@
-
-
-
 import React, { useState, useEffect } from 'react';
-import { AutomationConfig } from '../types';
+import { AutomationConfig, RAGProvider } from '../types.ts';
 
 interface AutomationStudioProps {
     config: AutomationConfig;
@@ -21,7 +18,7 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
         setLocalConfig(config);
     }, [config]);
 
-    const handleConfigChange = (field: keyof AutomationConfig, value: string | string[] | boolean) => {
+    const handleConfigChange = (field: keyof AutomationConfig, value: string | string[] | boolean | RAGProvider) => {
         setLocalConfig(prev => ({ ...prev, [field]: value }));
     };
 
@@ -82,40 +79,76 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
                  <p className="text-sm text-neutral-400">
                     Connect to your Retrieval-Augmented Generation service to give your AI Agents long-term memory and context.
                 </p>
+
                 <div className={`space-y-4 transition-opacity ${!localConfig.ragEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">API Key</label>
-                        <input
-                            type="password"
-                            value={localConfig.ragApiKey}
-                            onChange={(e) => handleConfigChange('ragApiKey', e.target.value)}
-                            placeholder="Enter your RAG service API Key"
-                            className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none"
-                            disabled={!localConfig.ragEnabled}
-                        />
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">RAG Provider</label>
+                        <div className="flex gap-4">
+                            <label className="flex items-center gap-2 text-sm text-neutral-200">
+                                <input type="radio" name="ragProvider" value="cloud" checked={localConfig.ragProvider === 'cloud'} onChange={() => handleConfigChange('ragProvider', 'cloud')} className="form-radio bg-neutral-700 text-neutral-500 border-neutral-600 focus:ring-neutral-500" disabled={!localConfig.ragEnabled} />
+                                Cloud Provider
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-neutral-200">
+                                <input type="radio" name="ragProvider" value="localhost" checked={localConfig.ragProvider === 'localhost'} onChange={() => handleConfigChange('ragProvider', 'localhost')} className="form-radio bg-neutral-700 text-neutral-500 border-neutral-600 focus:ring-neutral-500" disabled={!localConfig.ragEnabled} />
+                                Localhost
+                            </label>
+                        </div>
                     </div>
-                     <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">Base URL</label>
-                        <input
-                            type="url"
-                            value={localConfig.ragBaseUrl}
-                            onChange={(e) => handleConfigChange('ragBaseUrl', e.target.value)}
-                            placeholder="e.g., https://api.rag-provider.com/v1"
-                            className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none"
-                            disabled={!localConfig.ragEnabled}
-                        />
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">Knowledge Box ID</label>
-                        <input
-                            type="text"
-                            value={localConfig.ragKnowledgeBoxId}
-                            onChange={(e) => handleConfigChange('ragKnowledgeBoxId', e.target.value)}
-                            placeholder="Enter the unique ID for your knowledge box"
-                            className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none"
-                            disabled={!localConfig.ragEnabled}
-                        />
-                    </div>
+
+                    {localConfig.ragProvider === 'cloud' ? (
+                        <div className="space-y-4 border-l-2 border-neutral-700 pl-4">
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-300 mb-2">API Key</label>
+                                <input
+                                    type="password"
+                                    value={localConfig.ragApiKey}
+                                    onChange={(e) => handleConfigChange('ragApiKey', e.target.value)}
+                                    placeholder="Enter your RAG service API Key"
+                                    className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none"
+                                    disabled={!localConfig.ragEnabled}
+                                />
+                            </div>
+                             <div>
+                                <label className="block text-sm font-medium text-neutral-300 mb-2">Base URL</label>
+                                <input
+                                    type="url"
+                                    value={localConfig.ragBaseUrl}
+                                    onChange={(e) => handleConfigChange('ragBaseUrl', e.target.value)}
+                                    placeholder="e.g., https://api.rag-provider.com/v1"
+                                    className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none"
+                                    disabled={!localConfig.ragEnabled}
+                                />
+                            </div>
+                             <div>
+                                <label className="block text-sm font-medium text-neutral-300 mb-2">Knowledge Box ID</label>
+                                <input
+                                    type="text"
+                                    value={localConfig.ragKnowledgeBoxId}
+                                    onChange={(e) => handleConfigChange('ragKnowledgeBoxId', e.target.value)}
+                                    placeholder="Enter the unique ID for your knowledge box"
+                                    className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none"
+                                    disabled={!localConfig.ragEnabled}
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                         <div className="space-y-4 border-l-2 border-neutral-700 pl-4">
+                             <div>
+                                <label className="block text-sm font-medium text-neutral-300 mb-2">Localhost RAG API URL</label>
+                                <input
+                                    type="url"
+                                    value={localConfig.ragLocalhostUrl}
+                                    onChange={(e) => handleConfigChange('ragLocalhostUrl', e.target.value)}
+                                    placeholder="e.g., http://localhost:8000/api/rag"
+                                    className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none"
+                                    disabled={!localConfig.ragEnabled}
+                                />
+                                <p className="text-xs text-neutral-500 mt-2">
+                                    Enter the full endpoint URL for your local RAG service documents.
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

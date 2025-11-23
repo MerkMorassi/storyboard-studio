@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { StoryboardFrame as StoryboardFrameType } from '../types';
-import { DownloadIcon } from './icons';
+import { StoryboardFrame as StoryboardFrameType } from '../types.ts';
+import { DownloadIcon } from './icons.tsx';
 
 interface StoryboardProps {
     frames: StoryboardFrameType[];

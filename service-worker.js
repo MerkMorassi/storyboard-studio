@@ -1,5 +1,3 @@
-
-
 const CACHE_NAME = 'storyboard-studio-v1';
 const urlsToCache = [
   '/',
@@ -23,15 +21,17 @@ const urlsToCache = [
   '/components/AgentsStudio.tsx',
   '/components/LoreStudio.tsx',
   '/components/DynamicPromptsStudio.tsx',
+  '/components/PromptLibraryStudio.tsx',
   '/components/AgentChatStudio.tsx',
   '/components/DashboardStudio.tsx',
   '/components/AutomationStudio.tsx',
+  '/components/ProjectsStudio.tsx',
   '/components/Sidebar.tsx',
   '/vite.svg',
   '/manifest.json',
   'https://cdn.tailwindcss.com',
-  'https://aistudiocdn.com/react@^19.2.0',
-  'https://aistudiocdn.com/react-dom@^19.2.0',
+  'https://aistudiocdn.com/react@^19.2.0/',
+  'https://aistudiocdn.com/react-dom@^19.2.0/',
   'https://aistudiocdn.com/@google/genai@^1.29.0'
 ];
 

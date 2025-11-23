@@ -1,9 +1,6 @@
-
-
-
 import React, { useState, useRef, useEffect } from 'react';
-import { LoadingSpinner, BasicGridOverlay, TriadicGridOverlay, BasicGoldenRatioGridOverlay, TriadicGoldenRatioGridOverlay, EditIcon, AddToStoryIcon, PinIcon, DownloadIcon, UpscaleIcon, CharacterIcon, AutomationIcon } from './icons';
-import { GridOverlayType, ImageState, Agent } from '../types';
+import { LoadingSpinner, BasicGridOverlay, TriadicGridOverlay, BasicGoldenRatioGridOverlay, TriadicGoldenRatioGridOverlay, EditIcon, AddToStoryIcon, PinIcon, DownloadIcon, UpscaleIcon, CharacterIcon, AutomationIcon } from './icons.tsx';
+import { GridOverlayType, ImageState, Agent } from '../types.ts';
 
 interface ImageGridProps {
   images: ImageState[];

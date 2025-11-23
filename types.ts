@@ -1,8 +1,29 @@
 
+export type RAGProvider = 'cloud' | 'localhost';
 
+export interface ProjectData {
+  images: ImageState[];
+  storyboard: StoryboardFrame[];
+  scriptText: string;
+  inspirationImages: InspirationImage[];
+  blenderImages: BlenderImage[];
+  blenderResult: string | null;
+  sceneCompositorState: SceneCompositorState;
+  faceSwapState: FaceSwapState;
+  faceRepairState: FaceRepairState;
+  photorealismState: PhotorealismState;
+  agents: Agent[];
+  lore: LoreEntry[];
+  dynamicPromptLists: DynamicPromptList[];
+  promptTemplates: PromptTemplate[];
+  automationConfig: AutomationConfig;
+}
 
-
-
+export interface Project {
+  id: string;
+  name: string;
+  data: ProjectData;
+}
 
 export interface GenerationOptions {
   prompt: string;
@@ -21,6 +42,13 @@ export interface GenerationOptions {
   engine?: 'internal' | 'external';
 }
 
+export interface PromptTemplate {
+  id: string;
+  name: string;
+  positivePrompt: string;
+  negativePrompt: string;
+}
+
 export interface GenerationResult {
   images: string[];
   seed: string;
@@ -35,7 +63,7 @@ export interface StoryboardFrame {
   prompt: string;
 }
 
-export type ActiveView = 'dashboard' | 'grid' | 'story' | 'script' | 'inspiration' | 'video' | 'blender' | 'face-swap' | 'scene-compositor' | 'face-repair' | 'photorealism' | 'agents' | 'lore' | 'dynamic-prompts' | 'agent-chat' | 'automation';
+export type ActiveView = 'projects' | 'dashboard' | 'grid' | 'story' | 'script' | 'inspiration' | 'video' | 'blender' | 'face-swap' | 'scene-compositor' | 'face-repair' | 'photorealism' | 'agents' | 'lore' | 'dynamic-prompts' | 'agent-chat' | 'automation' | 'prompt-library';
 
 export interface InspirationImage {
   id: string;
@@ -130,8 +158,10 @@ export interface WebhookPayload {
 
 export interface AutomationConfig {
     ragEnabled: boolean;
+    ragProvider: RAGProvider;
     ragApiKey: string;
     ragBaseUrl: string;
     ragKnowledgeBoxId: string;
+    ragLocalhostUrl: string;
     webhookUrls: string[];
 }

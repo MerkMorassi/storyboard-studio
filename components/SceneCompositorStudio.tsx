@@ -1,6 +1,6 @@
 import React from 'react';
-import { SceneCompositorState } from '../types';
-import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, LayersIcon } from './icons';
+import { SceneCompositorState } from '../types.ts';
+import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, LayersIcon } from './icons.tsx';
 
 interface SceneCompositorStudioProps {
     sceneState: SceneCompositorState;

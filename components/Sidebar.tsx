@@ -1,13 +1,10 @@
-
-
-
 import React from 'react';
-import { ActiveView } from '../types';
+import { ActiveView } from '../types.ts';
 import {
   SettingsIcon, DashboardIcon, GridIcon, BlenderIcon, LayersIcon, SwapIcon, FaceSparkleIcon, PhotoRealismIcon,
-  PinIcon, CharacterIcon, WritersRoomIcon, LoreIcon, ShuffleIcon, StoryboardIcon, VideoIcon, ScriptIcon, AutomationIcon,
+  PinIcon, CharacterIcon, WritersRoomIcon, LoreIcon, ShuffleIcon, LibraryIcon, StoryboardIcon, VideoIcon, ScriptIcon, AutomationIcon,
   ChevronLeftIcon, ChevronRightIcon
-} from './icons';
+} from './icons.tsx';
 
 interface SidebarProps {
   activeView: ActiveView;
@@ -18,6 +15,7 @@ interface SidebarProps {
     agents: number;
     lore: number;
     dynamicPrompts: number;
+    promptLibrary: number;
   };
   isOnline: boolean;
   onOpenSettings: () => void;
@@ -52,12 +50,14 @@ const NavButton: React.FC<{
 );
 
 const navItems = [
+    { view: 'projects', label: 'Projects', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg> },
     { view: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
     { view: 'grid', label: 'Grid', icon: <GridIcon /> },
     { view: 'story', label: 'Storyboard', icon: <StoryboardIcon />, countKey: 'storyboard' },
     { view: 'agents', label: 'AI Agents', icon: <CharacterIcon />, countKey: 'agents' },
     { view: 'agent-chat', label: 'Agent Chat', icon: <WritersRoomIcon /> },
     { view: 'lore', label: 'Lore', icon: <LoreIcon />, countKey: 'lore' },
+    { view: 'prompt-library', label: 'Prompt Library', icon: <LibraryIcon />, countKey: 'promptLibrary' },
     { view: 'dynamic-prompts', label: 'Dynamic Prompts', icon: <ShuffleIcon />, countKey: 'dynamicPrompts' },
     { view: 'script', label: 'Script', icon: <ScriptIcon /> },
     { view: 'inspiration', label: 'Inspiration', icon: <PinIcon />, countKey: 'inspiration' },

@@ -1,6 +1,6 @@
 import React from 'react';
-import { FaceSwapState } from '../types';
-import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, SwapIcon } from './icons';
+import { FaceSwapState } from '../types.ts';
+import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, SwapIcon } from './icons.tsx';
 
 interface FaceSwapStudioProps {
     faceSwapState: FaceSwapState;

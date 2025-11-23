@@ -1,6 +1,6 @@
 import React from 'react';
-import { StoryboardFrame } from '../types';
-import { LoadingSpinner } from './icons';
+import { StoryboardFrame } from '../types.ts';
+import { LoadingSpinner } from './icons.tsx';
 
 interface VideoGeneratorProps {
     storyboard: StoryboardFrame[];

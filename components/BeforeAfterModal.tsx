@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { CloseIcon } from './icons';
+import { CloseIcon } from './icons.tsx';
 
 interface BeforeAfterModalProps {
   isOpen: boolean;

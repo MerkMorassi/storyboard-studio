@@ -1,6 +1,6 @@
 import { GoogleGenAI, Modality, FunctionDeclaration, Type } from '@google/genai';
-import { GenerationOptions, GenerationResult, ChatMessage, AutomationConfig, Agent } from '../types';
-import { getContextForAgent } from './ragService';
+import { GenerationOptions, GenerationResult, ChatMessage, AutomationConfig, Agent } from '../types.ts';
+import { getContextForAgent } from './ragService.ts';
 
 /**
  * Parses a generic API error and attempts to create a more user-friendly
@@ -587,13 +587,14 @@ export const generatePhotorealisticImageFromApi = async (apiKey: string, sourceI
 export const chatWithAgentFromApi = async (
     apiKey: string,
     ragConfig: AutomationConfig,
+    projectId: string,
     agent: Agent,
     userMessage: string
 ): Promise<{ text: string; functionCalls?: any[] }> => {
     if (!apiKey) throw new Error("API Key is missing.");
     const ai = new GoogleGenAI({ apiKey });
 
-    const { generalLore, recentHistory } = await getContextForAgent(ragConfig, agent);
+    const { generalLore, recentHistory } = await getContextForAgent(ragConfig, projectId, agent);
 
     const prepareGenerationPromptTool: FunctionDeclaration = {
         name: 'prepareGenerationPrompt',
@@ -606,6 +607,7 @@ export const chatWithAgentFromApi = async (
                 cameraAngle: { type: Type.STRING, description: 'Optional. The camera angle for the shot, e.g., "Close-up shot", "Wide angle shot".' },
                 sceneType: { type: Type.STRING, enum: ['INT', 'EXT'], description: 'Whether the scene is Interior or Exterior.' },
                 location: { type: Type.STRING, description: 'The location of the scene, e.g., "COFFEE SHOP".' },
+                characters: { type: Type.STRING, description: 'Optional. The character(s) in the scene, e.g., "Jane Doe" or "a mysterious stranger".' },
                 timeOfDay: { type: Type.STRING, enum: ['DAY', 'NIGHT'], description: 'The time of day for the scene.' }
             },
             required: ['prompt', 'sceneType', 'location', 'timeOfDay']

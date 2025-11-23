@@ -1,7 +1,6 @@
-
 import React, { useState, useRef } from 'react';
-import { Agent, ImageState } from '../types';
-import { CharacterIcon, EditIcon } from './icons';
+import { Agent, ImageState } from '../types.ts';
+import { CharacterIcon, EditIcon } from './icons.tsx';
 
 interface AgentsStudioProps {
     agents: Agent[];

@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
-import { BlenderImage } from '../types';
-import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon } from './icons';
+import { BlenderImage } from '../types.ts';
+import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon } from './icons.tsx';
 
 interface BlenderStudioProps {
     sourceImages: BlenderImage[];

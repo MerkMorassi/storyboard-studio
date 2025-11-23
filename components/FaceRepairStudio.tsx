@@ -1,6 +1,6 @@
 import React from 'react';
-import { FaceRepairState } from '../types';
-import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, FaceSparkleIcon } from './icons';
+import { FaceRepairState } from '../types.ts';
+import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, FaceSparkleIcon } from './icons.tsx';
 
 interface FaceRepairStudioProps {
     faceRepairState: FaceRepairState;

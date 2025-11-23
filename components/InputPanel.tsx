@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { GenerationOptions } from '../types';
-import { DiceIcon, ClearIcon, ChevronDownIcon } from './icons';
+import { GenerationOptions, PromptTemplate, DynamicPromptList } from '../types.ts';
+import { DiceIcon, ClearIcon, ChevronDownIcon, ShuffleIcon } from './icons.tsx';
 
 interface InputPanelProps {
   onGenerate: (options: GenerationOptions) => void;
@@ -9,8 +8,10 @@ interface InputPanelProps {
   editingImage?: { base64: string; mimeType: string } | null;
   lastUsedSeed?: string;
   scriptLocations?: string[];
-  preparedOptions: Partial<GenerationOptions & { sceneType: string, location: string, timeOfDay: string }> | null;
+  preparedOptions: Partial<GenerationOptions & { sceneType: string, location: string, timeOfDay: string, characters: string }> | null;
   onPreparationComplete: () => void;
+  promptTemplates: PromptTemplate[];
+  dynamicPromptLists: DynamicPromptList[];
 }
 
 interface SelectOption {
@@ -63,84 +64,6 @@ const cameraAngleOptions: SelectOption[] = [
 
 const gScaleOptions: SelectOption[] = Array.from({ length: 30 }, (_, i) => ({ label: `${i + 1}`, value: i + 1 }));
 
-const positivePromptPresets: {label: string, value: string}[] = [
-    {
-        label: "Cinematic Film Noir",
-        value: "black and white, high contrast, dramatic shadows, film grain, mysterious atmosphere"
-    },
-    {
-        label: "Sci-Fi Blockbuster",
-        value: "cool blues and oranges, high-tech, realistic science fiction, cinematic, epic scale, slightly desaturated"
-    },
-    {
-        label: "Golden Hour Magic",
-        value: "shot during golden hour, warm, soft, long shadows, lens flare, magical realism"
-    },
-    {
-        label: "Pastel Symmetry (Anderson)",
-        value: "symmetrical composition, pastel color palette, flat space, quirky, detailed props, cinematic"
-    },
-    {
-        label: "Cyberpunk Neon",
-        value: "cyberpunk aesthetic, neon lighting, futuristic city, rain-slicked streets, high-tech details"
-    },
-    {
-        label: "Grindhouse Retro",
-        value: "70s grindhouse film look, gritty, high contrast, film grain, saturated colors, retro aesthetic"
-    },
-    {
-        label: "Horror",
-        value: "horror movie style, dark and gritty, unsettling atmosphere, deep shadows, creepy, suspenseful"
-    },
-    {
-        label: "Epic Fantasy",
-        value: "fantasy art, epic scale, dramatic lighting, detailed armor and landscapes, magical glow"
-    },
-    {
-        label: "Vibrant Anime",
-        value: "anime style, vibrant colors, cel shading, dynamic lines, detailed background"
-    },
-    {
-        label: "Vintage Sepia",
-        value: "sepia tone, vintage photograph, faded colors, nostalgic feel, scratches and dust"
-    },
-    {
-        label: "Photorealistic Portrait",
-        value: "photorealistic, 8k, detailed skin texture, soft natural lighting, sharp focus, professional portrait photography"
-    }
-];
-
-const negativePromptPresets: {label: string, value: string}[] = [
-    {
-        label: "General Quality Boost",
-        value: "(low quality, worst quality, normal quality:1.2), lowres, blurry, jpeg artifacts, ugly, duplicate, morbid, mutilated, error, monochrome, sketch, cartoon, cg, 3d, anime, manga, disney, animation, render, fake, artwork, drawing, painting, grainy, pixelated, out of focus, overexposed, underexposed, distorted, poor quality lighting"
-    },
-    {
-        label: "Fix Human Anatomy",
-        value: "(bad anatomy, bad proportions:1.3), (mutation, malformed, deformed, disfigured:1.2), gross proportions, unrealistic flesh, extra limbs, missing limbs, amputation, disconnected limbs, floating limbs, extra arms, extra legs, long neck"
-    },
-    {
-        label: "Fix Faces & Heads",
-        value: "(poorly drawn face, bad face, fused face, cloned face:1.2), extra eyes, deformed iris, deformed pupils, bad teeth, crooked teeth, Double headed, multiple heads"
-    },
-    {
-        label: "Fix Hands & Fingers",
-        value: "(bad hands, poorly drawn hands, malformed hands:1.3), (fused fingers, extra fingers, mutated fingers, missing fingers:1.2)"
-    },
-    {
-        label: "Remove Text & Watermarks",
-        value: "watermark, text, username, signature, logo, banner, graphics"
-    },
-    {
-        label: "Composition Control",
-        value: "(((Close-up shot))), (((zoomed in face shot))), ((Close up image of a face)), out of frame, multiple subjects, multiple people, multiple views, ((multiple perspectives, split-screen effect, simultaneous viewpoints, duplicated subject from different angles, cubist composition, multi-angle portrait, reflections showing alternate angles, time-lapse sequence, collage of perspectives, compound viewpoints))"
-    },
-    {
-        label: "Safe Content Filter",
-        value: "(((scrotum, testes, testicles, balls, nuts))), deformed vagina, deformed pussy, deformed cock, (child, children), nsfw"
-    }
-];
-
 const InputGroup: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <div className="flex flex-wrap gap-4">{children}</div>
 );
@@ -192,8 +115,59 @@ const AccordionSection: React.FC<{
     );
 };
 
+const DynamicListInserter: React.FC<{
+    lists: DynamicPromptList[];
+    onSelect: (placeholder: string) => void;
+}> = ({ lists, onSelect }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
-export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, editingImage, lastUsedSeed, scriptLocations = [], preparedOptions, onPreparationComplete }) => {
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    if (lists.length === 0) return null;
+
+    return (
+        <div className="absolute right-0 top-0 h-full flex items-center" ref={dropdownRef}>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="h-full px-3 text-neutral-400 hover:text-white transition-colors focus:outline-none"
+                title="Insert from Dynamic Prompt List"
+            >
+                <ShuffleIcon />
+            </button>
+            {isOpen && (
+                <div className="absolute top-full right-0 mt-1 w-48 bg-neutral-800 border border-neutral-700 shadow-lg z-20">
+                    <div className="max-h-40 overflow-y-auto">
+                        {lists.map(list => (
+                            <button
+                                key={list.id}
+                                onClick={() => {
+                                    onSelect(`[${list.name}]`);
+                                    setIsOpen(false);
+                                }}
+                                className="w-full text-left px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
+                            >
+                                [{list.name}]
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
+export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, editingImage, lastUsedSeed, scriptLocations = [], preparedOptions, onPreparationComplete, promptTemplates, dynamicPromptLists }) => {
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [numImages, setNumImages] = useState(6);
@@ -217,6 +191,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
   // Scene Heading State
   const [sceneType, setSceneType] = useState<'INT' | 'EXT'>('INT');
   const [location, setLocation] = useState('');
+  const [characters, setCharacters] = useState('');
   const [timeOfDay, setTimeOfDay] = useState<'DAY' | 'NIGHT'>('DAY');
 
   // Inpainting state
@@ -293,6 +268,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
         setCameraAngle(preparedOptions.cameraAngle || '');
         setSceneType(preparedOptions.sceneType as 'INT' | 'EXT' || 'INT');
         setLocation(preparedOptions.location || '');
+        setCharacters(preparedOptions.characters || '');
         setTimeOfDay(preparedOptions.timeOfDay as 'DAY' | 'NIGHT' || 'DAY');
         setOpenSections(new Set(['prompt'])); // Ensure prompt section is open
         onPreparationComplete();
@@ -420,34 +396,27 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
     }
   };
 
-  const handleNegativePresetSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedValue = e.target.value;
-    if (!selectedValue) return;
+  const handleTemplateSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const templateId = e.target.value;
+    if (!templateId) return;
 
-    setNegativePrompt(prev => {
-        const trimmedPrev = prev.trim();
-        if (trimmedPrev === '') return selectedValue;
-        if (trimmedPrev.endsWith(',')) return `${trimmedPrev} ${selectedValue}`;
-        return `${trimmedPrev}, ${selectedValue}`;
-    });
+    const template = promptTemplates.find(t => t.id === templateId);
+    if (template) {
+        setPrompt(prev => {
+            const trimmed = prev.trim();
+            if (trimmed === '') return template.positivePrompt;
+            return `${trimmed}, ${template.positivePrompt}`;
+        });
+        setNegativePrompt(prev => {
+            const trimmed = prev.trim();
+            if (trimmed === '') return template.negativePrompt;
+            if (template.negativePrompt === '') return trimmed; // Don't add comma if template negative is empty
+            return `${trimmed}, ${template.negativePrompt}`;
+        });
+    }
     
-    e.target.value = '';
+    e.target.value = ''; // Reset dropdown after applying
   };
-
-  const handlePositivePresetSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedValue = e.target.value;
-    if (!selectedValue) return;
-
-    setPrompt(prev => {
-        const trimmedPrev = prev.trim();
-        if (trimmedPrev === '') return selectedValue;
-        if (trimmedPrev.endsWith(',')) return `${trimmedPrev} ${selectedValue}`;
-        return `${trimmedPrev}, ${selectedValue}`;
-    });
-    
-    e.target.value = '';
-  };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -459,6 +428,11 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
       }
       
       let assembledPrompt = prompt;
+
+      if (characters.trim()) {
+          assembledPrompt = `${characters.trim()}, ${assembledPrompt}`;
+      }
+      
       if (sceneHeading) {
         assembledPrompt = `${sceneHeading} - ${assembledPrompt}`;
       }
@@ -714,31 +688,60 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
       
       <div className="space-y-2">
         <AccordionSection title="<b>1. Prompt & Scene</b>" isOpen={openSections.has('prompt')} onToggle={() => toggleSection('prompt')}>
-            <div className="space-y-2 bg-neutral-800/50 p-3">
+            <div className="space-y-4 bg-neutral-800/50 p-3">
                 <label className="text-sm font-semibold text-neutral-400 mb-2 block" dangerouslySetInnerHTML={{ __html: '<b>Scene Heading</b>' }} />
-                <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-1 flex gap-px">
-                        <SceneToggleButton active={sceneType === 'INT'} onClick={() => setSceneType('INT')}>INT.</SceneToggleButton>
-                        <SceneToggleButton active={sceneType === 'EXT'} onClick={() => setSceneType('EXT')}>EXT.</SceneToggleButton>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-xs font-semibold text-neutral-400 mb-1 block">Scene Type</label>
+                        <div className="flex gap-px">
+                            <SceneToggleButton active={sceneType === 'INT'} onClick={() => setSceneType('INT')}>INT.</SceneToggleButton>
+                            <SceneToggleButton active={sceneType === 'EXT'} onClick={() => setSceneType('EXT')}>EXT.</SceneToggleButton>
+                        </div>
                     </div>
-                    <div className="col-span-2">
-                        <input
-                            type="text"
-                            list="script-locations"
-                            value={location}
-                            onChange={(e) => setLocation(e.target.value)}
-                            placeholder="LOCATION"
-                            className={`${baseInputClasses} uppercase`}
-                        />
-                        <datalist id="script-locations">
-                            {scriptLocations.map((loc) => (
-                                <option key={loc} value={loc} />
-                            ))}
-                        </datalist>
+                     <div>
+                        <label className="text-xs font-semibold text-neutral-400 mb-1 block">Time of Day</label>
+                        <div className="flex gap-px">
+                            <SceneToggleButton active={timeOfDay === 'DAY'} onClick={() => setTimeOfDay('DAY')}>DAY</SceneToggleButton>
+                            <SceneToggleButton active={timeOfDay === 'NIGHT'} onClick={() => setTimeOfDay('NIGHT')}>NIGHT</SceneToggleButton>
+                        </div>
                     </div>
-                    <div className="col-span-3 flex gap-px">
-                        <SceneToggleButton active={timeOfDay === 'DAY'} onClick={() => setTimeOfDay('DAY')}>DAY</SceneToggleButton>
-                        <SceneToggleButton active={timeOfDay === 'NIGHT'} onClick={() => setTimeOfDay('NIGHT')}>NIGHT</SceneToggleButton>
+                    <div className="md:col-span-2">
+                        <label className="text-xs font-semibold text-neutral-400 mb-1 block">Location</label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                list="script-locations"
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
+                                placeholder="e.g., COFFEE SHOP or [locations]"
+                                className={`${baseInputClasses} uppercase pr-10`}
+                            />
+                            <datalist id="script-locations">
+                                {scriptLocations.map((loc) => (
+                                    <option key={loc} value={loc} />
+                                ))}
+                            </datalist>
+                             <DynamicListInserter
+                                lists={dynamicPromptLists}
+                                onSelect={(placeholder) => setLocation(prev => `${prev} ${placeholder}`.trim())}
+                            />
+                        </div>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="text-xs font-semibold text-neutral-400 mb-1 block">Character(s)</label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={characters}
+                                onChange={(e) => setCharacters(e.target.value)}
+                                placeholder="e.g., JANE DOE or [heroes]"
+                                className={`${baseInputClasses} pr-10`}
+                            />
+                            <DynamicListInserter
+                                lists={dynamicPromptLists}
+                                onSelect={(placeholder) => setCharacters(prev => `${prev} ${placeholder}`.trim())}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -746,24 +749,25 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
             <div>
                 <div className="flex justify-between items-center w-full text-sm font-semibold text-neutral-400 mb-2">
                     <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                            <span dangerouslySetInnerHTML={{ __html: '<b>Positive Prompt</b>' }} />
+                         <div className="flex items-center gap-1">
+                            <span dangerouslySetInnerHTML={{ __html: '<b>Prompt</b>' }} />
                             <div className="relative group">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-neutral-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-neutral-800 text-neutral-200 text-xs p-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                    Use <b>[listName]</b> to insert a random item from a list you created in the "Dynamic Prompts" studio. Each generated image will use a different random item.
+                                    Use <b>[listName]</b> to insert a random item from a list you created in the "Dynamic Prompts" studio.
                                 </div>
                             </div>
                         </div>
-                        <select 
-                            onChange={handlePositivePresetSelect}
-                            className="text-xs bg-neutral-800 text-neutral-300 border border-neutral-700 p-1 focus:ring-neutral-500 focus:border-neutral-500 outline-none"
-                            aria-label="Positive prompt presets"
-                        >
-                            <option value="">Add preset...</option>
-                            {positivePromptPresets.map(p => <option key={p.label} value={p.value}>{p.label}</option>)}
-                        </select>
                     </div>
+                     <select 
+                        onChange={handleTemplateSelect}
+                        className="text-xs bg-neutral-800 text-neutral-300 border border-neutral-700 p-1 focus:ring-neutral-500 focus:border-neutral-500 outline-none"
+                        aria-label="Apply a style from the Prompt Library"
+                        value=""
+                    >
+                        <option value="">Apply Style...</option>
+                        {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
                 </div>
                 <textarea
                 value={prompt}
@@ -775,18 +779,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
 
             <div className={`w-full ${!isImagenModel && engine === 'internal' ? 'opacity-50' : ''}`}>
                 <div className="flex justify-between items-center w-full text-sm font-semibold text-neutral-400 mb-2">
-                    <div className="flex items-center gap-2">
-                        <span dangerouslySetInnerHTML={{ __html: '<b>Negative Prompt</b>' }} />
-                        <select 
-                            onChange={handleNegativePresetSelect} 
-                            disabled={!isImagenModel && engine === 'internal'} 
-                            className="text-xs bg-neutral-800 text-neutral-300 border border-neutral-700 p-1 focus:ring-neutral-500 focus:border-neutral-500 outline-none disabled:bg-neutral-800/50 disabled:cursor-not-allowed"
-                            aria-label="Negative prompt presets"
-                        >
-                            <option value="">Add preset...</option>
-                            {negativePromptPresets.map(p => <option key={p.label} value={p.value}>{p.label}</option>)}
-                        </select>
-                    </div>
+                    <span dangerouslySetInnerHTML={{ __html: '<b>Negative Prompt</b>' }} />
                     <button type="button" onClick={() => (!isImagenModel && engine === 'internal') ? undefined : setIsNegativeFolded(!isNegativeFolded)} className="disabled:cursor-not-allowed" disabled={!isImagenModel && engine === 'internal'}>
                         {isNegativeFolded ? 'Show' : 'Hide'}
                     </button>

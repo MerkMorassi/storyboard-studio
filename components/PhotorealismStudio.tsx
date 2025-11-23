@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { PhotorealismState } from '../types';
-import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, PhotoRealismIcon } from './icons';
-import { BeforeAfterModal } from './BeforeAfterModal';
+import { PhotorealismState } from '../types.ts';
+import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, PhotoRealismIcon } from './icons.tsx';
+import { BeforeAfterModal } from './BeforeAfterModal.tsx';
 
 interface PhotorealismStudioProps {
     photorealismState: PhotorealismState;

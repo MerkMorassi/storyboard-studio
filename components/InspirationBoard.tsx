@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
-import { InspirationImage } from '../types';
-import { UseAsGuideIcon } from './icons';
+import { InspirationImage } from '../types.ts';
+import { UseAsGuideIcon } from './icons.tsx';
 
 interface InspirationBoardProps {
     images: InspirationImage[];

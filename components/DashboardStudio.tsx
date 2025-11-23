@@ -1,6 +1,6 @@
 import React from 'react';
-import { ActiveView } from '../types';
-import { StoryboardIcon, CharacterIcon, LoreIcon, PinIcon, ShuffleIcon, GridIcon } from './icons';
+import { ActiveView } from '../types.ts';
+import { StoryboardIcon, CharacterIcon, LoreIcon, PinIcon, ShuffleIcon, GridIcon, LibraryIcon } from './icons.tsx';
 
 interface DashboardStudioProps {
     stats: {
@@ -9,6 +9,7 @@ interface DashboardStudioProps {
         loreEntries: number;
         inspirationImages: number;
         dynamicPromptLists: number;
+        promptTemplates: number;
         imagesGenerated: number;
     };
     onNavigate: (view: ActiveView) => void;
@@ -20,6 +21,7 @@ const colorClasses = {
     amber: { border: 'hover:border-amber-500/50', text: 'text-amber-400 group-hover:text-amber-300' },
     pink: { border: 'hover:border-pink-500/50', text: 'text-pink-400 group-hover:text-pink-300' },
     green: { border: 'hover:border-green-500/50', text: 'text-green-400 group-hover:text-green-300' },
+    teal: { border: 'hover:border-teal-500/50', text: 'text-teal-400 group-hover:text-teal-300' },
     red: { border: 'hover:border-red-500/50', text: 'text-red-400 group-hover:text-red-300' },
 };
 
@@ -77,6 +79,13 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ stats, onNavig
                     icon={<PinIcon />}
                     onClick={() => onNavigate('inspiration')}
                     color="pink"
+                />
+                 <StatCard
+                    title="Prompt Library"
+                    value={stats.promptTemplates}
+                    icon={<LibraryIcon />}
+                    onClick={() => onNavigate('prompt-library')}
+                    color="teal"
                 />
                  <StatCard
                     title="Dynamic Prompt Lists"

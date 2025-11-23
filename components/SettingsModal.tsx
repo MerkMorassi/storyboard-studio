@@ -43,10 +43,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
       aria-labelledby="settings-title"
     >
       <div 
-        className="bg-neutral-900 shadow-2xl p-6 w-full max-w-md border border-neutral-800"
+        className="bg-neutral-900 shadow-2xl p-6 w-full max-w-lg border border-neutral-800"
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
       >
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-6">
           <h2 id="settings-title" className="text-xl font-bold text-white">Settings</h2>
           <button 
             onClick={onClose} 
@@ -59,7 +59,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
           </button>
         </div>
         
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
             <label htmlFor="api-key" className="block text-sm font-medium text-neutral-300 mb-2">
               Google API Key
@@ -69,16 +69,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               id="api-key"
               value={apiKeyInput}
               onChange={(e) => setApiKeyInput(e.target.value)}
-              placeholder="Enter your Gemini API Key"
+              placeholder="Enter your Google Cloud API Key"
               className="w-full bg-neutral-800 border border-neutral-700 p-2 text-neutral-200 focus:ring-2 focus:ring-neutral-500 focus:border-neutral-500 transition duration-200 outline-none"
             />
-            <p className="text-xs text-neutral-500 mt-2">
-              Your key is stored securely in your browser's local storage and is never sent anywhere else.
+          </div>
+
+          <div className="bg-neutral-800/50 p-4 border border-neutral-700 text-sm text-neutral-400 space-y-3">
+            <h3 className="font-bold text-neutral-200">Resolving "Quota Exceeded" Errors</h3>
+            <p>
+              If you see a "free_tier" quota error, it means you are using a key from Google AI Studio. As a paid customer, you must use an API key from a <strong className="text-neutral-200">Google Cloud Platform (GCP)</strong> project that has billing enabled.
             </p>
+            <ol className="list-decimal list-inside space-y-2">
+              <li>Ensure your GCP project has <strong className="text-neutral-200">billing enabled</strong>.</li>
+              <li>In that project, enable the <strong className="text-neutral-200">"Generative Language API"</strong> or <strong className="text-neutral-200">"Vertex AI API"</strong>.</li>
+              <li>Create and copy an API key from the link below.</li>
+            </ol>
+            <a 
+              href="https://console.cloud.google.com/apis/credentials" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="font-bold text-sky-400 hover:text-sky-300 transition-colors"
+            >
+              Go to Google Cloud Credentials &rarr;
+            </a>
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-8 flex justify-end gap-3">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-neutral-300 bg-neutral-800 hover:bg-neutral-700 transition"

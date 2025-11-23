@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ImageState, Agent } from '../types';
-import { AddToStoryIcon, DownloadIcon, EditIcon, PinIcon, CloseIcon } from './icons';
+import { ImageState, Agent } from '../types.ts';
+import { AddToStoryIcon, DownloadIcon, EditIcon, PinIcon, CloseIcon } from './icons.tsx';
 
 interface ImageModalProps {
   image: ImageState | null;
