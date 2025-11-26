@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Agent, ImageState } from '../types.ts';
 import { CharacterIcon, EditIcon } from './icons.tsx';
@@ -49,7 +50,7 @@ const AgentCard: React.FC<{
     };
 
     return (
-        <div className="bg-neutral-800/50 border border-neutral-700 p-4 transition-all duration-300 group hover:bg-neutral-700/50 hover:border-neutral-600">
+        <div className="bg-neutral-800/50 border border-neutral-700 p-4 transition-all duration-300 group hover:bg-neutral-700/50 hover:border-neutral-600 rounded-lg">
             <div className="flex justify-between items-start mb-4">
                 {isEditing ? (
                     <div className="flex-grow">
@@ -57,13 +58,13 @@ const AgentCard: React.FC<{
                             type="text"
                             value={editedName}
                             onChange={(e) => setEditedName(e.target.value)}
-                            className="w-full bg-neutral-900 border border-neutral-600 p-1.5 text-lg font-bold focus:ring-2 focus:ring-neutral-500 outline-none"
+                            className="w-full bg-neutral-900 border border-neutral-600 p-1.5 text-lg font-bold focus:ring-2 focus:ring-neutral-500 outline-none rounded"
                             autoFocus
                             onKeyDown={(e) => e.key === 'Enter' && handleSave()}
                         />
                         <div className="flex gap-2 mt-2">
-                            <button onClick={handleSave} className="text-xs bg-neutral-600 hover:bg-neutral-500 px-2 py-1">Save</button>
-                            <button onClick={handleCancel} className="text-xs bg-neutral-700 hover:bg-neutral-600 px-2 py-1">Cancel</button>
+                            <button onClick={handleSave} className="text-xs bg-neutral-600 hover:bg-neutral-500 px-2 py-1 rounded">Save</button>
+                            <button onClick={handleCancel} className="text-xs bg-neutral-700 hover:bg-neutral-600 px-2 py-1 rounded">Cancel</button>
                         </div>
                     </div>
                 ) : (
@@ -87,7 +88,7 @@ const AgentCard: React.FC<{
                     {previewImages.map((image) => (
                         <div
                             key={image.id}
-                            className="relative group/image aspect-square cursor-pointer overflow-hidden"
+                            className="relative group/image aspect-square cursor-pointer overflow-hidden rounded"
                             onClick={() => onViewImage(image)}
                         >
                             <img 
@@ -103,7 +104,7 @@ const AgentCard: React.FC<{
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
                     <div
                         onClick={handleUploadClick}
-                        className="aspect-square flex flex-col items-center justify-center bg-neutral-900/50 border-2 border-dashed border-neutral-700 text-center p-2 cursor-pointer hover:bg-neutral-800/50 hover:border-neutral-600 transition-colors"
+                        className="aspect-square flex flex-col items-center justify-center bg-neutral-900/50 border-2 border-dashed border-neutral-700 text-center p-2 cursor-pointer hover:bg-neutral-800/50 hover:border-neutral-600 transition-colors rounded"
                     >
                         <svg className="w-8 h-8 mb-2 text-neutral-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/></svg>
                         <p className="text-xs text-neutral-500">Upload Image</p>
@@ -135,11 +136,11 @@ const CreateAgentForm: React.FC<{
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="New AI Agent name..."
-                    className="flex-grow bg-neutral-800 border border-neutral-700 p-2 focus:ring-2 focus:ring-neutral-500 focus:border-neutral-500 transition duration-200 outline-none"
+                    className="flex-grow bg-neutral-800 border border-neutral-700 p-2 focus:ring-2 focus:ring-neutral-500 focus:border-neutral-500 transition duration-200 outline-none rounded"
                 />
                 <button
                     type="submit"
-                    className="bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed rounded"
                     disabled={!name.trim()}
                 >
                     Create Agent
@@ -151,19 +152,22 @@ const CreateAgentForm: React.FC<{
 
 export const AgentsStudio: React.FC<AgentsStudioProps> = ({ agents, images, onCreateAgent, onViewImage, onUpdateAgent, onDeleteAgent, onImageUpload }) => {
     return (
-        <div className="bg-neutral-900/50 p-6 border border-neutral-800 space-y-8">
-            <div>
-                <h2 className="text-2xl font-bold text-neutral-300 mb-4">AI Agents</h2>
-                <CreateAgentForm onCreateAgent={onCreateAgent} />
+        <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
+            <div className="mb-8">
+                <h2 className="text-3xl font-bold text-neutral-200 mb-2">AI Agents</h2>
+                <p className="text-neutral-400">Define and manage your cast of characters. Assign them to generated images to train their likeness.</p>
+                <div className="mt-6">
+                    <CreateAgentForm onCreateAgent={onCreateAgent} />
+                </div>
             </div>
 
             {agents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full min-h-[50vh] bg-neutral-900/50 border-2 border-dashed border-neutral-800 p-8 text-center">
-                    <div className="w-16 h-16 text-neutral-700">
+                <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-neutral-800 rounded-xl bg-neutral-900/30 text-center p-8">
+                    <div className="w-16 h-16 text-neutral-700 mb-4">
                       <CharacterIcon />
                     </div>
-                    <h3 className="mt-4 text-xl font-semibold text-neutral-400">No Agents Created</h3>
-                    <p className="mt-1 text-neutral-500">Create an agent above or assign one from the grid to get started.</p>
+                    <h3 className="text-xl font-semibold text-neutral-300 mb-2">No Agents Created</h3>
+                    <p className="text-neutral-500">Create an agent above or assign one from the grid to get started.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

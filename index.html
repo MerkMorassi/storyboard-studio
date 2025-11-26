@@ -7,30 +7,81 @@
     <link rel="manifest" href="/manifest.json" />
     <title>Storyboard Studio AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0"
-  }
-}
-</script>
-<style>
-  /* Hide scrollbar for Webkit-based browsers (Chrome, Safari, Opera) */
-  *::-webkit-scrollbar {
-    display: none;
-  }
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              neutral: {
+                900: '#121212', // Main Background
+                800: '#1e1e1e', // Secondary Background (Cards/Sidebar)
+                700: '#2c2c2c', // Tertiary / Borders
+                600: '#333333', // Input Borders
+                500: '#808080', // Muted Text
+                400: '#b3b3b3', // Secondary Text
+                300: '#cccccc',
+                200: '#e0e0e0', // Primary Text
+                100: '#ffffff',
+              },
+              blue: {
+                600: '#3b82f6', // Accent
+                500: '#2563eb',
+              }
+            },
+            fontFamily: {
+              sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <script type="importmap">
+    {
+      "imports": {
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0"
+      }
+    }
+    </script>
+    <style>
+      /* Hide scrollbar for Webkit-based browsers (Chrome, Safari, Opera) */
+      *::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+      }
 
-  /* Hide scrollbar for IE, Edge, and Firefox */
-  * {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-  }
-</style>
+      /* Hide scrollbar for IE, Edge, and Firefox */
+      * {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+      }
+
+      html, body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #121212;
+        color: #e0e0e0;
+        overflow: hidden; /* Prevent body scroll, let App handle it */
+      }
+
+      #root {
+        height: 100%;
+        width: 100%;
+      }
+      
+      /* Ensure input focus rings are visible and match theme */
+      input:focus, textarea:focus, select:focus {
+        outline: 2px solid #3b82f6;
+        outline-offset: -1px;
+      }
+    </style>
 </head>
-  <body class="bg-[#202020] text-neutral-200">
+  <body class="bg-neutral-900 text-neutral-200">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>

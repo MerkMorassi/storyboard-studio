@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { Project } from '../types.ts';
 
@@ -76,49 +78,53 @@ export const ProjectsStudio: React.FC<ProjectsStudioProps> = ({ projects, active
     };
     
     return (
-        <div className="bg-neutral-900/50 p-6 border border-neutral-800 space-y-8 max-w-4xl mx-auto">
-            <div>
+        <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
+            <div className="mb-8">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Projects</h2>
-                <p className="text-md text-neutral-400 mb-6">Each project has its own separate set of images, storyboards, characters, and settings.</p>
-
-                <form onSubmit={handleCreate} className="bg-neutral-800/50 p-4 border border-neutral-700">
-                    <h3 className="text-lg font-semibold text-neutral-300 mb-3">Create New Project</h3>
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={newProjectName}
-                            onChange={(e) => setNewProjectName(e.target.value)}
-                            placeholder="My Awesome Movie..."
-                            className="flex-grow bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none"
-                        />
-                        <button
-                            type="submit"
-                            disabled={!newProjectName.trim()}
-                            className="bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50"
-                        >
-                            Create Project
-                        </button>
-                    </div>
-                </form>
+                <p className="text-neutral-400">Each project has its own separate set of images, storyboards, characters, and settings.</p>
             </div>
+
+            <form onSubmit={handleCreate} className="bg-neutral-800/50 p-4 border border-neutral-700 rounded-lg">
+                <h3 className="text-lg font-semibold text-neutral-300 mb-3">Create New Project</h3>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={newProjectName}
+                        onChange={(e) => setNewProjectName(e.target.value)}
+                        placeholder="My Awesome Movie..."
+                        className="flex-grow bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none rounded"
+                    />
+                    <button
+                        type="submit"
+                        disabled={!newProjectName.trim()}
+                        className="bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 rounded"
+                    >
+                        Create Project
+                    </button>
+                </div>
+            </form>
 
             <div className="space-y-4">
                 {projects.length > 0 ? (
-                    projects.map(project => (
-                        <ProjectCard
-                            key={project.id}
-                            project={project}
-                            isActive={project.id === activeProjectId}
-                            onSelect={() => onSelectProject(project.id)}
-                            onRename={(newName) => onRenameProject(project.id, newName)}
-                            onDelete={() => onDeleteProject(project.id)}
-                        />
-                    ))
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {projects.map(project => (
+                            <ProjectCard
+                                key={project.id}
+                                project={project}
+                                isActive={project.id === activeProjectId}
+                                onSelect={() => onSelectProject(project.id)}
+                                onRename={(newName) => onRenameProject(project.id, newName)}
+                                onDelete={() => onDeleteProject(project.id)}
+                            />
+                        ))}
+                    </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-full min-h-[30vh] bg-neutral-900/50 border-2 border-dashed border-neutral-800 p-8 text-center">
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-neutral-700" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
-                        <h3 className="mt-4 text-xl font-semibold text-neutral-400">No Projects Found</h3>
-                        <p className="mt-1 text-neutral-500">Create your first project above to get started.</p>
+                    <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-neutral-800 rounded-xl bg-neutral-900/30 text-center p-8">
+                         <div className="w-16 h-16 text-neutral-700 mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                         </div>
+                        <h3 className="text-xl font-semibold text-neutral-300 mb-2">No Projects Found</h3>
+                        <p className="text-neutral-500">Create your first project above to get started.</p>
                     </div>
                 )}
             </div>

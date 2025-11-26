@@ -1,6 +1,8 @@
+
+
 import React, { useRef } from 'react';
 import { InspirationImage } from '../types.ts';
-import { UseAsGuideIcon } from './icons.tsx';
+import { UseAsGuideIcon, PinIcon } from './icons.tsx';
 
 interface InspirationBoardProps {
     images: InspirationImage[];
@@ -25,9 +27,12 @@ export const InspirationBoard: React.FC<InspirationBoardProps> = ({ images, onUp
     };
 
     return (
-        <div className="min-h-[70vh]">
-             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-neutral-300">Inspiration Board</h2>
+        <div className="p-6 max-w-7xl mx-auto w-full">
+             <div className="flex justify-between items-center mb-8">
+                <div>
+                    <h2 className="text-3xl font-bold text-neutral-200 mb-2">Inspiration Board</h2>
+                    <p className="text-neutral-400">Collect images that inspire your visual style.</p>
+                </div>
                 <input
                     type="file"
                     ref={fileInputRef}
@@ -37,24 +42,22 @@ export const InspirationBoard: React.FC<InspirationBoardProps> = ({ images, onUp
                 />
                 <button
                     onClick={handleUploadClick}
-                    className="bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300"
+                    className="bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 rounded"
                 >
                     Upload Inspiration
                 </button>
             </div>
 
             {images.length === 0 ? (
-                 <div className="flex flex-col items-center justify-center h-full min-h-[50vh] bg-neutral-900/50 border-2 border-dashed border-neutral-800 p-8 text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <h3 className="mt-4 text-xl font-semibold text-neutral-400">Your Board is Empty</h3>
-                    <p className="mt-1 text-neutral-500">Upload images or add them from the grid to build your mood board.</p>
+                 <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-neutral-800 rounded-xl bg-neutral-900/30 text-center p-8">
+                    <div className="w-16 h-16 text-neutral-700 mb-4"><PinIcon /></div>
+                    <h3 className="text-xl font-semibold text-neutral-300 mb-2">Your Board is Empty</h3>
+                    <p className="text-neutral-500">Upload images or add them from the grid to build your mood board.</p>
                 </div>
             ) : (
                 <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-4 space-y-4">
                     {images.map(image => (
-                        <div key={image.id} className="break-inside-avoid relative group">
+                        <div key={image.id} className="break-inside-avoid relative group rounded-lg overflow-hidden">
                             <img 
                                 src={`data:image/jpeg;base64,${image.base64Image}`}
                                 alt="Inspiration"
@@ -63,14 +66,14 @@ export const InspirationBoard: React.FC<InspirationBoardProps> = ({ images, onUp
                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                                 <button
                                     onClick={() => onUseAsGuide(image.base64Image)}
-                                    className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors"
+                                    className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded"
                                     title="Use as Guiding Image"
                                 >
                                     <UseAsGuideIcon />
                                 </button>
                                 <button
                                     onClick={() => onRemove(image.id)}
-                                    className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors"
+                                    className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded"
                                     title="Remove"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { InputPanel } from './components/InputPanel.tsx';
 import { ImageGrid } from './components/ImageGrid.tsx';
@@ -26,6 +25,7 @@ import { DashboardStudio } from './components/DashboardStudio.tsx';
 import { AutomationStudio } from './components/AutomationStudio.tsx';
 import { ProjectsStudio } from './components/ProjectsStudio.tsx';
 
+// ... [Keep imports and utility functions same as before]
 const defaultPhotorealismPrompt = "real photograph, photorealistic, glamorous, aesthetic, 4k, 8k, real human, realistic lighting, Real photograph, Real Picture taken with a camera, Real camera quality photo, natural soft lighting and shadows, professional photography, ((Aesthetic 11)), real photograph, photorealistic, 4k, 8k, real human, realistic lighting, Real photograph, Real Picture taken with a camera, Real camera quality photo, natural soft lighting and shadows, professional photography";
 
 const fileToBase64 = (file: File): Promise<{ base64: string, mimeType: string }> =>
@@ -164,7 +164,6 @@ function App() {
       localStorage.setItem('projects', JSON.stringify(projects));
   }, [projects]);
   
-  // Generic project data updater
   const updateActiveProjectData = useCallback((updater: (data: ProjectData) => ProjectData) => {
     if (!activeProjectId) return;
     setProjects(prevProjects =>
@@ -174,7 +173,6 @@ function App() {
     );
   }, [activeProjectId]);
   
-  // Load remote lore data only if RAG is enabled for the active project
   useEffect(() => {
     const loadRemoteData = async () => {
         if (!activeProjectData) return;
@@ -263,8 +261,6 @@ function App() {
     await Promise.allSettled(requests);
   }, [activeProjectData?.automationConfig.webhookUrls]);
 
-  // All handlers below should now use `updateActiveProjectData`
-  
   const handleGenerate = useCallback(async (options: GenerationOptions) => {
     if (!checkApiPrerequisites() || !activeProjectData) return;
     const { lore, dynamicPromptLists } = activeProjectData;
@@ -343,8 +339,9 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-}, [checkApiPrerequisites, activeProjectData, triggerWebhooks, gridOverlay, apiKey, activeProjectId, updateActiveProjectData]);
+}, [checkApiPrerequisites, activeProjectData, triggerWebhooks, gridOverlay, apiKey, updateActiveProjectData]);
 
+  // ... [Rest of handlers remain the same]
   const handleEditImage = useCallback((base64Image: string) => {
     setEditingImage({ base64: base64Image, mimeType: 'image/jpeg' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -369,7 +366,6 @@ function App() {
     }
   }, [apiKey, activeProjectData, checkApiPrerequisites, updateActiveProjectData]);
   
-  // --- Project Management ---
     const handleCreateProject = (name: string) => {
         const newProject: Project = { id: crypto.randomUUID(), name, data: createNewProjectData() };
         setProjects(prev => [...prev, newProject]);
@@ -385,7 +381,6 @@ function App() {
         }
     };
 
-  // Other handlers that use `updateActiveProjectData`
   const handleSaveSettings = (newApiKey: string) => { setApiKey(newApiKey); setIsSettingsOpen(false); };
   const handleSaveAutomationConfig = (newConfig: AutomationConfig) => updateActiveProjectData(d => ({ ...d, automationConfig: newConfig }));
   const handleAddToStoryboard = useCallback((base64Image: string) => updateActiveProjectData(d => ({ ...d, storyboard: [...d.storyboard, { id: crypto.randomUUID(), base64Image, notes: '', prompt: lastGenerationOptions?.prompt || 'Generated image' }] })), [lastGenerationOptions, updateActiveProjectData]);
@@ -453,19 +448,15 @@ function App() {
     }
 
     switch (activeView) {
-        case 'dashboard':
-            return <DashboardStudio
-                stats={{
-                    storyboardFrames: activeProjectData.storyboard.length,
-                    agents: activeProjectData.agents.length,
-                    loreEntries: activeProjectData.lore.length,
-                    inspirationImages: activeProjectData.inspirationImages.length,
-                    dynamicPromptLists: activeProjectData.dynamicPromptLists.length,
-                    promptTemplates: activeProjectData.promptTemplates.length,
-                    imagesGenerated: activeProjectData.images.length,
-                }}
-                onNavigate={setActiveView}
-            />;
+        case 'dashboard': return <DashboardStudio stats={{
+                storyboardFrames: activeProjectData.storyboard.length,
+                agents: activeProjectData.agents.length,
+                loreEntries: activeProjectData.lore.length,
+                inspirationImages: activeProjectData.inspirationImages.length,
+                dynamicPromptLists: activeProjectData.dynamicPromptLists.length,
+                promptTemplates: activeProjectData.promptTemplates.length,
+                imagesGenerated: activeProjectData.images.length
+            }} onNavigate={setActiveView} />;
         case 'story': return <Storyboard frames={activeProjectData.storyboard} onUpdateNote={handleUpdateStoryboardNote} onRemove={handleRemoveFromStoryboard} onReorder={handleReorderStoryboard} />;
         case 'agent-chat': return <AgentChatStudio agents={activeProjectData.agents} onUploadLore={handleUploadAgentLore} onSendMessage={handleSendMessageToAgent} isResponding={isAgentResponding} error={agentChatError} />;
         case 'prompt-library': return <PromptLibraryStudio templates={activeProjectData.promptTemplates} onCreate={handleCreatePromptTemplate} onUpdate={handleUpdatePromptTemplate} onDelete={handleDeletePromptTemplate} />;
@@ -486,7 +477,7 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-[#202020] text-neutral-100 font-sans">
+    <div id="app" className="flex h-screen w-full bg-neutral-900 text-neutral-200 overflow-hidden">
       <Sidebar
         activeView={activeView}
         onNavigate={setActiveView}
@@ -503,16 +494,20 @@ function App() {
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(v => !v)}
       />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-neutral-900/50 backdrop-blur-sm p-4 border-b border-neutral-800 flex-shrink-0">
-            <h1 className="text-2xl font-bold text-center text-neutral-100">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-neutral-900 text-neutral-200">
+        <header className="p-4 border-b border-neutral-800 flex-shrink-0 bg-neutral-900">
+            <h1 className="text-xl font-bold text-center text-neutral-100 uppercase tracking-wider">
                 {activeProject ? activeProject.name : "Storyboard Studio AI"}
             </h1>
         </header>
-        <main className="flex-1 bg-[#202020] overflow-y-auto">
+        <main className="flex-1 overflow-y-auto">
             {activeView === 'grid' && activeProjectData ? (
-                <div className="flex flex-col">
-                    <div className="p-4 lg:p-6">
+                <div className="p-6 max-w-7xl mx-auto w-full">
+                    <div className="mb-8">
+                        <h2 className="text-3xl font-bold text-neutral-200 mb-2">Image Generation Grid</h2>
+                        <p className="text-neutral-400">Create, edit, and manage your assets in a unified workspace.</p>
+                    </div>
+                    <div className="space-y-6">
                         <InputPanel 
                           onGenerate={handleGenerate} 
                           isLoading={isLoading} 
@@ -524,8 +519,6 @@ function App() {
                           promptTemplates={activeProjectData.promptTemplates}
                           dynamicPromptLists={activeProjectData.dynamicPromptLists}
                         />
-                    </div>
-                    <div className="p-4 lg:p-6">
                         <ImageGrid 
                             images={filteredImages} 
                             isLoading={isLoading} 
@@ -547,9 +540,7 @@ function App() {
                     </div>
                 </div>
             ) : (
-                <div className="p-4 lg:p-6 h-full">
-                    {renderActiveView()}
-                </div>
+                renderActiveView()
             )}
         </main>
       </div>

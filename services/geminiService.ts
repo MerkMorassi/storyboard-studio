@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, FunctionDeclaration, Type } from '@google/genai';
 import { GenerationOptions, GenerationResult, ChatMessage, AutomationConfig, Agent } from '../types.ts';
 import { getContextForAgent } from './ragService.ts';

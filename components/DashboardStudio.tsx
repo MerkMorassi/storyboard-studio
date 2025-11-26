@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import { ActiveView } from '../types.ts';
 import { StoryboardIcon, CharacterIcon, LoreIcon, PinIcon, ShuffleIcon, GridIcon, LibraryIcon } from './icons.tsx';
@@ -34,7 +36,7 @@ const StatCard: React.FC<{
 }> = ({ title, value, icon, onClick, color }) => (
     <div
         onClick={onClick}
-        className={`bg-neutral-800/50 p-4 border border-neutral-700 hover:bg-neutral-700/50 ${colorClasses[color].border} transition-all duration-300 cursor-pointer group`}
+        className={`bg-neutral-800/50 p-4 border border-neutral-700 hover:bg-neutral-700/50 ${colorClasses[color].border} transition-all duration-300 cursor-pointer group rounded-lg`}
     >
         <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">{title}</h3>
@@ -47,9 +49,13 @@ const StatCard: React.FC<{
 
 export const DashboardStudio: React.FC<DashboardStudioProps> = ({ stats, onNavigate }) => {
     return (
-        <div className="bg-neutral-900/50 p-6 border border-neutral-800 animate-fade-in">
+        <div className="p-6 max-w-7xl mx-auto w-full animate-fade-in">
              <style>{`.animate-fade-in { animation: fadeIn 0.5s ease-out; } @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }`}</style>
-            <h2 className="text-2xl font-bold text-neutral-300 mb-6">Production Dashboard</h2>
+            
+            <div className="mb-8">
+                <h2 className="text-3xl font-bold text-neutral-200 mb-2">Production Dashboard</h2>
+                <p className="text-neutral-400">Overview of your project's current assets and progress.</p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatCard
@@ -103,12 +109,12 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ stats, onNavig
                 />
             </div>
 
-            <div className="mt-8 bg-neutral-800/50 p-6 border border-neutral-700">
+            <div className="mt-8 bg-neutral-800/50 p-6 border border-neutral-700 rounded-lg">
                 <h3 className="text-xl font-bold text-neutral-200 mb-4">Quick Start</h3>
                 <p className="text-neutral-400 mb-4">Jump right back into creating the next scene for your project.</p>
                 <button
                     onClick={() => onNavigate('grid')}
-                    className="w-full bg-neutral-700 text-white font-bold py-3 px-4 hover:bg-neutral-600 transition duration-300 flex items-center justify-center"
+                    className="w-full bg-neutral-700 text-white font-bold py-3 px-4 hover:bg-neutral-600 transition duration-300 flex items-center justify-center rounded"
                 >
                     Go to Image Generation Grid
                 </button>

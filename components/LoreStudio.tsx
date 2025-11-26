@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { LoreEntry } from '../types.ts';
 import { LoreIcon } from './icons.tsx';
@@ -26,24 +28,24 @@ const LoreEntryEditor: React.FC<{
     };
 
     return (
-        <div className="bg-neutral-800/60 p-4 border border-neutral-700 space-y-3">
+        <div className="bg-neutral-800/60 p-4 border border-neutral-700 space-y-3 rounded-lg">
             <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Lore Title"
-                className="w-full bg-neutral-900 border border-neutral-600 p-2 text-lg font-bold focus:ring-2 focus:ring-neutral-500 outline-none"
+                className="w-full bg-neutral-900 border border-neutral-600 p-2 text-lg font-bold focus:ring-2 focus:ring-neutral-500 outline-none rounded"
             />
             <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Describe the lore..."
-                className="w-full h-40 bg-neutral-900 border border-neutral-600 p-2 text-sm resize-y focus:ring-2 focus:ring-neutral-500 outline-none"
+                className="w-full h-40 bg-neutral-900 border border-neutral-600 p-2 text-sm resize-y focus:ring-2 focus:ring-neutral-500 outline-none rounded"
             />
             <div className="flex justify-end gap-3">
-                <button onClick={() => onDelete(entry.id)} className="px-4 py-2 text-sm font-medium text-red-400 bg-neutral-900 hover:bg-red-900/50 transition">Delete</button>
-                <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition">Cancel</button>
-                <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-neutral-600 hover:bg-neutral-500 transition">Save Changes</button>
+                <button onClick={() => onDelete(entry.id)} className="px-4 py-2 text-sm font-medium text-red-400 bg-neutral-900 hover:bg-red-900/50 transition rounded">Delete</button>
+                <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition rounded">Cancel</button>
+                <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-neutral-600 hover:bg-neutral-500 transition rounded">Save Changes</button>
             </div>
         </div>
     );
@@ -64,30 +66,30 @@ export const LoreStudio: React.FC<LoreStudioProps> = ({ lore, onCreate, onUpdate
     };
 
     return (
-        <div className="bg-neutral-900/50 p-6 border border-neutral-800 space-y-8">
-            <div>
-                <h2 className="text-2xl font-bold text-neutral-300 mb-2">Lore Studio</h2>
-                <p className="text-sm text-neutral-400 mb-6">Define the elements of your story universe. This lore will be used as context to guide every AI image generation, ensuring consistency.</p>
+        <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
+            <div className="mb-8">
+                <h2 className="text-3xl font-bold text-neutral-200 mb-2">Lore Studio</h2>
+                <p className="text-neutral-400 mb-6">Define the elements of your story universe. This lore will be used as context to guide every AI image generation, ensuring consistency.</p>
                 
-                <form onSubmit={handleCreate} className="bg-neutral-800/50 p-4 border border-neutral-700 space-y-3">
+                <form onSubmit={handleCreate} className="bg-neutral-800/50 p-4 border border-neutral-700 space-y-3 rounded-lg">
                      <h3 className="text-lg font-semibold text-neutral-300">Add New Lore Entry</h3>
                     <input
                         type="text"
                         value={newTitle}
                         onChange={(e) => setNewTitle(e.target.value)}
                         placeholder="Lore Title (e.g., The Sunstone of Arath)"
-                        className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none"
+                        className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none rounded"
                     />
                     <textarea
                         value={newContent}
                         onChange={(e) => setNewContent(e.target.value)}
                         placeholder="Describe the lore in detail. What it looks like, its history, its function..."
-                        className="w-full h-28 bg-neutral-900 border border-neutral-600 p-2 resize-y focus:ring-2 focus:ring-neutral-500 outline-none"
+                        className="w-full h-28 bg-neutral-900 border border-neutral-600 p-2 resize-y focus:ring-2 focus:ring-neutral-500 outline-none rounded"
                     />
                     <button
                         type="submit"
                         disabled={!newTitle.trim() || !newContent.trim()}
-                        className="w-full bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed rounded"
                     >
                         Add to Lore
                     </button>
@@ -106,7 +108,7 @@ export const LoreStudio: React.FC<LoreStudioProps> = ({ lore, onCreate, onUpdate
                                     onCancel={() => setEditingId(null)}
                                 />
                             ) : (
-                                <div className="bg-neutral-800/50 p-4 border border-neutral-700 group">
+                                <div className="bg-neutral-800/50 p-4 border border-neutral-700 group rounded-lg">
                                     <div className="flex justify-between items-start">
                                         <h4 className="text-lg font-bold text-neutral-200">{entry.title}</h4>
                                         <button 
@@ -122,10 +124,10 @@ export const LoreStudio: React.FC<LoreStudioProps> = ({ lore, onCreate, onUpdate
                         </div>
                     ))
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-full min-h-[30vh] bg-neutral-900/50 border-2 border-dashed border-neutral-800 p-8 text-center">
-                        <div className="w-16 h-16 text-neutral-700"><LoreIcon /></div>
-                        <h3 className="mt-4 text-xl font-semibold text-neutral-400">Your Lore Bible is Empty</h3>
-                        <p className="mt-1 text-neutral-500">Add entries above to start building your story's universe.</p>
+                    <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-neutral-800 rounded-xl bg-neutral-900/30 text-center p-8">
+                        <div className="w-16 h-16 text-neutral-700 mb-4"><LoreIcon /></div>
+                        <h3 className="text-xl font-semibold text-neutral-300 mb-2">Your Lore Bible is Empty</h3>
+                        <p className="text-neutral-500">Add entries above to start building your story's universe.</p>
                     </div>
                 )}
             </div>

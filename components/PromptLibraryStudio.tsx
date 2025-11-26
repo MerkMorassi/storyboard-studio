@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { PromptTemplate } from '../types.ts';
 import { LibraryIcon } from './icons.tsx';
@@ -27,31 +29,31 @@ const TemplateEditor: React.FC<{
     };
 
     return (
-        <div className="bg-neutral-800/60 p-4 border border-neutral-700 space-y-3 animate-fade-in">
+        <div className="bg-neutral-800/60 p-4 border border-neutral-700 space-y-3 animate-fade-in rounded-lg">
              <style>{`.animate-fade-in { animation: fadeIn 0.3s ease-out; } @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }`}</style>
             <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Template Name (e.g., Cinematic Film Noir)"
-                className="w-full bg-neutral-900 border border-neutral-600 p-2 text-lg font-bold focus:ring-2 focus:ring-neutral-500 outline-none"
+                className="w-full bg-neutral-900 border border-neutral-600 p-2 text-lg font-bold focus:ring-2 focus:ring-neutral-500 outline-none rounded"
             />
             <textarea
                 value={positivePrompt}
                 onChange={(e) => setPositivePrompt(e.target.value)}
                 placeholder="Positive prompt..."
-                className="w-full h-32 bg-neutral-900 border border-neutral-600 p-2 text-sm resize-y focus:ring-2 focus:ring-neutral-500 outline-none"
+                className="w-full h-32 bg-neutral-900 border border-neutral-600 p-2 text-sm resize-y focus:ring-2 focus:ring-neutral-500 outline-none rounded"
             />
              <textarea
                 value={negativePrompt}
                 onChange={(e) => setNegativePrompt(e.target.value)}
                 placeholder="Negative prompt (optional)..."
-                className="w-full h-24 bg-neutral-900 border border-neutral-600 p-2 text-sm resize-y focus:ring-2 focus:ring-neutral-500 outline-none"
+                className="w-full h-24 bg-neutral-900 border border-neutral-600 p-2 text-sm resize-y focus:ring-2 focus:ring-neutral-500 outline-none rounded"
             />
             <div className="flex justify-end gap-3">
-                <button onClick={() => onDelete(template.id)} className="px-4 py-2 text-sm font-medium text-red-400 bg-neutral-900 hover:bg-red-900/50 transition">Delete</button>
-                <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition">Cancel</button>
-                <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-neutral-600 hover:bg-neutral-500 transition">Save Changes</button>
+                <button onClick={() => onDelete(template.id)} className="px-4 py-2 text-sm font-medium text-red-400 bg-neutral-900 hover:bg-red-900/50 transition rounded">Delete</button>
+                <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition rounded">Cancel</button>
+                <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-neutral-600 hover:bg-neutral-500 transition rounded">Save Changes</button>
             </div>
         </div>
     );
@@ -80,7 +82,7 @@ const CreateTemplateForm: React.FC<{
         return (
             <button 
                 onClick={() => setIsExpanded(true)}
-                className="w-full py-3 border-2 border-dashed border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-300 transition flex items-center justify-center gap-2"
+                className="w-full py-3 border-2 border-dashed border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-300 transition flex items-center justify-center gap-2 rounded-lg"
             >
                 <span className="text-xl">+</span> Create New Prompt Template
             </button>
@@ -88,39 +90,39 @@ const CreateTemplateForm: React.FC<{
     }
 
     return (
-        <form onSubmit={handleCreate} className="bg-neutral-800/50 p-4 border border-neutral-700 space-y-3 animate-fade-in">
+        <form onSubmit={handleCreate} className="bg-neutral-800/50 p-4 border border-neutral-700 space-y-3 animate-fade-in rounded-lg">
             <h3 className="text-lg font-semibold text-neutral-300">New Prompt Template</h3>
              <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Template Name (e.g., Cinematic Film Noir)"
-                className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none"
+                className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none rounded"
             />
             <textarea
                 value={positivePrompt}
                 onChange={(e) => setPositivePrompt(e.target.value)}
                 placeholder="Positive prompt keywords..."
-                className="w-full h-32 bg-neutral-900 border border-neutral-600 p-2 resize-y focus:ring-2 focus:ring-neutral-500 outline-none"
+                className="w-full h-32 bg-neutral-900 border border-neutral-600 p-2 resize-y focus:ring-2 focus:ring-neutral-500 outline-none rounded"
             />
             <textarea
                 value={negativePrompt}
                 onChange={(e) => setNegativePrompt(e.target.value)}
                 placeholder="Negative prompt keywords (optional)..."
-                className="w-full h-24 bg-neutral-900 border border-neutral-600 p-2 resize-y focus:ring-2 focus:ring-neutral-500 outline-none"
+                className="w-full h-24 bg-neutral-900 border border-neutral-600 p-2 resize-y focus:ring-2 focus:ring-neutral-500 outline-none rounded"
             />
             <div className="flex gap-2">
                 <button
                     type="button"
                     onClick={() => setIsExpanded(false)}
-                    className="flex-1 bg-neutral-800 text-neutral-300 font-semibold py-2 px-4 hover:bg-neutral-700 transition duration-300"
+                    className="flex-1 bg-neutral-800 text-neutral-300 font-semibold py-2 px-4 hover:bg-neutral-700 transition duration-300 rounded"
                 >
                     Cancel
                 </button>
                 <button
                     type="submit"
                     disabled={!name.trim() || !positivePrompt.trim()}
-                    className="flex-1 bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed rounded"
                 >
                     Create Template
                 </button>
@@ -133,10 +135,10 @@ export const PromptLibraryStudio: React.FC<PromptLibraryStudioProps> = ({ templa
     const [editingId, setEditingId] = useState<string | null>(null);
 
     return (
-        <div className="bg-neutral-900/50 p-6 border border-neutral-800 space-y-8">
-            <div>
-                <h2 className="text-2xl font-bold text-neutral-300 mb-2">Prompt Library</h2>
-                <p className="text-sm text-neutral-400 mb-6">Create and manage reusable prompt templates. These "styles" can be quickly applied from the Grid view to maintain a consistent look and feel.</p>
+        <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
+            <div className="mb-8">
+                <h2 className="text-3xl font-bold text-neutral-200 mb-2">Prompt Library</h2>
+                <p className="text-neutral-400 mb-6">Create and manage reusable prompt templates. These "styles" can be quickly applied from the Grid view to maintain a consistent look and feel.</p>
                 <CreateTemplateForm onCreate={onCreate} />
             </div>
             
@@ -153,7 +155,7 @@ export const PromptLibraryStudio: React.FC<PromptLibraryStudioProps> = ({ templa
                                         onCancel={() => setEditingId(null)}
                                     />
                                 ) : (
-                                    <div className="bg-neutral-800/50 p-4 border border-neutral-700 group hover:border-neutral-600 transition-all">
+                                    <div className="bg-neutral-800/50 p-4 border border-neutral-700 group hover:border-neutral-600 transition-all rounded-lg">
                                         <div className="flex justify-between items-start mb-2">
                                             <h4 className="text-lg font-bold text-neutral-200">{template.name}</h4>
                                             <button 
@@ -181,10 +183,10 @@ export const PromptLibraryStudio: React.FC<PromptLibraryStudioProps> = ({ templa
                         ))}
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-full min-h-[30vh] bg-neutral-900/50 border-2 border-dashed border-neutral-800 p-8 text-center">
-                        <div className="w-16 h-16 text-neutral-700"><LibraryIcon /></div>
-                        <h3 className="mt-4 text-xl font-semibold text-neutral-400">Your Library is Empty</h3>
-                        <p className="mt-1 text-neutral-500">Create a prompt template above to get started.</p>
+                    <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-neutral-800 rounded-xl bg-neutral-900/30 text-center p-8">
+                        <div className="w-16 h-16 text-neutral-700 mb-4"><LibraryIcon /></div>
+                        <h3 className="text-xl font-semibold text-neutral-300 mb-2">Your Library is Empty</h3>
+                        <p className="text-neutral-500">Create a prompt template above to get started.</p>
                     </div>
                 )}
             </div>

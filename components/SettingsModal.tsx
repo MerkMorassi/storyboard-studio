@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 
 interface SettingsModalProps {
@@ -36,15 +37,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="settings-title"
     >
       <div 
-        className="bg-neutral-900 shadow-2xl p-6 w-full max-w-lg border border-neutral-800"
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
+        className="bg-neutral-800 shadow-2xl p-6 w-full max-w-lg border border-neutral-700 rounded-lg"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">
           <h2 id="settings-title" className="text-xl font-bold text-white">Settings</h2>
@@ -70,11 +71,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               value={apiKeyInput}
               onChange={(e) => setApiKeyInput(e.target.value)}
               placeholder="Enter your Google Cloud API Key"
-              className="w-full bg-neutral-800 border border-neutral-700 p-2 text-neutral-200 focus:ring-2 focus:ring-neutral-500 focus:border-neutral-500 transition duration-200 outline-none"
+              className="w-full"
             />
           </div>
 
-          <div className="bg-neutral-800/50 p-4 border border-neutral-700 text-sm text-neutral-400 space-y-3">
+          <div className="bg-neutral-900/50 p-4 border border-neutral-700 text-sm text-neutral-400 space-y-3 rounded-md">
             <h3 className="font-bold text-neutral-200">Resolving "Quota Exceeded" Errors</h3>
             <p>
               If you see a "free_tier" quota error, it means you are using a key from Google AI Studio. As a paid customer, you must use an API key from a <strong className="text-neutral-200">Google Cloud Platform (GCP)</strong> project that has billing enabled.
@@ -98,13 +99,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         <div className="mt-8 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-neutral-300 bg-neutral-800 hover:bg-neutral-700 transition"
+            className="px-4 py-2 text-sm font-medium"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-sm font-medium text-white bg-neutral-700 hover:bg-neutral-600 transition"
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500"
           >
             Save
           </button>
