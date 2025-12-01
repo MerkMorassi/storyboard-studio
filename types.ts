@@ -1,5 +1,5 @@
 
-export type RAGProvider = 'cloud' | 'localhost';
+export type RAGProvider = 'cloud' | 'localhost' | 'browser'; // Added 'browser'
 
 export interface ProjectData {
   images: ImageState[];
@@ -100,7 +100,8 @@ export interface Agent {
 
 export interface LoreEntry {
   id: string;
-  ragDocumentId?: string;
+  projectId?: string; // Added to support local RAG deletion/filtering by project
+  ragDocumentId?: string; // Only for external RAG to track external ID
   title: string;
   content: string;
 }

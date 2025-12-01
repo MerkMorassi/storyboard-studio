@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { AutomationConfig, RAGProvider } from '../types.ts';
 
@@ -50,6 +49,8 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
         setTimeout(() => setSaveFeedback(''), 3000);
     };
 
+    const isExternalRagConfigDisabled = !localConfig.ragEnabled || localConfig.ragProvider === 'browser';
+
     return (
         <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
             <div className="mb-8">
@@ -84,70 +85,82 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
                 <div className={`space-y-4 transition-opacity ${!localConfig.ragEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div>
                         <label className="block text-sm font-medium text-neutral-300 mb-2">RAG Provider</label>
-                        <div className="flex gap-4">
-                            <label className="flex items-center gap-2 text-sm text-neutral-200 bg-neutral-900/50 px-3 py-2 rounded border border-neutral-700 cursor-pointer hover:bg-neutral-800">
+                        <div className="flex flex-wrap gap-4">
+                            <label className="flex items-center gap-2 text-sm text-neutral-200 bg-neutral-900/50 px-3 py-2 rounded-lg border border-neutral-700 cursor-pointer hover:bg-neutral-800 focus-within:ring-2 focus-within:ring-blue-500">
                                 <input type="radio" name="ragProvider" value="cloud" checked={localConfig.ragProvider === 'cloud'} onChange={() => handleConfigChange('ragProvider', 'cloud')} className="form-radio text-blue-500 focus:ring-blue-500" disabled={!localConfig.ragEnabled} />
                                 Cloud Provider
                             </label>
-                            <label className="flex items-center gap-2 text-sm text-neutral-200 bg-neutral-900/50 px-3 py-2 rounded border border-neutral-700 cursor-pointer hover:bg-neutral-800">
+                            <label className="flex items-center gap-2 text-sm text-neutral-200 bg-neutral-900/50 px-3 py-2 rounded-lg border border-neutral-700 cursor-pointer hover:bg-neutral-800 focus-within:ring-2 focus-within:ring-blue-500">
                                 <input type="radio" name="ragProvider" value="localhost" checked={localConfig.ragProvider === 'localhost'} onChange={() => handleConfigChange('ragProvider', 'localhost')} className="form-radio text-blue-500 focus:ring-blue-500" disabled={!localConfig.ragEnabled} />
                                 Localhost
                             </label>
+                            <label className="flex items-center gap-2 text-sm text-neutral-200 bg-neutral-900/50 px-3 py-2 rounded-lg border border-neutral-700 cursor-pointer hover:bg-neutral-800 focus-within:ring-2 focus-within:ring-blue-500">
+                                <input type="radio" name="ragProvider" value="browser" checked={localConfig.ragProvider === 'browser'} onChange={() => handleConfigChange('ragProvider', 'browser')} className="form-radio text-blue-500 focus:ring-blue-500" disabled={!localConfig.ragEnabled} />
+                                Browser / Local (IndexedDB)
+                            </label>
                         </div>
+                        {localConfig.ragProvider === 'browser' && (
+                            <p className="text-xs text-blue-400 mt-2 p-2 bg-blue-900/20 border border-blue-800 rounded">
+                                <strong>MYTHOS Local Engine Active:</strong> Vectors are stored securely in your browser's IndexedDB. Embeddings are generated using your Google API Key (text-embedding-004). No external server required.
+                            </p>
+                        )}
                     </div>
 
-                    {localConfig.ragProvider === 'cloud' ? (
-                        <div className="grid gap-4 border-l-2 border-neutral-700 pl-4">
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-1">API Key</label>
-                                <input
-                                    type="password"
-                                    value={localConfig.ragApiKey}
-                                    onChange={(e) => handleConfigChange('ragApiKey', e.target.value)}
-                                    placeholder="Enter your RAG service API Key"
-                                    className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none rounded"
-                                    disabled={!localConfig.ragEnabled}
-                                />
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-1">Base URL</label>
-                                <input
-                                    type="url"
-                                    value={localConfig.ragBaseUrl}
-                                    onChange={(e) => handleConfigChange('ragBaseUrl', e.target.value)}
-                                    placeholder="e.g., https://api.rag-provider.com/v1"
-                                    className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none rounded"
-                                    disabled={!localConfig.ragEnabled}
-                                />
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-1">Knowledge Box ID</label>
-                                <input
-                                    type="text"
-                                    value={localConfig.ragKnowledgeBoxId}
-                                    onChange={(e) => handleConfigChange('ragKnowledgeBoxId', e.target.value)}
-                                    placeholder="Enter the unique ID for your knowledge box"
-                                    className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none rounded"
-                                    disabled={!localConfig.ragEnabled}
-                                />
-                            </div>
-                        </div>
-                    ) : (
-                         <div className="border-l-2 border-neutral-700 pl-4">
-                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-1">Localhost RAG API URL</label>
-                                <input
-                                    type="url"
-                                    value={localConfig.ragLocalhostUrl}
-                                    onChange={(e) => handleConfigChange('ragLocalhostUrl', e.target.value)}
-                                    placeholder="e.g., http://localhost:8000/api/rag"
-                                    className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none rounded"
-                                    disabled={!localConfig.ragEnabled}
-                                />
-                                <p className="text-xs text-neutral-500 mt-2">
-                                    Enter the full endpoint URL for your local RAG service documents.
-                                </p>
-                            </div>
+                    {(localConfig.ragProvider === 'cloud' || localConfig.ragProvider === 'localhost') && (
+                        <div className={`grid gap-4 border-l-2 border-neutral-700 pl-4`}>
+                            {localConfig.ragProvider === 'cloud' && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-300 mb-1">API Key</label>
+                                        <input
+                                            type="password"
+                                            value={localConfig.ragApiKey}
+                                            onChange={(e) => handleConfigChange('ragApiKey', e.target.value)}
+                                            placeholder="Enter your RAG service API Key"
+                                            className="w-full bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none"
+                                            disabled={isExternalRagConfigDisabled}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-300 mb-1">Base URL</label>
+                                        <input
+                                            type="url"
+                                            value={localConfig.ragBaseUrl}
+                                            onChange={(e) => handleConfigChange('ragBaseUrl', e.target.value)}
+                                            placeholder="e.g., https://api.rag-provider.com/v1"
+                                            className="w-full bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none"
+                                            disabled={isExternalRagConfigDisabled}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-300 mb-1">Knowledge Box ID</label>
+                                        <input
+                                            type="text"
+                                            value={localConfig.ragKnowledgeBoxId}
+                                            onChange={(e) => handleConfigChange('ragKnowledgeBoxId', e.target.value)}
+                                            placeholder="Enter the unique ID for your knowledge box"
+                                            className="w-full bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none"
+                                            disabled={isExternalRagConfigDisabled}
+                                        />
+                                    </div>
+                                </>
+                            )}
+                            {localConfig.ragProvider === 'localhost' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-neutral-300 mb-1">Localhost RAG API URL</label>
+                                    <input
+                                        type="url"
+                                        value={localConfig.ragLocalhostUrl}
+                                        onChange={(e) => handleConfigChange('ragLocalhostUrl', e.target.value)}
+                                        placeholder="e.g., http://localhost:8000/api/rag"
+                                        className="w-full bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none"
+                                        disabled={isExternalRagConfigDisabled}
+                                    />
+                                    <p className="text-xs text-neutral-500 mt-2">
+                                        Enter the full endpoint URL for your local RAG service documents.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -165,13 +178,13 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
                         value={newWebhookUrl}
                         onChange={(e) => setNewWebhookUrl(e.target.value)}
                         placeholder="https://your-webhook-endpoint.com"
-                        className="flex-grow bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none rounded"
+                        className="flex-grow bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none"
                     />
                     <button
                         type="button"
                         onClick={handleAddWebhook}
                         disabled={!newWebhookUrl.trim()}
-                        className="bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition disabled:opacity-50 rounded"
+                        className="bg-neutral-700 text-white font-semibold py-2.5 px-4 hover:bg-neutral-600 transition disabled:opacity-50 rounded-lg"
                     >
                         Add
                     </button>
@@ -182,12 +195,12 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
                             <code className="text-sm text-neutral-300 break-all flex-grow">{url}</code>
                             <div className="flex items-center gap-2 flex-shrink-0">
                                 <div className="relative">
-                                    <button onClick={() => handleTest(url)} disabled={!!testingUrl} className="text-sm bg-neutral-700 hover:bg-neutral-600 px-3 py-1 transition disabled:opacity-50 w-20 text-center rounded">
+                                    <button onClick={() => handleTest(url)} disabled={!!testingUrl} className="text-sm bg-neutral-700 hover:bg-neutral-600 px-3 py-1.5 transition disabled:opacity-50 w-20 text-center rounded-lg">
                                         {testingUrl === url ? 'Testing...' : 'Test'}
                                     </button>
                                     {testResult && testResult.url === url && <span className={`absolute right-0 -top-8 text-xs px-2 py-1 shadow-lg rounded ${testResult.success ? 'bg-green-600' : 'bg-red-600'}`}>{testResult.success ? 'Success!' : 'Failed!'}</span>}
                                 </div>
-                                <button onClick={() => handleDeleteWebhook(url)} className="text-sm text-red-500 hover:text-red-400 p-1" title="Delete">
+                                <button onClick={() => handleDeleteWebhook(url)} className="text-sm text-red-400 hover:text-red-300 p-1 rounded-lg" title="Delete">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                                 </button>
                             </div>
@@ -200,7 +213,7 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
                  <p className={`text-sm text-green-400 transition-opacity duration-300 ${saveFeedback ? 'opacity-100' : 'opacity-0'}`}>{saveFeedback}</p>
                  <button
                     onClick={handleSave}
-                    className="bg-neutral-600 text-white font-bold py-2 px-6 hover:bg-neutral-500 transition duration-300 rounded"
+                    className="bg-blue-600 text-white font-bold py-2.5 px-6 hover:bg-blue-500 transition duration-300 rounded-lg"
                 >
                     Save Settings
                 </button>

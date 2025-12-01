@@ -1,3 +1,4 @@
+
 const CACHE_NAME = 'storyboard-studio-v1';
 const urlsToCache = [
   '/',
@@ -7,6 +8,7 @@ const urlsToCache = [
   '/types.ts',
   '/services/geminiService.ts',
   '/services/ragService.ts',
+  '/services/localRagService.ts', // Added local RAG service
   '/components/InputPanel.tsx',
   '/components/ImageGrid.tsx',
   '/components/icons.tsx',
