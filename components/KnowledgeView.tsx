@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { vectorDb, VectorRecord } from '../services/vectorDbService';
 import { chunkText, generateEmbeddingsForChunks } from '../services/embeddingService';
@@ -142,14 +141,14 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
         abortControllerRef.current = new AbortController();
         const signal = abortControllerRef.current.signal;
 
-        const files = Array.from(e.target.files);
+        const files: File[] = Array.from(e.target.files);
         setIsIngesting(true);
         setProgress(0);
         setStatusMessage('Initializing CorePack...');
         
         try {
             let totalChunks = 0;
-            const filesAndChunks = await Promise.all(files.map(async file => {
+            const filesAndChunks = await Promise.all(files.map(async (file: File) => {
                 if (signal.aborted) return null;
                 let text = await file.text();
                 if(file.name.toLowerCase().endsWith('.json')) {

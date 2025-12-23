@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { SearchIcon, MaximizeIcon, CheckIcon } from './icons.tsx';
 import { ClipboardIcon } from './icons/ClipboardIcon.tsx';
@@ -56,7 +55,7 @@ export const Dataframe: React.FC<DataframeProps> = ({
   }, [value]);
 
   const filteredData = React.useMemo(() => {
-      if (!searchTerm || show_search === "none") return data;
+      if (!searchTerm || (show_search as any) === "none") return data;
       const lowerSearch = searchTerm.toLowerCase();
       return data.filter(row => row.some(cell => String(cell).toLowerCase().includes(lowerSearch)));
   }, [data, searchTerm, show_search]);

@@ -73,7 +73,7 @@ export interface StoryboardFrame {
   prompt: string;
 }
 
-export type ActiveView = 'projects' | 'dashboard' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'agent-dop' | 'image-generator' | 'grid' | 'story' | 'script' | 'inspiration' | 'video' | 'generative-video' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'topaz' | 'director' | 'agents' | 'lore' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'prompt-library' | 'agent-workspace';
+export type ActiveView = 'projects' | 'dashboard' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'agent-dop' | 'image-generator' | 'grid' | 'story' | 'script' | 'inspiration' | 'video' | 'generative-video' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'topaz' | 'director' | 'agents' | 'lore' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'prompt-library' | 'agent-workspace' | 'mythos-cinematic-engine';
 
 export interface InspirationImage {
   id: string;

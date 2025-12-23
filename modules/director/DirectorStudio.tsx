@@ -30,7 +30,7 @@ import { AgentChatView } from '@/components/AgentChatView';
 import { getApiKey } from '@/services/apiKeyService';
 import { htmlToMarkdown } from '@/utils/htmlToMarkdown';
 import { ActiveView } from '@/types';
-import { ImageIcon, VideoIcon, ClapperboardIcon, ScissorsIcon, ExpandIcon, MagicIcon, LayersIcon, PuzzleIcon, GridIcon } from '@/components/icons';
+import { ImageIcon, VideoIcon, ClapperboardIcon, ScissorsIcon, ExpandIcon, MagicIcon, LayersIcon, PuzzleIcon, GridIcon, CameraLensIcon } from '@/components/icons';
 
 // Add onNavigate to props
 interface DirectorStudioProps {
@@ -632,6 +632,13 @@ Locus: Media_Analysis_Agent // Localhost
                             description="Upload reference images or video to extract cinematography data, lighting setups, and prompts."
                             icon={<AnalyzerIcon className="w-6 h-6"/>}
                             onClick={() => setActiveTab('analyzer')}
+                        />
+                        <StudioCard 
+                            title="MythOS Cinematic Engine" 
+                            description="Next-gen Illustrious SDXL engine for high-fidelity, cinematic still photography."
+                            icon={<CameraLensIcon className="w-6 h-6"/>}
+                            onClick={() => onNavigate?.('mythos-cinematic-engine')}
+                            isExternal
                         />
                         <StudioCard 
                             title="Image Studio" 

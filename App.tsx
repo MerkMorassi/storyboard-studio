@@ -29,6 +29,7 @@ import { KnowledgeView } from './components/KnowledgeView';
 import { SettingsModal } from './components/SettingsModal';
 import { InputPanel } from './components/InputPanel';
 import { ImageGeneratorStudio } from './components/ImageGeneratorStudio';
+import { MythosCinematicStudio } from './components/MythosCinematicStudio';
 import { AgentChatStudio } from './components/AgentChatStudio';
 import { StudioHeader } from './components/StudioHeader';
 import { GenericAgentStudio } from './components/GenericAgentStudio';
@@ -540,6 +541,22 @@ export default function App() {
                     promptTemplates={promptTemplates}
                     dynamicPromptLists={dynamicPrompts}
                     agents={castMembers} // Pass Cast for character selection in prompt builder
+                    onAddAssetToGrid={handleAddAssetToGrid}
+                    onAddToStoryboard={(base64) => setStoryboard([...storyboard, { id: generateId(), base64Image: base64, notes: '', prompt: '' }])} 
+                    onAddToInspiration={(base64) => setInspiration([...inspiration, { id: generateId(), base64Image: base64 }])} 
+                />
+            </div>
+        );
+      case 'mythos-cinematic-engine':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'MythOS Cinematic Engine' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <MythosCinematicStudio 
+                    hfToken={hfApiKey} 
                     onAddAssetToGrid={handleAddAssetToGrid}
                     onAddToStoryboard={(base64) => setStoryboard([...storyboard, { id: generateId(), base64Image: base64, notes: '', prompt: '' }])} 
                     onAddToInspiration={(base64) => setInspiration([...inspiration, { id: generateId(), base64Image: base64 }])} 

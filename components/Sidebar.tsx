@@ -66,6 +66,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
     'LibraryIcon': <LibraryIcon />,
     'ShuffleIcon': <ShuffleIcon />,
     'PinIcon': <PinIcon />,
+    'CameraLensIcon': <CameraLensIcon />,
 };
 
 const DEFAULT_SIDEBAR_ITEMS: SidebarItem[] = [
@@ -82,6 +83,7 @@ const DEFAULT_SIDEBAR_ITEMS: SidebarItem[] = [
 
     { id: 'header-tools', type: 'header', label: 'Creation Tools' },
     { id: 'director', type: 'link', label: 'Visual Analyzer', view: 'director', icon: 'AnalyzerIcon' },
+    { id: 'mythos-engine', type: 'link', label: 'MythOS Cinematic Engine', view: 'mythos-cinematic-engine', icon: 'CameraLensIcon' },
     { id: 'image-generator', type: 'link', label: 'Image Studio', view: 'image-generator', icon: 'ImageIcon' },
     { id: 'generative-video', type: 'link', label: 'Video Creator', view: 'generative-video', icon: 'ClapperboardIcon' },
     { id: 'video', type: 'link', label: 'Animatic Studio', view: 'video', icon: 'VideoIcon' },
@@ -110,7 +112,7 @@ const DEFAULT_SIDEBAR_ITEMS: SidebarItem[] = [
     { id: 'automation', type: 'link', label: 'Automation', view: 'automation', icon: 'AutomationIcon' },
 ];
 
-const STORAGE_KEY = 'sidebar-order-v2'; // Bumped version
+const STORAGE_KEY = 'sidebar-order-v3'; // Bumped version for new items
 
 const NavButton: React.FC<{
     label: string;
