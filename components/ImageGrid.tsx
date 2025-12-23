@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { LoadingSpinner, BasicGridOverlay, TriadicGridOverlay, BasicGoldenRatioGridOverlay, TriadicGoldenRatioGridOverlay, EditIcon, AddToStoryIcon, PinIcon, DownloadIcon, UpscaleIcon, CharacterIcon, AutomationIcon } from './icons.tsx';
+import { LoadingSpinner, BasicGridOverlay, TriadicGridOverlay, BasicGoldenRatioGridOverlay, TriadicGoldenRatioGridOverlay, EditIcon, AddToStoryIcon, PinIcon, DownloadIcon, UpscaleIcon, CharacterIcon, AutomationIcon, VideoIcon } from './icons.tsx';
 import { GridOverlayType, ImageState, Agent } from '../types.ts';
 
 interface ImageGridProps {
@@ -30,10 +30,18 @@ const gridOptions: { id: GridOverlayType; label: string }[] = [
     { id: 'golden-triadic', label: 'Golden Ratio 2. Triadic' },
 ];
 
-const downloadImage = (base64Image: string, filename: string) => {
+const downloadAsset = (image: ImageState) => {
     const link = document.createElement('a');
-    link.href = `data:image/jpeg;base64,${base64Image}`;
-    link.download = filename;
+    if (image.type === 'video' && image.url) {
+        link.href = image.url;
+        link.download = `video-${Date.now()}.mp4`;
+        link.target = "_blank";
+    } else if (image.base64) {
+        link.href = `data:${image.mimeType || 'image/jpeg'};base64,${image.base64}`;
+        link.download = `image-${Date.now()}.jpeg`;
+    } else {
+        return;
+    }
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -154,8 +162,8 @@ export const ImageGrid: React.FC<ImageGridProps> = ({ images, isLoading, error, 
         <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <h3 className="mt-4 text-xl font-semibold text-neutral-400">Your Images Will Appear Here</h3>
-        <p className="mt-1 text-neutral-500">Fill out the prompts and click "Generate" to start creating.</p>
+        <h3 className="mt-4 text-xl font-semibold text-neutral-400">Project Gallery</h3>
+        <p className="mt-1 text-neutral-500">Generated images and videos will appear here.</p>
       </div>
     );
   }
@@ -215,60 +223,90 @@ export const ImageGrid: React.FC<ImageGridProps> = ({ images, isLoading, error, 
                     className="relative bg-neutral-800 rounded-lg overflow-hidden group transition-all duration-300 hover:scale-105 shadow-lg cursor-pointer ring-2 ring-transparent hover:ring-blue-500/50"
                     onClick={() => onViewImage(image)}
                 >
-                    <img
-                        src={`data:image/jpeg;base64,${image.base64}`}
-                        alt={`Generated image ${index + 1}`}
-                        className="w-full h-full object-cover transition-opacity duration-500"
-                    />
+                    {image.type === 'video' ? (
+                        <div className="relative w-full h-full">
+                            <video 
+                                src={image.url} 
+                                className="w-full h-full object-cover" 
+                                controls={false} // Hide controls in grid, show icon
+                                muted
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
+                                <VideoIcon className="w-12 h-12 text-white/80" />
+                            </div>
+                        </div>
+                    ) : (
+                        <img
+                            src={`data:${image.mimeType || 'image/jpeg'};base64,${image.base64}`}
+                            alt={`Gallery asset ${index + 1}`}
+                            className="w-full h-full object-cover transition-opacity duration-500"
+                        />
+                    )}
+
                     {image.isUpscaling && (
                         <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-10">
                             <LoadingSpinner />
-                            <p className="mt-2 text-sm text-white">Upscaling...</p>
+                            <p className="mt-2 text-sm text-white">Preparing...</p>
                         </div>
                     )}
-                    {gridOverlay === 'basic' && <BasicGridOverlay />}
-                    {gridOverlay === 'triadic' && <TriadicGridOverlay />}
-                    {gridOverlay === 'golden-basic' && <BasicGoldenRatioGridOverlay />}
-                    {gridOverlay === 'golden-triadic' && <TriadicGoldenRatioGridOverlay />}
+                    {gridOverlay !== 'none' && image.type === 'image' && (
+                        <>
+                            {gridOverlay === 'basic' && <BasicGridOverlay />}
+                            {gridOverlay === 'triadic' && <TriadicGridOverlay />}
+                            {gridOverlay === 'golden-basic' && <BasicGoldenRatioGridOverlay />}
+                            {gridOverlay === 'golden-triadic' && <TriadicGoldenRatioGridOverlay />}
+                        </>
+                    )}
                     
                     <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onEditImage(image.base64); }}
-                        className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded-md"
-                        aria-label="Edit image"
-                        title="Edit Image (Inpaint)"
-                      >
-                        <EditIcon />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onUpscaleImage(image.id); }}
-                        className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded-md"
-                        aria-label="Upscale image"
-                        title="Upscale Image (HD)"
-                      >
-                        <UpscaleIcon />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onAddToStoryboard(image.base64); }}
-                        className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded-md"
-                        aria-label="Add to storyboard"
-                        title="Add to Storyboard"
-                      >
-                        <AddToStoryIcon />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onAddToInspiration(image.base64); }}
-                        className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded-md"
-                        aria-label="Add to inspiration"
-                        title="Add to Inspiration"
-                      >
-                        <PinIcon />
-                      </button>
+                      {image.type === 'image' && image.base64 && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); onEditImage(image.base64!); }}
+                            className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded-md"
+                            aria-label="Edit image"
+                            title="Edit Image (Inpaint)"
+                          >
+                            <EditIcon />
+                          </button>
+                      )}
+                      
+                      {(image.type === 'image' || image.type === 'video') && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); onUpscaleImage(image.id); }}
+                            className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded-md"
+                            aria-label="Upscale asset"
+                            title={`Upscale ${image.type === 'image' ? 'Image' : 'Video'} (Enhance)`}
+                          >
+                            <UpscaleIcon />
+                          </button>
+                      )}
+
+                      {image.type === 'image' && image.base64 && (
+                          <>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onAddToStoryboard(image.base64!); }}
+                                className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded-md"
+                                aria-label="Add to storyboard"
+                                title="Add to Storyboard"
+                            >
+                                <AddToStoryIcon />
+                            </button>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onAddToInspiration(image.base64!); }}
+                                className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded-md"
+                                aria-label="Add to inspiration"
+                                title="Add to Inspiration"
+                            >
+                                <PinIcon />
+                            </button>
+                          </>
+                      )}
+                      
                        <button 
-                        onClick={(e) => { e.stopPropagation(); downloadImage(image.base64, `storyboard-image-${Date.now()}.jpeg`); }}
+                        onClick={(e) => { e.stopPropagation(); downloadAsset(image); }}
                         className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded-md"
-                        aria-label="Download image"
-                        title="Download Image"
+                        aria-label="Download asset"
+                        title="Download"
                       >
                         <DownloadIcon />
                       </button>

@@ -52,7 +52,7 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
     const isExternalRagConfigDisabled = !localConfig.ragEnabled || localConfig.ragProvider === 'browser';
 
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
+        <div className="p-6 max-w-7xl mx-auto w-full space-y-8 h-full overflow-y-auto">
             <div className="mb-8">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Automation Studio</h2>
                 <p className="text-neutral-400">Configure connections to external services like your RAG provider and event webhooks.</p>

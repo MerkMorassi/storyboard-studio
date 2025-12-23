@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { PhotorealismState } from '../types.ts';
-import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, PhotoRealismIcon } from './icons.tsx';
-import { BeforeAfterModal } from './BeforeAfterModal.tsx';
+import { LoadingSpinner, ChevronDownIcon, PhotoRealismIcon, ClearIcon } from './icons.tsx';
+import { AssetActions } from './AssetActions.tsx';
+import { getGradioClient } from '../services/gradioService';
 
 interface PhotorealismStudioProps {
     photorealismState: PhotorealismState;
@@ -10,107 +11,45 @@ interface PhotorealismStudioProps {
     error: string | null;
     onUpload: (file: File) => void;
     onRemoveImage: () => void;
-    onGenerate: () => void;
+    onGenerate: () => void; // Legacy, we handle locally
     onAddToStoryboard: (base64: string) => void;
     onAddToInspiration: (base64: string) => void;
     onPromptChange: (prompt: string, negativePrompt: string) => void;
+    hfToken?: string;
+    onAddAssetToGrid?: (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string }) => void;
 }
 
-const ImageUpload: React.FC<{
-    image: { base64: string; mimeType: string } | null;
-    onUpload: (file: File) => void;
-    onRemoveImage: () => void;
-}> = ({ image, onUpload, onRemoveImage }) => {
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            onUpload(file);
-        }
-        event.target.value = '';
-    };
-
-    if (image) {
-        return (
-            <div className="relative group w-full max-w-lg mx-auto rounded overflow-hidden">
-                <img src={`data:${image.mimeType};base64,${image.base64}`} alt="Source for photorealism" className="w-full h-full object-cover" />
-                <button
-                    onClick={onRemoveImage}
-                    className="absolute top-2 right-2 bg-black/50 text-white p-1.5 opacity-0 group-hover:opacity-100 transition-opacity rounded"
-                    aria-label="Remove Image"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                </button>
-            </div>
-        )
-    }
-
-    return (
-        <label htmlFor="photorealism-upload" className="w-full h-[50vh] flex flex-col items-center justify-center border-2 border-dashed border-neutral-800 rounded-xl bg-neutral-900/30 cursor-pointer hover:bg-neutral-800/50 transition text-neutral-500">
-            <div className="flex flex-col items-center justify-center p-4 text-center">
-                <div className="w-16 h-16 text-neutral-700 mb-4"><PhotoRealismIcon /></div>
-                <h3 className="text-xl font-semibold text-neutral-300 mb-2">Upload Cartoon or Illustration</h3>
-                <p className="text-sm">Click here to select a file</p>
-            </div>
-            <input id="photorealism-upload" type="file" className="hidden" onChange={handleFileChange} accept="image/*" />
-        </label>
-    );
+const base64ToBlob = async (base64: string, mimeType: string): Promise<Blob> => {
+    const res = await fetch(`data:${mimeType};base64,${base64}`);
+    return await res.blob();
 };
 
-const ResultDisplay: React.FC<{
-    source: { base64: string; mimeType: string };
-    resultImage: string;
-    onAddToStoryboard: (base64: string) => void;
-    onAddToInspiration: (base64: string) => void;
-    onViewFull: () => void;
-}> = ({ source, resultImage, onAddToStoryboard, onAddToInspiration, onViewFull }) => {
-    const downloadImage = (base64: string) => {
-        const link = document.createElement('a');
-        link.href = `data:image/jpeg;base64,${base64}`;
-        link.download = `photorealistic-result-${Date.now()}.jpeg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+const ASPECT_RATIOS = [
+    { label: '16:9', width: 1344, height: 768, name: 'Cinema' },
+    { label: '21:9', width: 1536, height: 640, name: 'Ultrawide' },
+    { label: '3:2', width: 1216, height: 832, name: 'Photo' },
+    { label: '1:1', width: 1024, height: 1024, name: 'Square' },
+    { label: '4:5', width: 896, height: 1152, name: 'Portrait' },
+    { label: '9:16', width: 768, height: 1344, name: 'Vertical' },
+];
 
-    return (
-        <div className="mt-8 space-y-4">
-            <h3 className="text-xl font-semibold text-neutral-300 text-center">Transformation Result</h3>
-            <div className="bg-neutral-800/50 p-4 rounded-lg border border-neutral-700">
-                <div className="flex flex-col md:flex-row gap-4">
-                    <div className="w-full md:w-1/2 cursor-pointer group" onClick={onViewFull}>
-                        <h4 className="text-center text-lg font-semibold text-neutral-400 mb-2">Before</h4>
-                        <div className="relative">
-                            <img src={`data:${source.mimeType};base64,${source.base64}`} alt="Original" className="w-full shadow-lg rounded" />
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold rounded">
-                                Click to enlarge
-                            </div>
-                        </div>
-                    </div>
-                    <div className="w-full md:w-1/2 cursor-pointer group" onClick={onViewFull}>
-                        <h4 className="text-center text-lg font-semibold text-neutral-300 mb-2">After</h4>
-                         <div className="relative">
-                            <img src={`data:image/jpeg;base64,${resultImage}`} alt="Photorealistic Result" className="w-full shadow-lg rounded" />
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold rounded">
-                                Click to enlarge
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                 <div className="mt-4 flex items-center justify-center gap-3">
-                    <button onClick={() => downloadImage(resultImage)} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition rounded"><DownloadIcon /> Download</button>
-                    <button onClick={() => onAddToStoryboard(resultImage)} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition rounded"><AddToStoryIcon /> Add to Storyboard</button>
-                    <button onClick={() => onAddToInspiration(resultImage)} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition rounded"><PinIcon /> Add to Inspiration</button>
-                </div>
-            </div>
-        </div>
-    );
-};
+export const PhotorealismStudio: React.FC<PhotorealismStudioProps> = ({ 
+    photorealismState, 
+    onPromptChange, 
+    onAddToStoryboard, 
+    onAddToInspiration, 
+    onAddAssetToGrid,
+    hfToken 
+}) => {
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [result, setResult] = useState<string | null>(photorealismState.result);
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [progress, setProgress] = useState<string>('');
+    const [seed, setSeed] = useState<number>(-1);
+    const [selectedRatio, setSelectedRatio] = useState(ASPECT_RATIOS[0]); // Default 16:9
 
-export const PhotorealismStudio: React.FC<PhotorealismStudioProps> = ({ photorealismState, isLoading, error, onUpload, onRemoveImage, onGenerate, onAddToStoryboard, onAddToInspiration, onPromptChange }) => {
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const { source, result, prompt, negativePrompt } = photorealismState;
-
-    const baseInputClasses = "w-full bg-neutral-800/60 border border-neutral-700 p-2 focus:ring-2 focus:ring-neutral-500 focus:border-neutral-500 transition duration-200 outline-none rounded";
+    const { prompt, negativePrompt } = photorealismState;
 
     const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         onPromptChange(e.target.value, negativePrompt);
@@ -120,78 +59,239 @@ export const PhotorealismStudio: React.FC<PhotorealismStudioProps> = ({ photorea
         onPromptChange(prompt, e.target.value);
     };
 
-    return (
-        <div className="p-6 max-w-7xl mx-auto w-full">
-            <div className="mb-8">
-                <h2 className="text-3xl font-bold text-neutral-200 mb-2">Photorealism Studio</h2>
-                <p className="text-neutral-400">Transform cartoons and illustrations into photorealistic images while preserving the original composition and subject.</p>
-            </div>
-            
-            <div className="flex flex-col items-center gap-6">
-                <ImageUpload image={photorealismState.source} onUpload={onUpload} onRemoveImage={onRemoveImage} />
+    const handleClear = () => {
+        onPromptChange('', '');
+        setResult(null);
+        setError(null);
+    };
 
-                {photorealismState.source && (
-                    <div className="w-full max-w-lg space-y-4">
-                         <div>
-                            <label className="text-sm font-semibold text-neutral-400 mb-2 block">Positive Prompt (Optional)</label>
-                            <textarea
-                                value={prompt}
-                                onChange={handlePromptChange}
-                                placeholder="e.g., cinematic lighting, dramatic shadows, 8k"
-                                className={`${baseInputClasses} h-24 resize-y`}
-                                disabled={isLoading}
-                            />
+    const handleGenerate = async () => {
+        if (!prompt.trim()) {
+            setError("Please enter a text prompt.");
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+        setResult(null);
+        setProgress('Initializing UHD Generator...');
+
+        try {
+            // Target the openfree/ultpixgen space
+            const client = await getGradioClient("openfree/ultpixgen", { hfToken });
+            
+            setProgress(`Generating ${selectedRatio.label} High-Fidelity Image...`);
+            
+            const apiResult = await client.predict("/predict", [
+                prompt,                 // param_0: Prompt
+                negativePrompt || "blurry, low quality, watermark, text, ugly, distorted",   // param_1: Negative Prompt
+                seed === -1 ? Math.floor(Math.random() * 2147483647) : seed, // param_2: Seed
+                selectedRatio.width,    // param_3: Width
+                selectedRatio.height,   // param_4: Height
+                7,                      // param_5: Guidance Scale
+                50,                     // param_6: Inference Steps
+            ]);
+
+            if (apiResult && apiResult.data && apiResult.data.length > 0) {
+                // The result is usually a file path or URL object
+                let output = apiResult.data[0];
+                let imageUrl = '';
+
+                if (typeof output === 'string') {
+                    imageUrl = output;
+                } else if (output?.url) {
+                    imageUrl = output.url;
+                } else if (output?.image?.url) {
+                    imageUrl = output.image.url;
+                }
+
+                if (imageUrl) {
+                    setProgress('Downloading UHD result...');
+                    const res = await fetch(imageUrl);
+                    const blob = await res.blob();
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64 = (reader.result as string).split(',')[1];
+                        setResult(base64);
+                        setIsLoading(false);
+                    };
+                    reader.readAsDataURL(blob);
+                } else {
+                    throw new Error("Could not parse image from response.");
+                }
+            } else {
+                throw new Error("API returned no data.");
+            }
+
+        } catch (err) {
+            console.error("UHD Generation Error:", err);
+            setError(err instanceof Error ? err.message : "Generation failed. Please try again.");
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="p-6 max-w-7xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
+            {/* Header removed */}
+            <div className="flex-shrink-0 flex justify-between items-end">
+                <div>
+                    <h2 className="text-3xl font-bold text-neutral-200 mb-2">UHD Image Generator <span className="text-sm font-normal text-orange-500 bg-orange-900/20 px-2 py-1 rounded ml-2 border border-orange-500/30">4K+ Resolution</span></h2>
+                    <p className="text-neutral-400">Generate massive, ultra-high-definition images from text. Ideal for final production assets and detailed backgrounds.</p>
+                </div>
+            </div>
+
+            <div className="flex-grow flex flex-col lg:flex-row gap-8">
+                {/* Controls Area */}
+                <div className="w-full lg:w-1/3 space-y-6 bg-neutral-800/30 p-6 rounded-xl border border-neutral-700 h-fit">
+                    
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-sm font-bold text-white uppercase tracking-wider bg-blue-600 px-2 py-0.5 rounded-md shadow-sm">Text Prompt</label>
                         </div>
-                         <div>
-                            <label className="text-sm font-semibold text-neutral-400 mb-2 block">Negative Prompt (Optional)</label>
-                            <textarea
-                                value={negativePrompt}
-                                onChange={handleNegativePromptChange}
-                                placeholder="e.g., blurry, watermark, text, signature"
-                                className={`${baseInputClasses} h-24 resize-y`}
-                                disabled={isLoading}
-                            />
+                        <textarea
+                            value={prompt}
+                            onChange={handlePromptChange}
+                            placeholder="A majestic mountain landscape with snow, cinematic lighting, 8k resolution, highly detailed..."
+                            className="w-full h-40 bg-neutral-900/80 border border-neutral-600 p-4 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none resize-none text-neutral-200 text-base shadow-inner transition-all placeholder-neutral-600"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wider">Aspect Ratio</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {ASPECT_RATIOS.map((ratio) => (
+                                <button
+                                    key={ratio.label}
+                                    onClick={() => setSelectedRatio(ratio)}
+                                    className={`px-2 py-2 rounded-lg text-xs font-bold transition-all border ${
+                                        selectedRatio.label === ratio.label
+                                            ? 'bg-orange-600 border-orange-500 text-white shadow-md'
+                                            : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'
+                                    }`}
+                                >
+                                    {ratio.label}
+                                    <span className="block text-[9px] font-normal opacity-70 mt-0.5">{ratio.name}</span>
+                                </button>
+                            ))}
                         </div>
+                    </div>
+
+                    <div className="flex gap-3">
                         <button
-                            onClick={onGenerate}
-                            disabled={isLoading}
-                            className="w-full bg-neutral-700 text-white font-bold py-3 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded"
+                            onClick={handleGenerate}
+                            disabled={isLoading || !prompt.trim()}
+                            className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-lg hover:shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform active:scale-95"
                         >
-                            {isLoading ? 'Generating...' : <><PhotoRealismIcon /> Generate Photorealistic Image</>}
+                            {isLoading ? (
+                                <span className="flex items-center gap-2"><LoadingSpinner className="w-5 h-5 text-white" /> Generating...</span>
+                            ) : (
+                                "Generate Image"
+                            )}
+                        </button>
+                        <button
+                            onClick={handleClear}
+                            className="px-4 py-3.5 bg-neutral-700 hover:bg-neutral-600 text-white font-bold rounded-xl transition-all shadow-md active:scale-95"
+                            title="Clear Prompt"
+                        >
+                            Clear
                         </button>
                     </div>
-                )}
+
+                    {/* Advanced Settings Accordion */}
+                    <div className="border-t border-neutral-700 pt-4">
+                        <button 
+                            onClick={() => setShowAdvanced(!showAdvanced)}
+                            className="flex items-center justify-between w-full text-left text-xs font-bold text-neutral-400 hover:text-white uppercase tracking-wider transition-colors"
+                        >
+                            <span>Advanced Settings</span>
+                            <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${showAdvanced ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {showAdvanced && (
+                            <div className="mt-4 space-y-4 animate-fade-in">
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 mb-1">Negative Prompt</label>
+                                    <textarea
+                                        value={negativePrompt}
+                                        onChange={handleNegativePromptChange}
+                                        placeholder="blurry, low quality, watermark, text, ugly..."
+                                        className="w-full h-24 bg-neutral-900 border border-neutral-700 p-3 rounded-lg focus:ring-1 focus:ring-orange-500 outline-none resize-none text-neutral-400 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 mb-1">Seed</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="number"
+                                            value={seed}
+                                            onChange={(e) => setSeed(parseInt(e.target.value))}
+                                            placeholder="-1 for random"
+                                            className="w-full bg-neutral-900 border border-neutral-700 p-2 rounded-lg text-sm text-neutral-300 outline-none"
+                                        />
+                                        <button 
+                                            onClick={() => setSeed(-1)}
+                                            className="px-3 bg-neutral-700 text-neutral-300 rounded-lg text-xs font-bold hover:bg-neutral-600 transition-colors whitespace-nowrap"
+                                        >
+                                            Random (-1)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {error && (
+                        <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-xl text-red-200 text-sm">
+                            <strong className="block mb-1">Generation Error</strong>
+                            {error}
+                        </div>
+                    )}
+                </div>
+
+                {/* Result Area */}
+                <div className="w-full lg:w-2/3 bg-neutral-900 border border-neutral-800 rounded-xl flex flex-col overflow-hidden relative min-h-[500px]">
+                    <div className="flex items-center justify-between p-4 border-b border-neutral-800 bg-neutral-800/50">
+                        <div className="flex items-center gap-2">
+                            <PhotoRealismIcon className="w-5 h-5 text-orange-500" />
+                            <span className="font-bold text-neutral-200 text-sm">Generated Image ({selectedRatio.width}x{selectedRatio.height} Base)</span>
+                        </div>
+                        {result && (
+                            <div className="flex gap-2">
+                                <AssetActions 
+                                    asset={{ type: 'image', base64: result, mimeType: 'image/jpeg' }}
+                                    onSaveToGrid={onAddAssetToGrid ? () => onAddAssetToGrid({ type: 'image', base64: result, mimeType: 'image/jpeg' }) : undefined}
+                                    onSaveToStoryboard={() => onAddToStoryboard(result)}
+                                    onSaveToInspiration={() => onAddToInspiration(result)}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex-grow flex items-center justify-center bg-black/50 relative p-8">
+                        {isLoading ? (
+                            <div className="flex flex-col items-center">
+                                <LoadingSpinner className="w-12 h-12 text-orange-500" />
+                                <p className="mt-6 text-orange-400 animate-pulse font-mono text-lg">{progress}</p>
+                                <p className="mt-2 text-neutral-500 text-sm">Accessing 5K rendering engine...</p>
+                            </div>
+                        ) : result ? (
+                            <img 
+                                src={`data:image/jpeg;base64,${result}`} 
+                                alt="UHD Generated Result" 
+                                className="max-w-full max-h-[70vh] object-contain shadow-2xl rounded-lg ring-1 ring-white/10" 
+                            />
+                        ) : (
+                            <div className="text-neutral-600 flex flex-col items-center select-none opacity-50">
+                                <div className="w-24 h-24 border-2 border-dashed border-neutral-700 rounded-2xl flex items-center justify-center mb-4">
+                                    <PhotoRealismIcon className="w-10 h-10" />
+                                </div>
+                                <p className="text-lg font-medium">Ready to Generate</p>
+                                <p className="text-sm">Enter a prompt to create a 5K Ultra HD image.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
-            
-             {error && (
-                 <div className="mt-8 bg-red-900/20 border border-red-500 p-4 text-center rounded">
-                    <h3 className="text-lg font-semibold text-red-400">Generation Failed</h3>
-                    <p className="mt-1 text-red-300 text-sm">{error}</p>
-                </div>
-            )}
-            
-            {isLoading && (
-                <div className="mt-8 flex flex-col items-center justify-center min-h-[200px] bg-neutral-900/50 p-4 rounded border border-neutral-800">
-                    <LoadingSpinner />
-                    <p className="mt-4 text-lg text-neutral-300 animate-pulse">Transforming to photorealism...</p>
-                </div>
-            )}
-            
-            {result && source && !isLoading && (
-                 <ResultDisplay
-                    source={source}
-                    resultImage={result}
-                    onAddToStoryboard={onAddToStoryboard}
-                    onAddToInspiration={onAddToInspiration}
-                    onViewFull={() => setIsModalOpen(true)}
-                />
-            )}
-             <BeforeAfterModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                beforeImage={source}
-                afterImage={result}
-            />
         </div>
     );
 };

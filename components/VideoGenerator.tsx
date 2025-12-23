@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { StoryboardFrame } from '../types.ts';
 import { LoadingSpinner, VideoIcon } from './icons.tsx';
@@ -23,7 +22,7 @@ export const VideoGenerator: React.FC<VideoGeneratorProps> = ({ storyboard, onGe
     
     if (storyboard.length === 0) {
         return (
-             <div className="p-6 max-w-7xl mx-auto w-full">
+             <div className="p-6 max-w-7xl mx-auto w-full h-full overflow-y-auto">
                 <div className="mb-8">
                     <h2 className="text-3xl font-bold text-neutral-200 mb-2">Video Studio</h2>
                     <p className="text-neutral-400">Turn your storyboards into animated clips.</p>
@@ -38,7 +37,7 @@ export const VideoGenerator: React.FC<VideoGeneratorProps> = ({ storyboard, onGe
     }
     
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full">
+        <div className="p-6 max-w-7xl mx-auto w-full h-full overflow-y-auto">
             <div className="mb-8">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Video Studio</h2>
                 <p className="text-neutral-400">Turn your storyboards into animated clips.</p>

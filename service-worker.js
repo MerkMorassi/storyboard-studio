@@ -1,4 +1,5 @@
 
+
 const CACHE_NAME = 'storyboard-studio-v1';
 const urlsToCache = [
   '/',
@@ -8,7 +9,8 @@ const urlsToCache = [
   '/types.ts',
   '/services/geminiService.ts',
   '/services/ragService.ts',
-  '/services/localRagService.ts', // Added local RAG service
+  '/services/localRagService.ts', 
+  '/services/topazService.ts', // Added Topaz service
   '/components/InputPanel.tsx',
   '/components/ImageGrid.tsx',
   '/components/icons.tsx',
@@ -19,6 +21,7 @@ const urlsToCache = [
   '/components/VideoGenerator.tsx',
   '/components/FaceRepairStudio.tsx',
   '/components/PhotorealismStudio.tsx',
+  '/components/TopazStudio.tsx', // Added Topaz component
   '/components/BeforeAfterModal.tsx',
   '/components/AgentsStudio.tsx',
   '/components/LoreStudio.tsx',

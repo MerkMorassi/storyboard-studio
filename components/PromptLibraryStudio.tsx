@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { PromptTemplate } from '../types.ts';
 import { LibraryIcon } from './icons.tsx';
@@ -135,7 +134,7 @@ export const PromptLibraryStudio: React.FC<PromptLibraryStudioProps> = ({ templa
     const [editingId, setEditingId] = useState<string | null>(null);
 
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
+        <div className="p-6 max-w-7xl mx-auto w-full space-y-8 h-full overflow-y-auto">
             <div className="mb-8">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Prompt Library</h2>
                 <p className="text-neutral-400 mb-6">Create and manage reusable prompt templates. These "styles" can be quickly applied from the Grid view to maintain a consistent look and feel.</p>

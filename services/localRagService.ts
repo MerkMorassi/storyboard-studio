@@ -1,18 +1,18 @@
 
-import { GoogleGenAI } from '@google/genai';
 import { LoreEntry } from '../types.ts';
+import { getEmbeddings } from './geminiService'; // Use centralized service
 
 // MYTHOS Local RAG Implementation
 // Uses IndexedDB for storage and Gemini text-embedding-004 for vectors.
 
 const DB_NAME = 'mythos_vectordb';
-const DB_VERSION = 1; // Increment this if you change store structure
+const DB_VERSION = 1; 
 const STORE_NAME = 'vectors';
-const SETTINGS_STORE_NAME = 'settings'; // For model selection etc.
+const SETTINGS_STORE_NAME = 'settings'; 
 
 interface VectorDocument {
-    id: string; // Unique ID for the chunk itself
-    loreEntryId: string; // The ID of the original LoreEntry this chunk belongs to
+    id: string; // Unique ID for the chunk
+    loreEntryId: string; // The ID of the original LoreEntry
     projectId: string;
     title: string;
     content: string; // The chunked text
@@ -83,10 +83,6 @@ class SimpleDB {
         });
     }
 
-    async add(storeName: string, item: any): Promise<void> {
-        await this.tx(storeName, 'readwrite', store => store.put(item));
-    }
-
     async addBulk(storeName: string, items: any[]): Promise<void> {
         await this.open();
         return new Promise((resolve, reject) => {
@@ -126,27 +122,18 @@ class SimpleDB {
 
 const db = new SimpleDB(DB_NAME, DB_VERSION);
 
-// --- Embedding Logic ---
+// --- Embedding Logic Replaced by geminiService ---
 
-const getEmbedding = async (text: string, apiKey: string): Promise<number[]> => {
-    if (!apiKey) throw new Error("Google API Key required for local embeddings (text-embedding-004). Please set it in Settings.");
-    
+const getEmbedding = async (text: string): Promise<number[]> => {
     // Ensure text is not too long for embedding model
-    const MAX_EMBEDDING_TEXT_LENGTH = 10000; // Common limit for text embedding models
+    const MAX_EMBEDDING_TEXT_LENGTH = 10000;
     const trimmedText = text.length > MAX_EMBEDDING_TEXT_LENGTH ? text.substring(0, MAX_EMBEDDING_TEXT_LENGTH) : text;
 
-    const ai = new GoogleGenAI({ apiKey });
-    
-    // Using the text-embedding-004 model for high quality
-    const response = await ai.models.embedContent({
-        model: 'text-embedding-004',
-        content: { parts: [{ text: trimmedText }] }
-    });
-
-    if (!response.embedding?.values) {
-        throw new Error("Failed to generate embedding from Gemini API.");
+    const values = await getEmbeddings(trimmedText);
+    if (!values) {
+        throw new Error("Failed to generate embedding (service returned null).");
     }
-    return response.embedding.values;
+    return values;
 };
 
 // --- Vector Math ---
@@ -156,9 +143,8 @@ const cosineSimilarity = (vecA: number[], vecB: number[]): number => {
     let normA = 0;
     let normB = 0;
 
-    // Check for empty or non-matching length vectors
     if (!vecA || !vecB || vecA.length === 0 || vecB.length === 0 || vecA.length !== vecB.length) {
-        return 0; // Or throw an error, depending on desired behavior
+        return 0;
     }
 
     for (let i = 0; i < vecA.length; i++) {
@@ -171,46 +157,38 @@ const cosineSimilarity = (vecA: number[], vecB: number[]): number => {
     return magnitude === 0 ? 0 : dotProduct / magnitude;
 };
 
-// --- Semantic Chunking (from MYTHOS Vault) ---
+// --- Semantic Chunking ---
 function chunkText(text: string, targetSize = 600, overlap = 50): string[] {
     const chunks: string[] = [];
     let index = 0;
-
-    // Simple preprocessing to ensure consistent newlines
     text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
     while (index < text.length) {
         let currentChunkEnd = Math.min(index + targetSize, text.length);
-        
-        // If we're near the end of the text, just take the rest
         if (currentChunkEnd >= text.length) {
             chunks.push(text.slice(index).trim());
             break;
         }
 
         let splitIndex = -1;
-        const searchStart = Math.max(index, currentChunkEnd - overlap); // Look back from target end
+        const searchStart = Math.max(index, currentChunkEnd - overlap);
 
-        // Strategy 1: Find a newline character
         splitIndex = text.lastIndexOf('\n', currentChunkEnd);
         if (splitIndex !== -1 && splitIndex > searchStart) {
-            // Found a good newline within the lookback window
-            // Make sure the chunk is not too small (e.g., just a single char) if we chop at a newline
             if (splitIndex - index > targetSize / 2 || currentChunkEnd === text.length) {
                 const chunk = text.slice(index, splitIndex).trim();
                 if (chunk.length > 0) chunks.push(chunk);
-                index = splitIndex + 1; // Start after the newline
+                index = splitIndex + 1;
                 continue;
             }
         }
         
-        // Strategy 2: Find a sentence boundary (. ! ?)
         splitIndex = -1;
         const sentenceBreaks = text.slice(searchStart, currentChunkEnd).matchAll(/[.!?](?=\s|$)/g);
         let bestSentenceBreak = -1;
         for (const match of sentenceBreaks) {
             if (match.index !== undefined) {
-                const absoluteIndex = searchStart + match.index + 1; // +1 to include the punctuation
+                const absoluteIndex = searchStart + match.index + 1;
                 if (absoluteIndex > index + (targetSize / 2) && absoluteIndex <= currentChunkEnd) {
                     bestSentenceBreak = absoluteIndex;
                 }
@@ -224,7 +202,6 @@ function chunkText(text: string, targetSize = 600, overlap = 50): string[] {
             continue;
         }
 
-        // Strategy 3: Find a space character
         splitIndex = text.lastIndexOf(' ', currentChunkEnd);
         if (splitIndex !== -1 && splitIndex > searchStart) {
             const chunk = text.slice(index, currentChunkEnd).trim();
@@ -233,13 +210,11 @@ function chunkText(text: string, targetSize = 600, overlap = 50): string[] {
             continue;
         }
 
-        // Strategy 4: If no good split found, hard break at currentChunkEnd
         const chunk = text.slice(index, currentChunkEnd).trim();
         if (chunk.length > 0) chunks.push(chunk);
         index = currentChunkEnd;
     }
     
-    // Filter out any empty chunks that might result from trimming or consecutive newlines
     return chunks.filter(chunk => chunk.length > 0);
 }
 
@@ -255,18 +230,16 @@ export const initLocalRAG = async (): Promise<void> => {
     }
 };
 
-export const addDocument = async (apiKey: string, projectId: string, entry: LoreEntry): Promise<void> => {
-    if (!apiKey) throw new Error("Google API Key required for local RAG embeddings.");
-
-    // Chunk the content before embedding and storing
+// Removed apiKey from params as it's handled by centralized service
+export const addDocument = async (projectId: string, entry: LoreEntry): Promise<void> => {
     const chunks = chunkText(entry.content);
     const documentsToAdd: VectorDocument[] = [];
 
     for (const chunk of chunks) {
-        const embedding = await getEmbedding(chunk, apiKey);
+        const embedding = await getEmbedding(chunk);
         documentsToAdd.push({
-            id: crypto.randomUUID(), // Each chunk gets a unique ID
-            loreEntryId: entry.id, // Store original LoreEntry ID
+            id: crypto.randomUUID(), 
+            loreEntryId: entry.id,
             projectId,
             title: entry.title,
             content: chunk,
@@ -280,9 +253,7 @@ export const addDocument = async (apiKey: string, projectId: string, entry: Lore
     }
 };
 
-// Deletes all chunks associated with a specific LoreEntry ID within a project
 export const deleteDocumentsByLoreEntryId = async (loreEntryId: string, projectId: string): Promise<void> => {
-    // Get all relevant docs first, then delete them one by one
     const allDocsInProject = await db.getAll<VectorDocument>(STORE_NAME, 'projectId', projectId);
     const docsToDelete = allDocsInProject.filter(doc => doc.loreEntryId === loreEntryId);
     
@@ -291,7 +262,6 @@ export const deleteDocumentsByLoreEntryId = async (loreEntryId: string, projectI
     }
 };
 
-// Deletes all documents for a given project
 export const clearProjectDocuments = async (projectId: string): Promise<void> => {
     const allDocsInProject = await db.getAll<VectorDocument>(STORE_NAME, 'projectId', projectId);
     for (const doc of allDocsInProject) {
@@ -299,10 +269,9 @@ export const clearProjectDocuments = async (projectId: string): Promise<void> =>
     }
 };
 
-export const searchDocuments = async (apiKey: string, projectId: string, query: string, limit: number = 5): Promise<LoreEntry[]> => {
-    if (!apiKey) throw new Error("Google API Key required for local RAG search.");
-
-    const queryEmbedding = await getEmbedding(query, apiKey);
+// Removed apiKey from params
+export const searchDocuments = async (projectId: string, query: string, limit: number = 5): Promise<LoreEntry[]> => {
+    const queryEmbedding = await getEmbedding(query);
     const allDocsInProject = await db.getAll<VectorDocument>(STORE_NAME, 'projectId', projectId);
 
     const scoredDocs = allDocsInProject.map(doc => ({
@@ -310,25 +279,21 @@ export const searchDocuments = async (apiKey: string, projectId: string, query: 
         score: cosineSimilarity(queryEmbedding, doc.embedding)
     }));
 
-    // Filter by a minimum relevance score (e.g., 0.6, adjustable)
     const RELEVANCE_THRESHOLD = 0.6;
     const filteredAndSortedDocs = scoredDocs
         .filter(doc => doc.score > RELEVANCE_THRESHOLD)
         .sort((a, b) => b.score - a.score);
 
-    // Return top K, ensure unique titles if preferred for context
     const uniqueTitles = new Set<string>();
     const results: LoreEntry[] = [];
     for (const doc of filteredAndSortedDocs) {
-        // Here, we return the chunk as a LoreEntry, but its ID is the chunk ID
-        // The original LoreEntry ID is stored in loreEntryId if needed to group
-        if (!uniqueTitles.has(doc.title)) { // Only add one chunk per original LoreEntry title for conciseness
+        if (!uniqueTitles.has(doc.title)) {
             results.push({
-                id: doc.loreEntryId, // Use the original LoreEntry ID
-                projectId: doc.projectId, // Pass projectId
+                id: doc.loreEntryId, 
+                projectId: doc.projectId, 
                 title: doc.title,
                 content: doc.content,
-                ragDocumentId: doc.id // Store the specific chunk ID in ragDocumentId
+                ragDocumentId: doc.id 
             });
             uniqueTitles.add(doc.title);
             if (results.length >= limit) break;
@@ -338,11 +303,9 @@ export const searchDocuments = async (apiKey: string, projectId: string, query: 
     return results;
 };
 
-// For UI display, we need to reconstruct original LoreEntry from chunks
 export const getAllDocuments = async (projectId: string): Promise<LoreEntry[]> => {
     const allDocs = await db.getAll<VectorDocument>(STORE_NAME, 'projectId', projectId);
     
-    // Group chunks by their original loreEntryId to reconstruct the full LoreEntry
     const loreMap = new Map<string, { id: string, projectId: string, title: string, contentChunks: string[], ragDocumentIds: string[] }>();
 
     for (const doc of allDocs) {
@@ -350,7 +313,7 @@ export const getAllDocuments = async (projectId: string): Promise<LoreEntry[]> =
         if (!loreMap.has(originalLoreId)) {
             loreMap.set(originalLoreId, { 
                 id: originalLoreId,
-                projectId: doc.projectId, // Pass projectId
+                projectId: doc.projectId, 
                 title: doc.title, 
                 contentChunks: [], 
                 ragDocumentIds: [] 
@@ -362,10 +325,10 @@ export const getAllDocuments = async (projectId: string): Promise<LoreEntry[]> =
 
     return Array.from(loreMap.values()).map(entry => ({
         id: entry.id, 
-        projectId: entry.projectId, // Pass projectId
+        projectId: entry.projectId, 
         title: entry.title,
-        content: entry.contentChunks.join('\n\n'), // Rejoin chunks to form original content
-        ragDocumentId: entry.ragDocumentIds.join(',') // Store all chunk IDs if needed, or null if only one
+        content: entry.contentChunks.join('\n\n'), 
+        ragDocumentId: entry.ragDocumentIds.join(',') 
     }));
 };
 

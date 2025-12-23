@@ -1,604 +1,838 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { InputPanel } from './components/InputPanel.tsx';
-import { ImageGrid } from './components/ImageGrid.tsx';
-import { generateImagesFromApi, upscaleImage, generateVideoFromApi, generateCompositeImage, generateFaceSwapFromApi, generateSceneCompositeFromApi, generateFaceRepairFromApi, generatePhotorealisticImageFromApi, chatWithAgentFromApi } from './services/geminiService.ts';
-import * as ragService from './services/ragService.ts';
-import * as localRagService from './services/localRagService.ts'; // Import local RAG service
-import { GenerationOptions, GridOverlayType, StoryboardFrame, ActiveView, InspirationImage, ImageState, BlenderImage, FaceSwapState, SceneCompositorState, FaceRepairState, PhotorealismState, Agent, LoreEntry, DynamicPromptList, ChatMessage, WebhookPayload, FunctionCall, AutomationConfig, PromptTemplate, Project, ProjectData } from './types.ts';
-import { SettingsModal } from './components/SettingsModal.tsx';
-import { Sidebar } from './components/Sidebar.tsx';
-import { Storyboard } from './components/Storyboard.tsx';
-import { ScriptViewer } from './components/ScriptViewer.tsx';
-import { InspirationBoard } from './components/InspirationBoard.tsx';
-import { ImageModal } from './components/ImageModal.tsx';
-import { VideoGenerator } from './components/VideoGenerator.tsx';
-import { BlenderStudio } from './components/BlenderStudio.tsx';
-import { FaceSwapStudio } from './components/FaceSwapStudio.tsx';
-import { SceneCompositorStudio } from './components/SceneCompositorStudio.tsx';
-import { FaceRepairStudio } from './components/FaceRepairStudio.tsx';
-import { PhotorealismStudio } from './components/PhotorealismStudio.tsx';
-import { AgentsStudio } from './components/AgentsStudio.tsx';
-import { LoreStudio } from './components/LoreStudio.tsx';
-import { DynamicPromptsStudio } from './components/DynamicPromptsStudio.tsx';
-import { PromptLibraryStudio } from './components/PromptLibraryStudio.tsx';
-import { AgentChatStudio } from './components/AgentChatStudio.tsx';
-import { DashboardStudio } from './components/DashboardStudio.tsx';
-import { AutomationStudio } from './components/AutomationStudio.tsx';
-import { ProjectsStudio } from './components/ProjectsStudio.tsx';
+import React, { useState, useEffect } from 'react';
+import { Sidebar } from './components/Sidebar';
+import { DashboardStudio } from './components/DashboardStudio';
+import { ImageGrid } from './components/ImageGrid';
+import { Storyboard } from './components/Storyboard';
+import { DirectorStudio } from './modules/director/DirectorStudio';
+import { AgentsStudio } from './components/AgentsStudio';
+import { TeamStudio } from './components/TeamStudio';
+import { LoreStudio } from './components/LoreStudio';
+import { PromptLibraryStudio } from './components/PromptLibraryStudio';
+import { DynamicPromptsStudio } from './components/DynamicPromptsStudio';
+import { ScriptViewer } from './components/ScriptViewer';
+import { InspirationBoard } from './components/InspirationBoard';
+import { VideoGenerator } from './components/VideoGenerator';
+import { GenerativeVideoStudio } from './components/GenerativeVideoStudio';
+import { BlenderStudio } from './components/BlenderStudio';
+import { SceneCompositorStudio } from './components/SceneCompositorStudio';
+import { CompositeStudio } from './components/CompositeStudio';
+import { FaceSwapStudio } from './components/FaceSwapStudio';
+import { FaceRepairStudio } from './components/FaceRepairStudio';
+import { PhotorealismStudio } from './components/PhotorealismStudio';
+import { GreenScreenStudio } from './components/GreenScreenStudio';
+import { TopazStudio } from './components/TopazStudio';
+import { ResizeStudio } from './components/ResizeStudio';
+import { AutomationStudio } from './components/AutomationStudio';
+import { ProjectsStudio } from './components/ProjectsStudio';
+import { KnowledgeView } from './components/KnowledgeView';
+import { SettingsModal } from './components/SettingsModal';
+import { InputPanel } from './components/InputPanel';
+import { ImageGeneratorStudio } from './components/ImageGeneratorStudio';
+import { AgentChatStudio } from './components/AgentChatStudio';
+import { StudioHeader } from './components/StudioHeader';
+import { GenericAgentStudio } from './components/GenericAgentStudio';
+import { CoreStudio } from './components/CoreStudio';
+import { IdeationStudio } from './components/IdeationStudio';
+import { ScriptingStudio } from './components/ScriptingStudio';
+import { DesignStudio } from './components/DesignStudio';
+import { ArtStudio } from './components/ArtStudio';
+import { getApiKey, saveApiKey, getTopazApiKey, saveTopazApiKey, getHfApiKey, saveHfApiKey } from './services/apiKeyService';
+import { processImage, processVideo } from './services/topazService';
+import { ActiveView, Project, ImageState, Agent, LoreEntry, PromptTemplate, DynamicPromptList, StoryboardFrame, InspirationImage, BlenderImage, SceneCompositorState, CompositeState, FaceSwapState, FaceRepairState, PhotorealismState, GreenScreenState, TopazState, GenerativeVideoState, ResizeState, AutomationConfig } from './types';
+import { getAgent, saveAgent, getAnimAgentsTeam } from './services/agentService';
+import { useLiveChat } from './hooks/useLiveChat';
+import { MicIcon, MicOffIcon, PhoneIcon } from './components/icons';
 
-const defaultPhotorealismPrompt = "real photograph, photorealistic, glamorous, aesthetic, 4k, 8k, real human, realistic lighting, Real photograph, Real Picture taken with a camera, Real camera quality photo, natural soft lighting and shadows, professional photography, ((Aesthetic 11)), real photograph, photorealistic, 4k, 8k, real human, realistic lighting, Real photograph, Real Picture taken with a camera, Real camera quality photo, natural soft lighting and shadows, professional photography";
+// Mock Data Generators for Initial State (Simplification for restoration)
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
-const fileToBase64 = (file: File): Promise<{ base64: string, mimeType: string }> =>
+const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = reader.result as string;
-      const mimeType = result.split(',')[0].split(':')[1].split(';')[0];
-      const base64 = result.split(',')[1];
-      resolve({ base64, mimeType });
-    };
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = (error) => reject(error);
   });
 
-const applyLetterbox = (base64Image: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        return reject(new Error('Could not get canvas context'));
-      }
+// --- Live Chat Overlay Component ---
+const LiveChatOverlay: React.FC<{ agent: Agent; onClose: () => void }> = ({ agent, onClose }) => {
+    const { isLive, connectionState, liveTranscript, startLiveChat, stopLiveChat } = useLiveChat(agent);
 
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      ctx.drawImage(img, 0, 0);
+    useEffect(() => {
+        startLiveChat();
+        return () => { stopLiveChat(); };
+    }, []);
 
-      const targetContentHeight = canvas.width / 2.39;
-      const barHeight = (canvas.height - targetContentHeight) / 2;
+    return (
+        <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center backdrop-blur-md animate-fade-in">
+            <div className="bg-neutral-900 border border-neutral-700 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-green-500 animate-pulse"></div>
+                <div className="mb-6">
+                    <img src={agent.avatar || "https://ui-avatars.com/api/?name=" + agent.name} className="w-24 h-24 rounded-full mx-auto border-4 border-neutral-800 shadow-lg" alt={agent.name} />
+                    <h3 className="text-2xl font-bold text-white mt-4">{agent.name}</h3>
+                    <p className="text-green-400 text-sm font-bold uppercase tracking-wider mt-1">{connectionState === 'connected' ? 'Live Call Active' : connectionState}</p>
+                </div>
+                
+                <div className="bg-neutral-800/50 rounded-xl p-4 min-h-[120px] mb-6 text-left border border-neutral-700/50">
+                    <div className="mb-2">
+                        <span className="text-[10px] text-neutral-500 font-bold uppercase">You</span>
+                        <p className="text-sm text-neutral-300">{liveTranscript.user || "Listening..."}</p>
+                    </div>
+                    <div>
+                        <span className="text-[10px] text-blue-500 font-bold uppercase">{agent.name}</span>
+                        <p className="text-sm text-white">{liveTranscript.model || "..."}</p>
+                    </div>
+                </div>
 
-      if (barHeight > 0) {
-        ctx.fillStyle = 'black';
-        ctx.fillRect(0, 0, canvas.width, barHeight);
-        ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight);
-      }
-      
-      resolve(canvas.toDataURL('image/jpeg').split(',')[1]);
-    };
-    img.onerror = (err) => {
-      reject(err);
-    };
-    img.src = `data:image/jpeg;base64,${base64Image}`;
-  });
+                <button onClick={onClose} className="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-red-500/20 transition-all transform active:scale-95 flex items-center justify-center gap-2 mx-auto">
+                    <PhoneIcon className="w-5 h-5 rotate-135" />
+                    End Call
+                </button>
+            </div>
+        </div>
+    );
 };
 
-const createNewProjectData = (): ProjectData => ({
-    images: [],
-    storyboard: [],
-    scriptText: '',
-    inspirationImages: [],
-    blenderImages: [],
-    blenderResult: null,
-    sceneCompositorState: { background: null, character: null, result: null },
-    faceSwapState: { source: null, face: null, result: null },
-    faceRepairState: { source: null, result: null },
-    photorealismState: { source: null, result: null, prompt: defaultPhotorealismPrompt, negativePrompt: '' },
-    agents: [],
-    lore: [],
-    dynamicPromptLists: [],
-    promptTemplates: [],
-    automationConfig: {
-        ragEnabled: true, // Default to true for local RAG
-        ragProvider: 'browser', // Default to browser for local RAG
-        ragApiKey: '', // Default empty, user needs to input for external. Not used directly for browser.
-        ragBaseUrl: 'https://aws-us-east-2-1.rag.progress.cloud/api/v1',
-        ragKnowledgeBoxId: '459e3fc9-21cd-4ee8-8c93-e8dfa42675b2',
-        ragLocalhostUrl: 'http://localhost:8000/api/v1/kb/your-kb-id/documents',
-        webhookUrls: ['https://webhooks.tasklet.ai/v1/public/webhook?token=8eac32e6d0692b212ec5fa5305bcea55']
-    },
-});
-
-function App() {
-  // --- Core State ---
-  const [projects, setProjects] = useState<Project[]>(() => {
-      const saved = localStorage.getItem('projects');
-      return saved ? JSON.parse(saved) : [];
-  });
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(() => localStorage.getItem('activeProjectId'));
-  const [activeView, setActiveView] = useState<ActiveView>('projects');
-  
-  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('gemini-api-key') || '');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+export default function App() {
+  const [activeView, setActiveView] = useState<ActiveView>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  // --- UI State ---
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [editingImage, setEditingImage] = useState<{ base64: string; mimeType: string } | null>(null);
-  const [viewingImage, setViewingImage] = useState<ImageState | null>(null);
-  const [gridOverlay, setGridOverlay] = useState<GridOverlayType>('none');
-  const [lastGenerationOptions, setLastGenerationOptions] = useState<GenerationOptions | null>(null);
-  const [lastUsedSeed, setLastUsedSeed] = useState<string>('');
-  const [agentFilter, setAgentFilter] = useState<string>('');
-  const [awaitingExternalGeneration, setAwaitingExternalGeneration] = useState<boolean>(false);
-  const [preparedOptions, setPreparedOptions] = useState<Partial<GenerationOptions & { sceneType: string, location: string, timeOfDay: string, characters: string }> | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Studio-specific loading/error states
-  const [isVideoLoading, setIsVideoLoading] = useState<boolean>(false);
-  const [videoGenerationError, setVideoGenerationError] = useState<string | null>(null);
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
-  const [videoGenerationProgress, setVideoGenerationProgress] = useState<string>('');
-  const [isBlenderLoading, setIsBlenderLoading] = useState<boolean>(false);
-  const [blenderError, setBlenderError] = useState<string | null>(null);
-  const [isSceneCompositorLoading, setIsSceneCompositorLoading] = useState<boolean>(false);
-  const [sceneCompositorError, setSceneCompositorError] = useState<string | null>(null);
-  const [isFaceSwapLoading, setIsFaceSwapLoading] = useState<boolean>(false);
-  const [faceSwapError, setFaceSwapError] = useState<string | null>(null);
-  const [isFaceRepairLoading, setIsFaceRepairLoading] = useState<boolean>(false);
-  const [faceRepairError, setFaceRepairError] = useState<string | null>(null);
-  const [isPhotorealismLoading, setIsPhotorealismLoading] = useState<boolean>(false);
-  const [photorealismError, setPhotorealismError] = useState<string | null>(null);
-  const [isAgentResponding, setIsAgentResponding] = useState<boolean>(false);
-  const [agentChatError, setAgentChatError] = useState<string | null>(null);
+  // Global API Key State
+  const [apiKey, setApiKey] = useState(getApiKey() || '');
+  const [topazApiKey, setTopazKey] = useState(getTopazApiKey() || '');
+  const [hfApiKey, setHfApiKey] = useState(getHfApiKey() || '');
 
-  // --- Derived State ---
-  const activeProject = projects.find(p => p.id === activeProjectId);
-  const activeProjectData = activeProject?.data;
+  // --- Application State ---
+  const [images, setImages] = useState<ImageState[]>([]);
+  const [storyboard, setStoryboard] = useState<StoryboardFrame[]>([]);
   
-  // --- Effects ---
-  // Fix: Initialize local RAG DB on component mount
-  useEffect(() => {
-      localRagService.initLocalRAG().catch(console.error);
-  }, []);
+  // SEPARATED AGENTS: Cast vs Team
+  const [castMembers, setCastMembers] = useState<Agent[]>([]); // Fictional Characters
+  const [animAgents, setAnimAgents] = useState<Agent[]>(getAnimAgentsTeam()); // The Production Team (Nexus, etc.)
 
-  useEffect(() => {
-      if (activeProjectId && projects.find(p => p.id === activeProjectId)) {
-          localStorage.setItem('activeProjectId', activeProjectId);
-          if (activeView === 'projects') {
-            setActiveView('dashboard');
+  const [lore, setLore] = useState<LoreEntry[]>([]);
+  const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
+  const [dynamicPrompts, setDynamicPrompts] = useState<DynamicPromptList[]>([]);
+  const [inspiration, setInspiration] = useState<InspirationImage[]>([]);
+  const [scriptText, setScriptText] = useState('');
+  
+  // Specific Studio States
+  const [blenderState, setBlenderState] = useState<{ source: BlenderImage[], result: string | null }>({ source: [], result: null });
+  const [sceneState, setSceneState] = useState<SceneCompositorState>({ background: null, character: null, result: null });
+  const [compositeState, setCompositeState] = useState<CompositeState>({ 
+      refImage1: null, refImage2: null, task1: 'ip', task2: 'ip', 
+      prompt: 'a person playing guitar in the street', negativePrompt: '', 
+      width: 1024, height: 1024, seed: -1, randomizeSeed: true, 
+      resultImage: null, resultVideoUrl: null 
+  });
+  const [faceSwapState, setFaceSwapState] = useState<FaceSwapState>({ source: null, face: null, result: null });
+  const [faceRepairState, setFaceRepairState] = useState<FaceRepairState>({ source: null, result: null });
+  const [photorealismState, setPhotorealismState] = useState<PhotorealismState>({ source: null, result: null, prompt: '', negativePrompt: '' });
+  const [greenScreenState, setGreenScreenState] = useState<GreenScreenState>({ source: null, resultUrl: null });
+  const [resizeState, setResizeState] = useState<ResizeState>({ 
+      source: null, result: null, 
+      width: 1280, height: 720, 
+      prompt: '', alignment: 'Middle', overlap: 10, steps: 8, 
+      directions: { left: true, right: true, top: true, bottom: true } 
+  });
+  
+  // Topaz State with LocalStorage Persistence
+  const [topazState, setTopazState] = useState<TopazState>(() => {
+      const defaultState: TopazState = { 
+          activeMediaType: 'image', 
+          source: null, 
+          result: null, 
+          resultUrl: null, 
+          operation: 'enhance', 
+          parameters: { scale: 2, strength: 50 }, 
+          faceRecovery: true 
+      };
+      try {
+          const saved = localStorage.getItem('topaz_settings_v1');
+          if (saved) {
+              const parsed = JSON.parse(saved);
+              return { 
+                  ...defaultState, 
+                  operation: parsed.operation || defaultState.operation,
+                  parameters: { ...defaultState.parameters, ...parsed.parameters },
+                  faceRecovery: parsed.faceRecovery ?? defaultState.faceRecovery
+              };
           }
-      } else {
-          localStorage.removeItem('activeProjectId');
-          setActiveView('projects');
+      } catch (e) {
+          console.error("Failed to load Topaz settings:", e);
       }
-  }, [activeProjectId, projects, activeView]);
+      return defaultState;
+  });
 
+  // Persist Topaz settings
   useEffect(() => {
-      localStorage.setItem('projects', JSON.stringify(projects));
-  }, [projects]);
+      const settingsToSave = {
+          operation: topazState.operation,
+          parameters: topazState.parameters,
+          faceRecovery: topazState.faceRecovery
+      };
+      localStorage.setItem('topaz_settings_v1', JSON.stringify(settingsToSave));
+  }, [topazState.operation, topazState.parameters, topazState.faceRecovery]);
   
-  const updateActiveProjectData = useCallback((updater: (data: ProjectData) => ProjectData) => {
-    if (!activeProjectId) return;
-    setProjects(prevProjects =>
-      prevProjects.map(p =>
-        p.id === activeProjectId ? { ...p, data: updater(p.data) } : p
-      )
-    );
-  }, [activeProjectId]);
+  // Updated defaults for Wan 2.2
+  const [genVideoState, setGenVideoState] = useState<GenerativeVideoState>({ 
+      prompt: '', 
+      negativePrompt: '', 
+      image: null, 
+      lastImage: null, 
+      resultUrl: null, 
+      engine: 'external', 
+      externalUrl: '', 
+      steps: 6, 
+      duration: 3.5, 
+      guidanceScale: 5, 
+      guidanceScale2: 1, 
+      quality: 6, 
+      flowShift: 3, 
+      seed: 42, 
+      randomizeSeed: true, 
+      scheduler: 'UniPCMultistep', 
+      fps: 16 
+  });
   
-  useEffect(() => {
-    const loadRemoteData = async () => {
-        if (!activeProjectData) return;
-        const { automationConfig } = activeProjectData;
+  const [automationConfig, setAutomationConfig] = useState<AutomationConfig>({ ragEnabled: false, ragProvider: 'browser', ragApiKey: '', ragBaseUrl: '', ragKnowledgeBoxId: '', ragLocalhostUrl: '', webhookUrls: [] });
 
-        if (!automationConfig.ragEnabled) {
-            updateActiveProjectData(data => ({ ...data, lore: [] }));
-            setError(null);
-            return;
-        }
+  // Topaz Studio Local State
+  const [topazLoading, setTopazLoading] = useState(false);
+  const [topazError, setTopazError] = useState<string | null>(null);
+  const [topazProgress, setTopazProgress] = useState('');
+  const [topazPercent, setTopazPercent] = useState<number | undefined>(undefined);
 
-        // Validate config based on provider type
-        if (automationConfig.ragProvider === 'cloud' && (!automationConfig.ragApiKey || !automationConfig.ragBaseUrl || !automationConfig.ragKnowledgeBoxId)) {
-            setError("Cloud RAG service is enabled but not fully configured. Please check your settings in the Automation Studio.");
-            return;
-        }
-         if (automationConfig.ragProvider === 'localhost' && !automationConfig.ragLocalhostUrl) {
-            setError("Localhost RAG service is enabled but the URL is not configured. Please check your settings in the Automation Studio.");
-            return;
-        }
-        // Browser RAG only needs API key for embeddings, not for "connection" itself, but embedding won't work without it.
-        if (automationConfig.ragProvider === 'browser' && !apiKey) {
-             setError("Local RAG (Browser) is enabled but your Google API Key is missing. Please set it in Settings for embeddings to work.");
-             return;
-        }
+  // Projects State
+  const [projects, setProjects] = useState<Project[]>([{ id: 'default', name: 'Untitled Project', tagline: 'A new creative journey.', data: {} as any }]);
+  const [activeProjectId, setActiveProjectId] = useState('default');
 
-        setError(null);
-        try {
-            // Pass apiKey to ragService for local RAG embeddings
-            const initialLore = await ragService.getLore(automationConfig, activeProjectId!, apiKey); // Pass apiKey here
-            updateActiveProjectData(data => ({ ...data, lore: initialLore }));
-        } catch (err) {
-            console.error("Failed to load lore data from RAG service:", err);
-            setError(`Could not connect to the Lore service (${(err as Error).message}). Please check your RAG settings and Google API Key.`);
-        }
-    };
-    if (activeProjectId) {
-      loadRemoteData();
-    }
-  // Fix: Added apiKey as dependency for local RAG
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProjectId, activeProjectData?.automationConfig.ragEnabled, activeProjectData?.automationConfig.ragProvider, apiKey]); 
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (apiKey) localStorage.setItem('gemini-api-key', apiKey);
-    else localStorage.removeItem('gemini-api-key');
-  }, [apiKey]);
+  // Director Agent State
+  const [directorAgent, setDirectorAgent] = useState<Agent>(getAgent());
   
-  const scriptLocations = React.useMemo(() => {
-      const scriptText = activeProjectData?.scriptText;
-      if (!scriptText) return [];
-      const locationRegex = /^\s*(?:INT|EXT)\.\s*([^-–\n]+)/gim;
-      const matches = [...scriptText.matchAll(locationRegex)];
-      const locations = matches.map(match => match[1].trim().toUpperCase());
-      return [...new Set(locations)];
-  }, [activeProjectData?.scriptText]);
+  // Active Agent for Calling (Live Chat)
+  const [activeCallAgent, setActiveCallAgent] = useState<Agent | null>(null);
+  
+  // State for tracking which generic agent workspace is open
+  const [activeAgentWorkspaceId, setActiveAgentWorkspaceId] = useState<string | null>(null);
 
-  // --- Handlers ---
-  const checkApiPrerequisites = useCallback(() => {
-    if (!navigator.onLine) {
-        setError("You are offline. Please connect to the internet to generate images.");
-        return false;
-    }
-    if (!apiKey) {
-      setError("Please set your Google API Key in the settings before generating images.");
-      setIsSettingsOpen(true);
-      return false;
-    }
-    return true;
-  }, [apiKey]);
+  const activeProject = projects.find(p => p.id === activeProjectId) || projects[0];
 
-  const triggerWebhooks = useCallback(async (payload: WebhookPayload) => {
-    const webhookUrls = activeProjectData?.automationConfig.webhookUrls;
-    if (!webhookUrls || webhookUrls.length === 0) return;
-    
-    console.log('Triggering webhooks for event:', payload.eventType);
-    const requests = webhookUrls.map(url => {
-        return fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).catch(error => console.error(`Failed to trigger webhook to ${url}:`, error));
-    });
-    await Promise.allSettled(requests);
-  }, [activeProjectData?.automationConfig.webhookUrls]);
+  const handleUpdateActiveProject = (updates: Partial<Project>) => {
+      setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, ...updates } : p));
+  };
 
-  const handleGenerate = useCallback(async (options: GenerationOptions) => {
-    if (!checkApiPrerequisites() || !activeProjectData) return;
-    const { lore, dynamicPromptLists } = activeProjectData;
-    
-    if (options.engine === 'external') {
-        setIsLoading(true);
-        setError(null);
-        updateActiveProjectData(d => ({ ...d, images: [] }));
-        setAwaitingExternalGeneration(true);
-        const payload: WebhookPayload = { eventType: 'GENERATION_REQUEST', timestamp: new Date().toISOString(), generationOptions: options };
-        try {
-            await triggerWebhooks(payload);
-            setActiveView('grid');
-        } catch (err) {
-            setError('Failed to send generation request to external service.');
-            setAwaitingExternalGeneration(false);
-        } finally {
-            setIsLoading(false);
-        }
+  const handleSaveSettings = (newApiKey: string, newTopazKey: string, newHfKey: string) => {
+      saveApiKey(newApiKey);
+      saveTopazApiKey(newTopazKey);
+      saveHfApiKey(newHfKey);
+      
+      setApiKey(newApiKey);
+      setTopazKey(newTopazKey);
+      setHfApiKey(newHfKey);
+      
+      setIsSettingsOpen(false);
+  };
+
+  const handleNavigate = (view: ActiveView, agentId?: string) => {
+      setActiveView(view);
+      if (view === 'agent-workspace' && agentId) {
+          setActiveAgentWorkspaceId(agentId);
+      }
+  };
+
+  // --- Unified Asset Management ---
+  const handleAddAssetToGrid = (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string; metadata?: any }) => {
+      const newImage: ImageState = {
+          id: generateId(),
+          type: asset.type,
+          base64: asset.base64,
+          url: asset.url,
+          mimeType: asset.mimeType,
+          isUpscaling: false,
+          metadata: asset.metadata
+      };
+      setImages(prev => [newImage, ...prev]);
+  };
+
+  // --- Cast of Characters Management ---
+  const handleCreateCastMember = (name: string) => {
+      const newAgent: Agent = {
+          id: generateId(),
+          name: name,
+          systemPrompt: `You are ${name}, a character in the story.`,
+          voice: 'Kore' // Default voice
+      };
+      setCastMembers(prev => [...prev, newAgent]);
+      return newAgent;
+  };
+
+  const handleUpdateCastMember = (agentId: string, updates: Partial<Agent> | string) => {
+      setCastMembers(prev => prev.map(a => {
+          if (a.id === agentId) {
+              if (typeof updates === 'string') {
+                  return { ...a, name: updates };
+              }
+              return { ...a, ...updates };
+          }
+          return a;
+      }));
+  };
+
+  const handleDeleteCastMember = (agentId: string) => {
+      setCastMembers(prev => prev.filter(a => a.id !== agentId));
+      setImages(prev => prev.map(img => img.agentId === agentId ? { ...img, agentId: undefined } : img));
+  };
+
+  const handleCastImageUpload = async (agentId: string, file: File) => {
+      try {
+          const base64 = await fileToBase64(file);
+          const mimeType = file.type || 'image/jpeg';
+          
+          const newImage: ImageState = {
+              id: generateId(),
+              type: 'image',
+              base64: base64,
+              mimeType: mimeType,
+              isUpscaling: false,
+              agentId: agentId
+          };
+          
+          setImages(prev => [newImage, ...prev]);
+      } catch (e) {
+          console.error("Failed to upload cast image", e);
+      }
+  };
+
+  // --- AnimAgents Team Management ---
+  const handleUpdateTeamAgent = (agentId: string, updates: Partial<Agent>) => {
+      setAnimAgents(prev => prev.map(a => a.id === agentId ? { ...a, ...updates } : a));
+  };
+
+  // --- Project Management ---
+  const handleCreateProject = (projectData: { name: string, tagline?: string, thumbnail?: string }) => {
+      const newProject: Project = {
+          id: generateId(),
+          name: projectData.name,
+          tagline: projectData.tagline,
+          thumbnail: projectData.thumbnail,
+          brief: '',
+          progress: 0,
+          data: {} as any
+      };
+      setProjects(prev => [...prev, newProject]);
+  };
+
+  const handleRenameProject = (id: string, newName: string) => {
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, name: newName } : p));
+  };
+
+  const handleDeleteProject = (id: string) => {
+      if (projects.length <= 1) {
+          alert("Cannot delete the last project.");
+          return;
+      }
+      const newProjects = projects.filter(p => p.id !== id);
+      setProjects(newProjects);
+      if (activeProjectId === id) {
+          setActiveProjectId(newProjects[0].id);
+      }
+  };
+
+  // --- Actions ---
+  const handleTopazGenerate = async () => {
+    if (!topazApiKey) {
+        setTopazError("Topaz API Key is missing. Please configure it in Settings.");
         return;
     }
+    setTopazLoading(true);
+    setTopazError(null);
+    setTopazProgress("Initializing...");
+    setTopazPercent(undefined);
 
-    setAwaitingExternalGeneration(false);
-    setIsLoading(true);
-    setError(null);
-    updateActiveProjectData(d => ({ ...d, images: [] }));
-    setEditingImage(null);
-
-    try {
-        let generatedImages: string[];
-        let usedSeed = '';
-        const isDynamicPrompt = options.prompt.includes('[') && options.prompt.includes(']');
-        
-        if (isDynamicPrompt) {
-            const generationPromises = Array.from({ length: options.numImages }).map(() => {
-                let resolvedPrompt = options.prompt;
-                const placeholders: string[] = resolvedPrompt.match(/\[(.*?)\]/g) || [];
-                placeholders.forEach(placeholder => {
-                    const listName = placeholder.substring(1, placeholder.length - 1).trim();
-                    const list = dynamicPromptLists.find(l => l.name.toLowerCase() === listName.toLowerCase());
-                    if (list && list.items.length > 0) {
-                        const randomIndex = Math.floor(Math.random() * list.items.length);
-                        resolvedPrompt = resolvedPrompt.replace(placeholder, list.items[randomIndex]);
-                    }
-                });
-                let loreContext = lore.length > 0 ? `IMPORTANT LORE CONTEXT (Adhere to this strictly):\n${lore.map(e => `--- LORE: "${e.title}" ---\n${e.content}`).join('\n\n')}\n\n` : '';
-                return generateImagesFromApi(apiKey, { ...options, prompt: `${loreContext}${resolvedPrompt}`, numImages: 1, seed: '' });
-            });
-            const results = await Promise.all(generationPromises);
-            generatedImages = results.flatMap(res => res.images);
-            setLastGenerationOptions({ ...options, seed: '' });
-        } else {
-            let compositionalPrompt = options.prompt;
-            const gridPrompts: Record<GridOverlayType, string> = { 'none': '', 'basic': 'shot composed with the rule of thirds,', 'triadic': 'dynamic shot composed with strong diagonal lines and triangular shapes,', 'golden-basic': 'shot composed with the golden ratio,', 'golden-triadic': 'dynamic shot composed with the golden spiral and harmonic triangles,' };
-            if (gridOverlay !== 'none') compositionalPrompt = `${gridPrompts[gridOverlay]} ${options.prompt}`;
-            
-            let loreContext = lore.length > 0 ? `IMPORTANT LORE CONTEXT (Adhere to this strictly):\n${lore.map(e => `--- LORE: "${e.title}" ---\n${e.content}`).join('\n\n')}\n\n` : '';
-            const finalOptions = { ...options, prompt: `${loreContext}${compositionalPrompt}` };
-            
-            const result = await generateImagesFromApi(apiKey, finalOptions);
-            generatedImages = result.images;
-            usedSeed = result.seed;
-            setLastGenerationOptions({ ...options, prompt: compositionalPrompt, seed: usedSeed });
-            setLastUsedSeed(usedSeed);
-        }
-
-        let finalImages = options.addLetterbox ? await Promise.all(generatedImages.map(img => applyLetterbox(img))) : generatedImages;
-        updateActiveProjectData(d => ({ ...d, images: finalImages.map(base64 => ({ id: crypto.randomUUID(), base64, isUpscaling: false })) }));
-        
-        await triggerWebhooks({ eventType: 'GENERATION_COMPLETE', timestamp: new Date().toISOString(), generationOptions: lastGenerationOptions!, imageCount: finalImages.length, previewImage: finalImages[0] });
-        setActiveView('grid');
-    } catch (err) {
-      console.error(err);
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-}, [checkApiPrerequisites, activeProjectData, triggerWebhooks, gridOverlay, apiKey, updateActiveProjectData]);
-
-  // ... [Rest of handlers remain the same]
-  const handleEditImage = useCallback((base64Image: string) => {
-    setEditingImage({ base64: base64Image, mimeType: 'image/jpeg' });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setActiveView('grid');
-  }, []);
-
-  const handleUpscaleImage = useCallback(async (id: string) => {
-    if (!checkApiPrerequisites() || !activeProjectData) return;
-    const imageToUpscale = activeProjectData.images.find(img => img.id === id);
-    if (!imageToUpscale) return;
-
-    updateActiveProjectData(d => ({ ...d, images: d.images.map(img => img.id === id ? { ...img, isUpscaling: true } : img) }));
-    setError(null);
-
-    try {
-        const upscaledBase64 = await upscaleImage(apiKey, imageToUpscale.base64);
-        updateActiveProjectData(d => ({ ...d, images: d.images.map(img => img.id === id ? { ...img, base64: upscaledBase64, isUpscaling: false } : img) }));
-    } catch (err) {
-        console.error("Upscaling failed:", err);
-        setError(err instanceof Error ? err.message : 'An unknown error occurred during upscaling.');
-        updateActiveProjectData(d => ({ ...d, images: d.images.map(img => img.id === id ? { ...img, isUpscaling: false } : img) }));
-    }
-  }, [apiKey, activeProjectData, checkApiPrerequisites, updateActiveProjectData]);
-  
-    const handleCreateProject = (name: string) => {
-        const newProject: Project = { id: crypto.randomUUID(), name, data: createNewProjectData() };
-        setProjects(prev => [...prev, newProject]);
-        setActiveProjectId(newProject.id);
-        setActiveView('dashboard');
+    const onProgress = (status: string, percent?: number) => {
+        setTopazProgress(status);
+        setTopazPercent(percent);
     };
-    const handleSelectProject = (id: string) => setActiveProjectId(id);
-    const handleRenameProject = (id: string, newName: string) => setProjects(prev => prev.map(p => p.id === id ? { ...p, name: newName } : p));
-    const handleDeleteProject = useCallback((id: string) => {
-        if (window.confirm("Are you sure you want to delete this project and all its data? This cannot be undone.")) {
-            // If deleting a project with local RAG data, clear it from IndexedDB
-            const projectToDelete = projects.find(p => p.id === id);
-            if (projectToDelete?.data.automationConfig.ragEnabled && projectToDelete.data.automationConfig.ragProvider === 'browser') {
-                 localRagService.clearProjectDocuments(id) // Clear all documents for this project
-                    .catch(err => console.error("Error deleting local RAG data for project:", err));
-            }
 
-            setProjects(prev => prev.filter(p => p.id !== id));
-            if (activeProjectId === id) setActiveProjectId(null);
+    try {
+        if (topazState.activeMediaType === 'video') {
+            const resultUrl = await processVideo(topazApiKey, topazState, onProgress);
+            setTopazState(prev => ({
+                ...prev,
+                resultUrl: resultUrl,
+                result: null
+            }));
+        } else {
+            const resultBase64 = await processImage(topazApiKey, topazState, onProgress);
+            setTopazState(prev => ({
+                ...prev,
+                result: { base64: resultBase64, mimeType: 'image/jpeg' },
+                resultUrl: null
+            }));
         }
-    }, [activeProjectId, projects, setProjects]);
-
-  const handleSaveSettings = (newApiKey: string) => { setApiKey(newApiKey); setIsSettingsOpen(false); };
-  const handleSaveAutomationConfig = (newConfig: AutomationConfig) => updateActiveProjectData(d => ({ ...d, automationConfig: newConfig }));
-  const handleAddToStoryboard = useCallback((base64Image: string) => updateActiveProjectData(d => ({ ...d, storyboard: [...d.storyboard, { id: crypto.randomUUID(), base64Image, notes: '', prompt: lastGenerationOptions?.prompt || 'Generated image' }] })), [lastGenerationOptions, updateActiveProjectData]);
-  const handleRemoveFromStoryboard = useCallback((id: string) => updateActiveProjectData(d => ({ ...d, storyboard: d.storyboard.filter(frame => frame.id !== id) })), [updateActiveProjectData]);
-  const handleUpdateStoryboardNote = useCallback((id: string, notes: string) => updateActiveProjectData(d => ({ ...d, storyboard: d.storyboard.map(f => f.id === id ? { ...f, notes } : f) })), [updateActiveProjectData]);
-  const handleReorderStoryboard = useCallback((startIndex: number, endIndex: number) => updateActiveProjectData(d => { const r = Array.from(d.storyboard); const [rm] = r.splice(startIndex, 1); r.splice(endIndex, 0, rm); return { ...d, storyboard: r }; }), [updateActiveProjectData]);
-  const handleScriptUpload = (file: File) => { const reader = new FileReader(); reader.onload = (e) => updateActiveProjectData(d => ({ ...d, scriptText: e.target?.result as string || '' })); reader.readAsText(file); };
-  // Fix: Corrected spread syntax from `...d.inspirationImages` to `...d`
-  const handleAddToInspiration = useCallback((base64Image: string) => updateActiveProjectData(d => ({ ...d, inspirationImages: [...d.inspirationImages, { id: crypto.randomUUID(), base64Image }] })), [updateActiveProjectData]);
-  // Fix: Corrected spread syntax from `...d.inspirationImages` to `...d`
-  const handleRemoveFromInspiration = useCallback((id: string) => updateActiveProjectData(d => ({ ...d, inspirationImages: d.inspirationImages.filter(img => img.id !== id) })), [updateActiveProjectData]);
-  const handleUseInspirationAsGuide = useCallback((base64Image: string) => { setEditingImage({ base64: base64Image, mimeType: 'image/jpeg' }); setActiveView('grid'); window.scrollTo({ top: 0, behavior: 'smooth' }); }, []);
-  const handleInspirationUpload = async (file: File) => { const { base64 } = await fileToBase64(file); handleAddToInspiration(base64); };
-  const handleEditFromModal = useCallback((base64Image: string) => { handleEditImage(base64Image); setViewingImage(null); }, [handleEditImage]);
-  const handleGenerateVideo = useCallback(async (frame: StoryboardFrame) => { if (!checkApiPrerequisites()) return; setIsVideoLoading(true); setVideoGenerationError(null); setGeneratedVideoUrl(null); setVideoGenerationProgress('Initializing...'); try { const url = await generateVideoFromApi(apiKey, frame.base64Image, `Animate this image. ${frame.notes}. The original scene is: ${frame.prompt}`, setVideoGenerationProgress); setGeneratedVideoUrl(url); } catch (err) { setVideoGenerationError(err instanceof Error ? err.message : 'An unknown error occurred.'); } finally { setIsVideoLoading(false); } }, [apiKey, checkApiPrerequisites]);
-  const handleCreateAgent = useCallback((name: string) => { const newAgent: Agent = { id: crypto.randomUUID(), name: name.trim(), lore: '', chatHistory: [] }; updateActiveProjectData(d => ({ ...d, agents: [...d.agents, newAgent] })); return newAgent; }, [updateActiveProjectData]);
-  const handleUpdateAgent = useCallback((agentId: string, newName: string) => updateActiveProjectData(d => ({ ...d, agents: d.agents.map(a => a.id === agentId ? { ...a, name: newName } : a) })), [updateActiveProjectData]);
-  const handleDeleteAgent = useCallback((agentId: string) => { if (window.confirm('Are you sure you want to delete this agent?')) { updateActiveProjectData(d => ({ ...d, agents: d.agents.filter(a => a.id !== agentId), images: d.images.map(i => i.agentId === agentId ? { ...i, agentId: undefined } : i) })); } }, [updateActiveProjectData]);
-  const handleImageUploadForAgent = useCallback(async (agentId: string, file: File) => { const { base64 } = await fileToBase64(file); updateActiveProjectData(d => ({ ...d, images: [{ id: crypto.randomUUID(), base64, isUpscaling: false, agentId }, ...d.images] })); }, [updateActiveProjectData]);
-  const handleAssignAgentToImage = useCallback((imageId: string, agentId: string | null) => { updateActiveProjectData(d => ({ ...d, images: d.images.map(i => i.id === imageId ? { ...i, agentId: agentId ?? undefined } : i) })); setViewingImage(prev => (prev?.id === imageId ? { ...prev, agentId: agentId ?? undefined } : prev)); }, [updateActiveProjectData]);
-  // Fix: Pass apiKey to createLoreEntry
-  const handleCreateLoreEntry = useCallback(async (title: string, content: string) => { if (!activeProjectData) return; if (!activeProjectData?.automationConfig.ragEnabled) { alert("RAG Service is disabled. Please enable it in the Automation Studio."); return; } const newEntry = await ragService.createLoreEntry(activeProjectData.automationConfig, activeProjectId!, title, content, apiKey); updateActiveProjectData(d => ({ ...d, lore: [...d.lore, newEntry] })); }, [activeProjectData?.automationConfig, activeProjectId, updateActiveProjectData, apiKey]);
-  // Fix: Pass apiKey to updateLoreEntry
-  const handleUpdateLoreEntry = useCallback(async (id: string, title: string, content: string) => { if (!activeProjectData) return; if (!activeProjectData?.automationConfig.ragEnabled) { alert("RAG Service is disabled. Please enable it in the Automation Studio."); return; } const entry = activeProjectData.lore.find(l => l.id === id); if (!entry) return; const updated = { ...entry, title, content, projectId: activeProjectId! }; await ragService.updateLoreEntry(activeProjectData.automationConfig, activeProjectId!, updated, apiKey); updateActiveProjectData(d => ({ ...d, lore: d.lore.map(e => e.id === id ? updated : e) })); }, [activeProjectData, activeProjectId, updateActiveProjectData, apiKey]);
-  // Fix: Add projectId to entryToDelete for local RAG; ragService will route
-  const handleDeleteLoreEntry = useCallback(async (id: string) => { if (!activeProjectData) return; if (!activeProjectData?.automationConfig.ragEnabled) { alert("RAG Service is disabled. Please enable it in the Automation Studio."); return; } if (window.confirm('Are you sure?')) { const entry = activeProjectData.lore.find(l => l.id === id); if (!entry) return; await ragService.deleteLoreEntry(activeProjectData.automationConfig, { ...entry, projectId: activeProjectId! }); updateActiveProjectData(d => ({ ...d, lore: d.lore.filter(e => e.id !== id) })); } }, [activeProjectData, updateActiveProjectData, activeProjectId]);
-  const handleCreateDynamicPromptList = useCallback((name: string, items: string[]) => updateActiveProjectData(d => ({ ...d, dynamicPromptLists: [...d.dynamicPromptLists, { id: crypto.randomUUID(), name, items }] })), [updateActiveProjectData]);
-  const handleUpdateDynamicPromptList = useCallback((id: string, name: string, items: string[]) => updateActiveProjectData(d => ({ ...d, dynamicPromptLists: d.dynamicPromptLists.map(l => l.id === id ? { ...l, name, items } : l) })), [updateActiveProjectData]);
-  const handleDeleteDynamicPromptList = useCallback((id: string) => { if (window.confirm('Are you sure?')) updateActiveProjectData(d => ({ ...d, dynamicPromptLists: d.dynamicPromptLists.filter(l => l.id !== id) })); }, [updateActiveProjectData]);
-  const handleCreatePromptTemplate = useCallback((name: string, p: string, n: string) => updateActiveProjectData(d => ({ ...d, promptTemplates: [...d.promptTemplates, { id: crypto.randomUUID(), name, positivePrompt: p, negativePrompt: n }] })), [updateActiveProjectData]);
-  const handleUpdatePromptTemplate = useCallback((id: string, name: string, p: string, n: string) => updateActiveProjectData(d => ({ ...d, promptTemplates: d.promptTemplates.map(t => t.id === id ? { ...t, name, positivePrompt: p, negativePrompt: n } : t) })), [updateActiveProjectData]);
-  const handleDeletePromptTemplate = useCallback((id: string) => { if (window.confirm('Are you sure?')) updateActiveProjectData(d => ({ ...d, promptTemplates: d.promptTemplates.filter(t => t.id !== id) })); }, [updateActiveProjectData]);
-  const handleUploadAgentLore = useCallback((agentId: string, loreText: string) => updateActiveProjectData(d => ({ ...d, agents: d.agents.map(a => a.id === agentId ? { ...a, lore: loreText } : a) })), [updateActiveProjectData]);
-  const handlePrepareGenerationFromAgent = (fc: FunctionCall) => { setPreparedOptions({ prompt: fc.args.prompt, negativePrompt: fc.args.negativePrompt, cameraAngle: fc.args.cameraAngle, sceneType: fc.args.sceneType, location: fc.args.location, characters: fc.args.characters, timeOfDay: fc.args.timeOfDay }); setActiveView('grid'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  // Fix: Pass apiKey to chatWithAgentFromApi
-  const handleSendMessageToAgent = useCallback(async (agentId: string, message: string) => { if (!checkApiPrerequisites() || !activeProjectData) return; const agent = activeProjectData.agents.find(c => c.id === agentId); if (!agent) { setAgentChatError("Agent not found."); return; } setIsAgentResponding(true); setAgentChatError(null); const userMsg: ChatMessage = { role: 'user', text: message }; const history = [...(agent.chatHistory || []), userMsg]; updateActiveProjectData(d => ({ ...d, agents: d.agents.map(a => a.id === agentId ? { ...a, chatHistory: history } : a) })); try { const response = await chatWithAgentFromApi(apiKey, activeProjectData.automationConfig, activeProjectId!, agent, message); let finalHistory = [...history]; if (response.text) finalHistory.push({ role: 'model', text: response.text, functionCalls: response.functionCalls }); if (response.functionCalls) { for (const fc of response.functionCalls) { handlePrepareGenerationFromAgent(fc); finalHistory.push({ role: 'tool_code', toolCode: { id: fc.id, functionCall: fc } }); } } updateActiveProjectData(d => ({ ...d, agents: d.agents.map(a => a.id === agentId ? { ...a, chatHistory: finalHistory } : a) })); } catch (err) { setAgentChatError(err instanceof Error ? err.message : 'Unknown chat error.'); updateActiveProjectData(d => ({ ...d, agents: d.agents.map(a => a.id === agentId ? { ...a, chatHistory: agent.chatHistory || [] } : a) })); } finally { setIsAgentResponding(false); } }, [apiKey, activeProjectData, checkApiPrerequisites, updateActiveProjectData, activeProjectId]);
-  const handleTestWebhook = useCallback(async (url: string) => { try { const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventType: 'TEST_MESSAGE', timestamp: new Date().toISOString(), message: 'Test from Storyboard Studio AI.' }) }); return res.ok; } catch { return false; } }, []);
-  const handleBlenderUpload = async (files: FileList) => { const newImgs = await Promise.all(Array.from(files).map(async f => ({ id: crypto.randomUUID(), base64: (await fileToBase64(f)).base64 }))); updateActiveProjectData(d => ({ ...d, blenderImages: [...d.blenderImages, ...newImgs] })); };
-  const handleGenerateBlender = async () => { if (!checkApiPrerequisites() || !activeProjectData || activeProjectData.blenderImages.length < 2) return; setIsBlenderLoading(true); setBlenderError(null); updateActiveProjectData(d => ({ ...d, blenderResult: null })); try { const res = await generateCompositeImage(apiKey, activeProjectData.blenderImages.map(i => i.base64)); updateActiveProjectData(d => ({ ...d, blenderResult: res })); } catch (err) { setBlenderError(err instanceof Error ? err.message : 'Unknown error.'); } finally { setIsBlenderLoading(false); } };
-  const handleSceneCompositorUpload = async (type: 'background' | 'character', file: File) => { const { base64, mimeType } = await fileToBase64(file); updateActiveProjectData(d => ({ ...d, sceneCompositorState: { ...d.sceneCompositorState, [type]: { base64, mimeType } } })); };
-  // Fix: Corrected spread syntax within updateActiveProjectData
-  const handleGenerateSceneComposite = async () => { if (!checkApiPrerequisites() || !activeProjectData?.sceneCompositorState.background || !activeProjectData.sceneCompositorState.character) return; setIsSceneCompositorLoading(true); setSceneCompositorError(null); updateActiveProjectData(d => ({ ...d, sceneCompositorState: { ...d.sceneCompositorState, result: null }})); try { const res = await generateSceneCompositeFromApi(apiKey, activeProjectData.sceneCompositorState.background.base64, activeProjectData.sceneCompositorState.character.base64); updateActiveProjectData(d => ({ ...d, sceneCompositorState: { ...d.sceneCompositorState, result: res }})); } catch (err) { setSceneCompositorError(err instanceof Error ? err.message : 'Unknown error.'); } finally { setIsSceneCompositorLoading(false); } };
-  const handleFaceSwapUpload = async (type: 'source' | 'face', file: File) => { const { base64, mimeType } = await fileToBase64(file); updateActiveProjectData(d => ({ ...d, faceSwapState: { ...d.faceSwapState, [type]: { base64, mimeType } } })); };
-  // Fix: Corrected spread syntax within updateActiveProjectData
-  const handleGenerateFaceSwap = async () => { if (!checkApiPrerequisites() || !activeProjectData?.faceSwapState.source || !activeProjectData.faceSwapState.face) return; setIsFaceSwapLoading(true); setFaceSwapError(null); updateActiveProjectData(d => ({ ...d, faceSwapState: { ...d.faceSwapState, result: null }})); try { const res = await generateFaceSwapFromApi(apiKey, activeProjectData.faceSwapState.source.base64, activeProjectData.faceSwapState.face.base64); updateActiveProjectData(d => ({ ...d, faceSwapState: { ...d.faceSwapState, result: res }})); } catch (err) { setFaceSwapError(err instanceof Error ? err.message : 'Unknown error.'); } finally { setIsFaceSwapLoading(false); } };
-  const handleFaceRepairUpload = async (file: File) => { const { base64, mimeType } = await fileToBase64(file); updateActiveProjectData(d => ({ ...d, faceRepairState: { source: { base64, mimeType }, result: null } })); };
-  // Fix: Corrected spread syntax within updateActiveProjectData
-  const handleGenerateFaceRepair = async () => { if (!checkApiPrerequisites() || !activeProjectData?.faceRepairState.source) return; setIsFaceRepairLoading(true); setFaceRepairError(null); updateActiveProjectData(d => ({ ...d, faceRepairState: { ...d.faceRepairState, result: null }})); try { const res = await generateFaceRepairFromApi(apiKey, activeProjectData.faceRepairState.source.base64); updateActiveProjectData(d => ({ ...d, faceRepairState: { ...d.faceRepairState, result: res }})); } catch (err) { setFaceRepairError(err instanceof Error ? err.message : 'Unknown error.'); } finally { setIsFaceRepairLoading(false); } };
-  const handlePhotorealismUpload = async (file: File) => { const { base64, mimeType } = await fileToBase64(file); updateActiveProjectData(d => ({ ...d, photorealismState: { ...d.photorealismState, source: { base64, mimeType }, result: null } })); };
-  const handlePhotorealismPromptChange = (p: string, n: string) => updateActiveProjectData(d => ({ ...d, photorealismState: { ...d.photorealismState, prompt: p, negativePrompt: n } }));
-  // Fix: Corrected spread syntax within updateActiveProjectData
-  const handleGeneratePhotorealism = async () => { if (!checkApiPrerequisites() || !activeProjectData?.photorealismState.source) return; setIsPhotorealismLoading(true); setPhotorealismError(null); updateActiveProjectData(d => ({ ...d, photorealismState: { ...d.photorealismState, result: null }})); try { const { source, prompt, negativePrompt } = activeProjectData.photorealismState; if (!source) return; const res = await generatePhotorealisticImageFromApi(apiKey, source.base64, prompt, negativePrompt); updateActiveProjectData(d => ({ ...d, photorealismState: { ...d.photorealismState, result: res }})); } catch (err) { setPhotorealismError(err instanceof Error ? err.message : 'Unknown error.'); } finally { setIsPhotorealismLoading(false); } };
-
-  const filteredImages = React.useMemo(() => {
-    if (!activeProjectData) return [];
-    if (!agentFilter.trim()) return activeProjectData.images;
-    const lowerFilter = agentFilter.trim().toLowerCase();
-    return activeProjectData.images.filter(i => {
-      if (!i.agentId) return false;
-      const agent = activeProjectData.agents.find(c => c.id === i.agentId);
-      return agent?.name.toLowerCase().includes(lowerFilter);
-    });
-  }, [activeProjectData, agentFilter]);
-
-  const renderActiveView = () => {
-    if (!activeProjectData || activeView === 'projects') {
-        return <ProjectsStudio 
-            projects={projects}
-            activeProjectId={activeProjectId}
-            onSelectProject={handleSelectProject}
-            onCreateProject={handleCreateProject}
-            onRenameProject={handleRenameProject}
-            onDeleteProject={handleDeleteProject}
-        />
+    } catch (e) {
+        console.error("Topaz error:", e);
+        setTopazError(e instanceof Error ? e.message : "Topaz processing failed");
+    } finally {
+        setTopazLoading(false);
+        setTopazProgress("");
+        setTopazPercent(undefined);
     }
+  };
 
+  const handleUpscaleImage = async (imageId: string) => {
+      // 1. Set Loading State
+      setImages(prev => prev.map(img => img.id === imageId ? { ...img, isUpscaling: true } : img));
+      
+      const img = images.find(i => i.id === imageId);
+      if (img) {
+          try {
+              const isVideo = img.type === 'video';
+              let base64 = img.base64;
+              let mimeType = img.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg');
+
+              if (!base64 && img.url) {
+                  const response = await fetch(img.url);
+                  const blob = await response.blob();
+                  mimeType = blob.type;
+                  base64 = await new Promise<string>((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                      reader.onerror = reject;
+                      reader.readAsDataURL(blob);
+                  });
+              }
+
+              if (base64) {
+                  setTopazState(prev => ({
+                      ...prev,
+                      activeMediaType: isVideo ? 'video' : 'image',
+                      source: { base64: base64!, mimeType },
+                      result: null,
+                      resultUrl: null,
+                      operation: isVideo ? 'enhance' : prev.operation
+                  }));
+                  setActiveView('topaz');
+              }
+          } catch (e) {
+              console.error("Failed to prepare asset for upscaling:", e);
+              alert("Failed to load asset. Please check your connection.");
+          } finally {
+              // 2. Clear Loading State
+              setImages(prev => prev.map(img => img.id === imageId ? { ...img, isUpscaling: false } : img));
+          }
+      } else {
+           setImages(prev => prev.map(img => img.id === imageId ? { ...img, isUpscaling: false } : img));
+      }
+  };
+
+  const handleSaveDirectorAgent = (updatedAgentData: Partial<Agent>) => {
+     const newAgentData: Agent = {
+         ...directorAgent,
+         ...updatedAgentData,
+     };
+     saveAgent(newAgentData);
+     setDirectorAgent(newAgentData);
+  };
+
+  // --- Scene Compositor Handlers ---
+  const handleSceneUpload = async (type: 'background' | 'character', file: File) => {
+      try {
+          const base64 = await fileToBase64(file);
+          const mimeType = file.type || 'image/jpeg';
+          setSceneState(prev => ({ ...prev, [type]: { base64, mimeType } }));
+      } catch (e) {
+          console.error("Failed to upload scene asset", e);
+      }
+  };
+
+  const handleSceneUpdate = (type: 'background' | 'character', base64: string, mimeType: string) => {
+      setSceneState(prev => ({ ...prev, [type]: { base64, mimeType } }));
+  };
+
+  const handleSceneRemove = (type: 'background' | 'character') => {
+      setSceneState(prev => ({ ...prev, [type]: null }));
+  };
+
+  // --- Render Content Based on Active View ---
+  const renderContent = () => {
     switch (activeView) {
-        case 'dashboard': return <DashboardStudio stats={{
-                storyboardFrames: activeProjectData.storyboard.length,
-                agents: activeProjectData.agents.length,
-                loreEntries: activeProjectData.lore.length,
-                inspirationImages: activeProjectData.inspirationImages.length,
-                dynamicPromptLists: activeProjectData.dynamicPromptLists.length,
-                promptTemplates: activeProjectData.promptTemplates.length,
-                imagesGenerated: activeProjectData.images.length
-            }} onNavigate={setActiveView} />;
-        case 'story': return <Storyboard frames={activeProjectData.storyboard} onUpdateNote={handleUpdateStoryboardNote} onRemove={handleRemoveFromStoryboard} onReorder={handleReorderStoryboard} />;
-        case 'agent-chat': return <AgentChatStudio agents={activeProjectData.agents} onUploadLore={handleUploadAgentLore} onSendMessage={handleSendMessageToAgent} isResponding={isAgentResponding} error={agentChatError} />;
-        case 'prompt-library': return <PromptLibraryStudio templates={activeProjectData.promptTemplates} onCreate={handleCreatePromptTemplate} onUpdate={handleUpdatePromptTemplate} onDelete={handleDeletePromptTemplate} />;
-        case 'dynamic-prompts': return <DynamicPromptsStudio lists={activeProjectData.dynamicPromptLists} onCreate={handleCreateDynamicPromptList} onUpdate={handleUpdateDynamicPromptList} onDelete={handleDeleteDynamicPromptList} />;
-        case 'lore': return <LoreStudio lore={activeProjectData.lore} onCreate={handleCreateLoreEntry} onUpdate={handleUpdateLoreEntry} onDelete={handleDeleteLoreEntry} />;
-        // Fix: Pass filteredImages to AgentsStudio instead of activeProjectData.images
-        case 'agents': return <AgentsStudio agents={activeProjectData.agents} images={filteredImages} onCreateAgent={handleCreateAgent} onViewImage={setViewingImage} onUpdateAgent={handleUpdateAgent} onDeleteAgent={handleDeleteAgent} onImageUpload={handleImageUploadForAgent} />;
-        case 'video': return <VideoGenerator storyboard={activeProjectData.storyboard} onGenerateVideo={handleGenerateVideo} isLoading={isVideoLoading} videoUrl={generatedVideoUrl} error={videoGenerationError} progress={videoGenerationProgress} />;
-        case 'blender': return <BlenderStudio sourceImages={activeProjectData.blenderImages} resultImage={activeProjectData.blenderResult} isLoading={isBlenderLoading} error={blenderError} onUpload={handleBlenderUpload} onRemoveImage={(id) => updateActiveProjectData(d => ({ ...d, blenderImages: d.blenderImages.filter(i => i.id !== id) }))} onGenerate={handleGenerateBlender} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} />;
-        case 'scene-compositor': return <SceneCompositorStudio sceneState={activeProjectData.sceneCompositorState} isLoading={isSceneCompositorLoading} error={sceneCompositorError} onUpload={handleSceneCompositorUpload} onRemoveImage={(type) => updateActiveProjectData(d => ({ ...d, sceneCompositorState: { ...d.sceneCompositorState, [type]: null, result: null } }))} onGenerate={handleGenerateSceneComposite} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} />;
-        case 'face-swap': return <FaceSwapStudio faceSwapState={activeProjectData.faceSwapState} isLoading={isFaceSwapLoading} error={faceSwapError} onUpload={handleFaceSwapUpload} onRemoveImage={(type) => updateActiveProjectData(d => ({ ...d, faceSwapState: { ...d.faceSwapState, [type]: null, result: null } }))} onGenerate={handleGenerateFaceSwap} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} />;
-        // Fix: Corrected spread syntax for onRemoveImage prop
-        case 'face-repair': return <FaceRepairStudio faceRepairState={activeProjectData.faceRepairState} isLoading={isFaceRepairLoading} error={faceRepairError} onUpload={handleFaceRepairUpload} onRemoveImage={() => updateActiveProjectData(d => ({ ...d, faceRepairState: { source: null, result: null } }))} onGenerate={handleGenerateFaceRepair} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} />;
-        // Fix: Corrected spread syntax for onRemoveImage prop
-        case 'photorealism': return <PhotorealismStudio photorealismState={activeProjectData.photorealismState} isLoading={isPhotorealismLoading} error={photorealismError} onUpload={handlePhotorealismUpload} onRemoveImage={() => updateActiveProjectData(d => ({ ...d, photorealismState: { ...d.photorealismState, source: null, result: null } }))} onGenerate={handleGeneratePhotorealism} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onPromptChange={handlePhotorealismPromptChange} />;
-        case 'script': return <ScriptViewer scriptText={activeProjectData.scriptText} onUpload={handleScriptUpload} />;
-        case 'inspiration': return <InspirationBoard images={activeProjectData.inspirationImages} onUpload={handleInspirationUpload} onRemove={handleRemoveFromInspiration} onUseAsGuide={handleUseInspirationAsGuide} />;
-        case 'automation': return <AutomationStudio config={activeProjectData.automationConfig} onSave={handleSaveAutomationConfig} onTestWebhook={handleTestWebhook} />;
-        default: return <ProjectsStudio projects={projects} activeProjectId={activeProjectId} onSelectProject={handleSelectProject} onCreateProject={handleCreateProject} onRenameProject={handleRenameProject} onDeleteProject={handleDeleteProject} />;
+      case 'dashboard':
+        return <DashboardStudio 
+            project={activeProject}
+            onUpdateProject={handleUpdateActiveProject}
+            images={images}
+            stats={{
+                storyboardFrames: storyboard.length,
+                agents: castMembers.length,
+                loreEntries: lore.length,
+                inspirationImages: inspiration.length,
+                dynamicPromptLists: dynamicPrompts.length,
+                promptTemplates: promptTemplates.length,
+                imagesGenerated: images.length,
+                totalProjects: projects.length
+            }}
+            onNavigate={handleNavigate}
+        />;
+      
+      // --- Department Studios ---
+      case 'core':
+        return <CoreStudio agent={animAgents.find(a => a.id === 'agent-core')!} onNavigate={handleNavigate} onCallAgent={setActiveCallAgent} />;
+      case 'ideation':
+        return <IdeationStudio agent={animAgents.find(a => a.id === 'agent-ideation')!} onNavigate={handleNavigate} onCallAgent={setActiveCallAgent} />;
+      case 'scripting':
+        return <ScriptingStudio agent={animAgents.find(a => a.id === 'agent-scripting')!} onNavigate={handleNavigate} onCallAgent={setActiveCallAgent} />;
+      case 'design':
+        return <DesignStudio agent={animAgents.find(a => a.id === 'agent-design')!} onNavigate={handleNavigate} onCallAgent={setActiveCallAgent} />;
+      case 'art':
+        return <ArtStudio agent={animAgents.find(a => a.id === 'agent-art')!} onNavigate={handleNavigate} onCallAgent={setActiveCallAgent} />;
+      case 'agent-dop':
+        // Kine's Workspace is the DirectorStudio (Analyzer)
+        return <DirectorStudio onNavigate={handleNavigate} />;
+      case 'team':
+        return <TeamStudio 
+            team={animAgents}
+            onUpdateAgent={handleUpdateTeamAgent}
+            onNavigate={handleNavigate}
+            onCallAgent={setActiveCallAgent}
+        />;
+      case 'director':
+        return <DirectorStudio onNavigate={handleNavigate} />;
+      case 'agent-workspace':
+        const agent = animAgents.find(a => a.id === activeAgentWorkspaceId) || castMembers.find(a => a.id === activeAgentWorkspaceId);
+        if (!agent) return <div className="p-10 text-center text-neutral-500">Agent not found</div>;
+        
+        // Special routing for AnimAgents Team studios (fallback if routed via ID)
+        switch (agent.id) {
+            case 'agent-core':
+                return <CoreStudio agent={agent} onNavigate={handleNavigate} onCallAgent={setActiveCallAgent} />;
+            case 'agent-ideation':
+                return <IdeationStudio agent={agent} onNavigate={handleNavigate} onCallAgent={setActiveCallAgent} />;
+            case 'agent-scripting':
+                return <ScriptingStudio agent={agent} onNavigate={handleNavigate} onCallAgent={setActiveCallAgent} />;
+            case 'agent-design':
+                return <DesignStudio agent={agent} onNavigate={handleNavigate} onCallAgent={setActiveCallAgent} />;
+            case 'agent-art':
+                return <ArtStudio agent={agent} onNavigate={handleNavigate} onCallAgent={setActiveCallAgent} />;
+            case 'agent-dop':
+                // Kine's Workspace is the DirectorStudio (Analyzer)
+                return <DirectorStudio onNavigate={handleNavigate} />;
+            default:
+                return <GenericAgentStudio 
+                    agent={agent} 
+                    onNavigate={handleNavigate}
+                    onCallAgent={setActiveCallAgent}
+                />;
+        }
+      case 'image-generator':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'Image Studio' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <ImageGeneratorStudio 
+                    hfToken={hfApiKey} 
+                    promptTemplates={promptTemplates}
+                    dynamicPromptLists={dynamicPrompts}
+                    agents={castMembers} // Pass Cast for character selection in prompt builder
+                    onAddAssetToGrid={handleAddAssetToGrid}
+                    onAddToStoryboard={(base64) => setStoryboard([...storyboard, { id: generateId(), base64Image: base64, notes: '', prompt: '' }])} 
+                    onAddToInspiration={(base64) => setInspiration([...inspiration, { id: generateId(), base64Image: base64 }])} 
+                />
+            </div>
+        );
+      case 'grid':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'Asset Gallery' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <div className="flex-grow p-4 overflow-y-auto">
+                    <div className="w-full">
+                        <ImageGrid 
+                            images={images}
+                            isLoading={false}
+                            error={null}
+                            onViewImage={(img) => console.log('View', img)}
+                            gridOverlay="none"
+                            onGridOverlayChange={() => {}}
+                            onEditImage={() => {}}
+                            onAddToStoryboard={() => {}}
+                            onAddToInspiration={() => {}}
+                            onUpscaleImage={handleUpscaleImage}
+                            agents={castMembers} // Assign images to Cast Members
+                            onAssignAgentToImage={(imageId, agentId) => {
+                                setImages(prev => prev.map(img => img.id === imageId ? { ...img, agentId: agentId || undefined } : img));
+                            }}
+                            onCreateAgent={handleCreateCastMember}
+                            agentFilter=""
+                            onAgentFilterChange={() => {}}
+                            awaitingExternalGeneration={false}
+                        />
+                    </div>
+                </div>
+            </div>
+        );
+      case 'story':
+        return <Storyboard frames={storyboard} onUpdateNote={() => {}} onRemove={() => {}} onReorder={() => {}} />;
+      case 'agents':
+        return <AgentsStudio 
+            agents={castMembers} 
+            images={images} 
+            onCreateAgent={handleCreateCastMember} 
+            onViewImage={() => {}} 
+            onUpdateAgent={handleUpdateCastMember} 
+            onDeleteAgent={handleDeleteCastMember} 
+            onImageUpload={handleCastImageUpload} 
+        />;
+      case 'agent-chat':
+        // NOTE: Agent Chat now interfaces with the AnimAgents TEAM for production help
+        return <AgentChatStudio 
+            agents={animAgents} 
+            onUploadLore={() => {}} 
+            onSendMessage={() => {}} 
+            isResponding={false} 
+            error={null} 
+        />;
+      case 'knowledge':
+        return (
+            <div className="flex-1 h-full overflow-y-auto bg-primary">
+                <div className="max-w-5xl mx-auto p-8 pb-20">
+                    <KnowledgeView 
+                        agent={directorAgent} 
+                        onSaveSettings={handleSaveDirectorAgent} 
+                        onApiKeyUpdate={() => setApiKey(getApiKey() || '')} 
+                        hasApiKey={!!apiKey} 
+                    />
+                </div>
+            </div>
+        );
+      case 'lore':
+        return <LoreStudio lore={lore} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
+      case 'prompt-library':
+        return <PromptLibraryStudio templates={promptTemplates} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
+      case 'dynamic-prompts':
+        return <DynamicPromptsStudio lists={dynamicPrompts} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
+      case 'script':
+        return <ScriptViewer scriptText={scriptText} onUpload={() => {}} />;
+      case 'inspiration':
+        return <InspirationBoard images={inspiration} onUpload={() => {}} onRemove={() => {}} onUseAsGuide={() => {}} />;
+      case 'video':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'Animatic Studio' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <VideoGenerator storyboard={storyboard} onGenerateVideo={() => {}} isLoading={false} videoUrl={null} error={null} progress="" />
+            </div>
+        );
+      case 'generative-video':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'Video Creator' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <GenerativeVideoStudio 
+                    apiKey={apiKey} 
+                    hfToken={hfApiKey} 
+                    videoState={genVideoState} 
+                    onStateUpdate={setGenVideoState} 
+                    onAddImageToGrid={() => {}} 
+                    onAddToStoryboard={() => {}} 
+                    onAddAssetToGrid={handleAddAssetToGrid}
+                />
+            </div>
+        );
+      case 'blender':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'Blender Studio' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <BlenderStudio sourceImages={blenderState.source} resultImage={blenderState.result} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} />
+            </div>
+        );
+      case 'scene-compositor':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'Compositor' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <SceneCompositorStudio 
+                    sceneState={sceneState} 
+                    isLoading={false} 
+                    error={null} 
+                    onUpload={handleSceneUpload} 
+                    onRemoveImage={handleSceneRemove} 
+                    onGenerate={() => {}} 
+                    onAddToStoryboard={(base64) => setStoryboard([...storyboard, { id: generateId(), base64Image: base64, notes: '', prompt: '' }])} 
+                    onAddToInspiration={(base64) => setInspiration([...inspiration, { id: generateId(), base64Image: base64 }])} 
+                    hfToken={hfApiKey}
+                    onUpdateImage={handleSceneUpdate}
+                />
+            </div>
+        );
+      case 'composite':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'Composite Studio' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <CompositeStudio 
+                    state={compositeState} 
+                    onStateUpdate={setCompositeState}
+                    onAddAssetToGrid={handleAddAssetToGrid}
+                    onAddToStoryboard={(base64) => setStoryboard([...storyboard, { id: generateId(), base64Image: base64, notes: '', prompt: '' }])} 
+                    onAddToInspiration={(base64) => setInspiration([...inspiration, { id: generateId(), base64Image: base64 }])} 
+                    hfToken={hfApiKey}
+                />
+            </div>
+        );
+      case 'face-swap':
+        return <FaceSwapStudio faceSwapState={faceSwapState} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} />;
+      case 'face-repair':
+        return <FaceRepairStudio faceRepairState={faceRepairState} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} />;
+      case 'photorealism':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'UHD Generator' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <PhotorealismStudio photorealismState={photorealismState} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onPromptChange={() => {}} />
+            </div>
+        );
+      case 'resize':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'Resize Studio' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <ResizeStudio 
+                    state={resizeState} 
+                    onStateUpdate={setResizeState}
+                    onAddAssetToGrid={handleAddAssetToGrid}
+                    onAddToStoryboard={(base64) => setStoryboard([...storyboard, { id: generateId(), base64Image: base64, notes: '', prompt: '' }])} 
+                    onAddToInspiration={(base64) => setInspiration([...inspiration, { id: generateId(), base64Image: base64 }])} 
+                    hfToken={hfApiKey}
+                />
+            </div>
+        );
+      case 'green-screen':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'Green Screen' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <GreenScreenStudio 
+                    greenScreenState={greenScreenState} 
+                    isLoading={false} 
+                    error={null} 
+                    onStateUpdate={setGreenScreenState}
+                    onAddToStoryboard={() => {}} 
+                    onAddAssetToGrid={handleAddAssetToGrid}
+                    hfToken={hfApiKey}
+                />
+            </div>
+        );
+      case 'topaz':
+        return (
+            <div className="flex flex-col h-full">
+                <StudioHeader 
+                    breadcrumbs={[{ label: 'Art Department', onClick: () => setActiveView('director') }, { label: 'Enhance Studio' }]} 
+                    agent={directorAgent}
+                    onCallAgent={() => setActiveCallAgent(directorAgent)}
+                />
+                <TopazStudio 
+                    topazState={topazState} 
+                    isLoading={topazLoading} 
+                    error={topazError} 
+                    onStateUpdate={setTopazState} 
+                    onGenerate={handleTopazGenerate} 
+                    onAddToStoryboard={(base64) => setStoryboard([...storyboard, { id: generateId(), base64Image: base64, notes: '', prompt: '' }])} 
+                    onAddToInspiration={(base64) => setInspiration([...inspiration, { id: generateId(), base64Image: base64 }])} 
+                    onAddAssetToGrid={handleAddAssetToGrid}
+                    progress={topazProgress} 
+                    progressPercent={topazPercent}
+                />
+            </div>
+        );
+      case 'automation':
+        return <AutomationStudio config={automationConfig} onSave={setAutomationConfig} onTestWebhook={async () => true} />;
+      case 'projects':
+        return <ProjectsStudio 
+            projects={projects} 
+            activeProjectId={activeProjectId} 
+            onSelectProject={setActiveProjectId} 
+            onCreateProject={handleCreateProject} 
+            onRenameProject={handleRenameProject} 
+            onDeleteProject={handleDeleteProject} 
+        />;
+      default:
+        return <div className="p-10 text-center text-text-secondary">Select a studio from the sidebar.</div>;
     }
   };
 
   return (
-    <div id="app" className="flex h-screen w-full bg-neutral-900 text-neutral-200 overflow-hidden">
-      <Sidebar
-        activeView={activeView}
-        onNavigate={setActiveView}
-        stats={activeProjectData ? {
-          storyboard: activeProjectData.storyboard.length,
-          inspiration: activeProjectData.inspirationImages.length,
-          agents: activeProjectData.agents.length,
-          lore: activeProjectData.lore.length,
-          dynamicPrompts: activeProjectData.dynamicPromptLists.length,
-          promptLibrary: activeProjectData.promptTemplates.length,
-        } : { storyboard: 0, inspiration: 0, agents: 0, lore: 0, dynamicPrompts: 0, promptLibrary: 0 }}
-        isOnline={isOnline}
+    <div className="flex h-screen bg-primary text-text-primary font-sans overflow-hidden">
+      <Sidebar 
+        activeView={activeView as ActiveView} 
+        onNavigate={(view) => handleNavigate(view)} 
+        isCollapsed={isSidebarCollapsed} 
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(v => !v)}
+        isOnline={navigator.onLine}
+        stats={{
+            storyboard: storyboard.length,
+            inspiration: inspiration.length,
+            agents: castMembers.length,
+            lore: lore.length,
+            dynamicPrompts: dynamicPrompts.length,
+            promptLibrary: promptTemplates.length
+        }}
       />
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-neutral-900 text-neutral-200">
-        <header className="p-4 border-b border-neutral-800 flex-shrink-0 bg-neutral-900">
-            <h1 className="text-xl font-bold text-center text-neutral-100 uppercase tracking-wider">
-                {activeProject ? activeProject.name : "Storyboard Studio AI"}
-            </h1>
-        </header>
-        <main className="flex-1 overflow-y-auto">
-            {activeView === 'grid' && activeProjectData ? (
-                <div className="p-6 max-w-7xl mx-auto w-full">
-                    <div className="mb-8">
-                        <h2 className="text-3xl font-bold text-neutral-200 mb-2">Image Generation Grid</h2>
-                        <p className="text-neutral-400">Create, edit, and manage your assets in a unified workspace.</p>
-                    </div>
-                    <div className="space-y-6">
-                        <InputPanel 
-                          onGenerate={handleGenerate} 
-                          isLoading={isLoading} 
-                          editingImage={editingImage}
-                          lastUsedSeed={lastUsedSeed}
-                          scriptLocations={scriptLocations}
-                          preparedOptions={preparedOptions}
-                          onPreparationComplete={() => setPreparedOptions(null)}
-                          promptTemplates={activeProjectData.promptTemplates}
-                          dynamicPromptLists={activeProjectData.dynamicPromptLists}
-                        />
-                        <ImageGrid 
-                            images={filteredImages} 
-                            isLoading={isLoading} 
-                            error={error} 
-                            onViewImage={setViewingImage}
-                            gridOverlay={gridOverlay}
-                            onGridOverlayChange={setGridOverlay}
-                            onEditImage={handleEditImage}
-                            onAddToStoryboard={handleAddToStoryboard}
-                            onAddToInspiration={handleAddToInspiration}
-                            onUpscaleImage={handleUpscaleImage}
-                            agents={activeProjectData.agents}
-                            onAssignAgentToImage={handleAssignAgentToImage}
-                            onCreateAgent={handleCreateAgent}
-                            agentFilter={agentFilter}
-                            onAgentFilterChange={setAgentFilter}
-                            awaitingExternalGeneration={awaitingExternalGeneration}
-                        />
-                    </div>
-                </div>
-            ) : (
-                renderActiveView()
-            )}
-        </main>
-      </div>
+      
+      <main className="flex-1 flex flex-col min-w-0 bg-primary relative overflow-hidden">
+        {renderContent()}
+      </main>
+
       <SettingsModal 
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
         onSave={handleSaveSettings}
         currentApiKey={apiKey}
+        currentTopazApiKey={topazApiKey}
+        currentHfApiKey={hfApiKey}
       />
-      {activeProjectData && (
-        <ImageModal
-          image={viewingImage}
-          onClose={() => setViewingImage(null)}
-          onEdit={handleEditFromModal}
-          onAddToStoryboard={handleAddToStoryboard}
-          onAddToInspiration={handleAddToInspiration}
-          agents={activeProjectData.agents}
-          onAssignAgentToImage={handleAssignAgentToImage}
-          onCreateAgent={handleCreateAgent}
-        />
+      
+      {activeCallAgent && (
+          <LiveChatOverlay 
+              agent={activeCallAgent} 
+              onClose={() => setActiveCallAgent(null)} 
+          />
       )}
     </div>
   );
 }
-
-export default App;

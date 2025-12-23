@@ -1,8 +1,9 @@
 
-
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { InspirationImage } from '../types.ts';
-import { UseAsGuideIcon, PinIcon } from './icons.tsx';
+import { UseAsGuideIcon, PinIcon, GridIcon, SearchIcon, ListIcon, FolderIcon } from './icons.tsx';
+import { UploadIcon } from './icons/UploadIcon.tsx';
+import { TrashIcon } from './icons/TrashIcon.tsx';
 
 interface InspirationBoardProps {
     images: InspirationImage[];
@@ -13,6 +14,8 @@ interface InspirationBoardProps {
 
 export const InspirationBoard: React.FC<InspirationBoardProps> = ({ images, onUpload, onRemove, onUseAsGuide }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const handleUploadClick = () => {
         fileInputRef.current?.click();
@@ -26,65 +29,152 @@ export const InspirationBoard: React.FC<InspirationBoardProps> = ({ images, onUp
         event.target.value = ''; // Reset
     };
 
+    // Filter images based on search query (assuming we might have metadata in future, currently just filtering existing list blindly as IDs are random, 
+    // but in a real app we'd filter by name. Since we don't have names, we just show all if search is empty, or none if it doesn't match ID - 
+    // effectively placeholder search behavior or we can filter by ID for debug).
+    // For now, let's just assume search is visual/placeholder unless we add metadata to InspirationImage.
+    const filteredImages = images; 
+
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full">
-             <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h2 className="text-3xl font-bold text-neutral-200 mb-2">Inspiration Board</h2>
-                    <p className="text-neutral-400">Collect images that inspire your visual style.</p>
+        <div className="flex flex-col h-full bg-primary overflow-hidden">
+            {/* Header / Toolbar */}
+            <div className="flex-shrink-0 bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                
+                {/* Breadcrumbs & Title */}
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <FolderIcon className="w-5 h-5 text-blue-500" />
+                    </div>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2 text-sm text-neutral-400 font-medium">
+                            <span className="hover:text-white cursor-pointer transition-colors">Media Library</span>
+                            <span className="text-neutral-600">▸</span>
+                            <span className="text-white font-bold">All Files</span>
+                        </div>
+                        <span className="text-xs text-neutral-500 font-mono mt-0.5">{images.length} files</span>
+                    </div>
                 </div>
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                />
-                <button
-                    onClick={handleUploadClick}
-                    className="bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 rounded"
-                >
-                    Upload Inspiration
-                </button>
+
+                {/* Controls */}
+                <div className="flex items-center gap-3 flex-wrap">
+                    {/* Search */}
+                    <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <SearchIcon className="h-4 w-4 text-neutral-500 group-focus-within:text-blue-500 transition-colors" />
+                        </div>
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search files..."
+                            className="bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm rounded-lg block w-full pl-9 p-2 placeholder-neutral-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all w-48 md:w-64"
+                        />
+                    </div>
+
+                    <div className="h-6 w-px bg-neutral-800 mx-1 hidden md:block"></div>
+
+                    {/* View Toggles */}
+                    <div className="flex bg-neutral-800 rounded-lg p-1 border border-neutral-700">
+                        <button 
+                            onClick={() => setViewMode('grid')}
+                            className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-neutral-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'}`}
+                            title="Grid View"
+                        >
+                            <GridIcon className="w-4 h-4" />
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('list')}
+                            className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-neutral-600 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'}`}
+                            title="List View"
+                        >
+                            <ListIcon className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    {/* Upload Button */}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                    />
+                    <button
+                        onClick={handleUploadClick}
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors shadow-lg shadow-blue-900/20"
+                    >
+                        <UploadIcon className="w-4 h-4" />
+                        <span>Upload Files</span>
+                    </button>
+                </div>
             </div>
 
-            {images.length === 0 ? (
-                 <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-neutral-800 rounded-xl bg-neutral-900/30 text-center p-8">
-                    <div className="w-16 h-16 text-neutral-700 mb-4"><PinIcon /></div>
-                    <h3 className="text-xl font-semibold text-neutral-300 mb-2">Your Board is Empty</h3>
-                    <p className="text-neutral-500">Upload images or add them from the grid to build your mood board.</p>
-                </div>
-            ) : (
-                <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-4 space-y-4">
-                    {images.map(image => (
-                        <div key={image.id} className="break-inside-avoid relative group rounded-lg overflow-hidden">
-                            <img 
-                                src={`data:image/jpeg;base64,${image.base64Image}`}
-                                alt="Inspiration"
-                                className="w-full shadow-lg"
-                            />
-                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                                <button
-                                    onClick={() => onUseAsGuide(image.base64Image)}
-                                    className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded"
-                                    title="Use as Guiding Image"
-                                >
-                                    <UseAsGuideIcon />
-                                </button>
-                                <button
-                                    onClick={() => onRemove(image.id)}
-                                    className="p-2 bg-black/60 text-white hover:bg-neutral-600 transition-colors rounded"
-                                    title="Remove"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
+            {/* Main Content Area */}
+            <div className="flex-grow overflow-y-auto p-6 bg-neutral-900/50">
+                {filteredImages.length === 0 ? (
+                     <div className="flex flex-col items-center justify-center h-full text-center p-8 opacity-60">
+                        <div className="w-20 h-20 bg-neutral-800 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-neutral-700">
+                            <PinIcon className="w-10 h-10 text-neutral-600" />
                         </div>
-                    ))}
-                </div>
-            )}
+                        <h3 className="text-xl font-bold text-neutral-300 mb-2">No Media Files</h3>
+                        <p className="text-neutral-500 max-w-sm mx-auto mb-6">Upload images or add generations from the Studio to build your inspiration library.</p>
+                        <button
+                            onClick={handleUploadClick}
+                            className="text-blue-400 hover:text-blue-300 font-semibold text-sm border border-blue-500/30 bg-blue-500/10 px-4 py-2 rounded-lg transition-colors"
+                        >
+                            Browse Local Files
+                        </button>
+                    </div>
+                ) : (
+                    <div className={`grid gap-6 ${
+                        viewMode === 'grid' 
+                            ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6' 
+                            : 'grid-cols-1'
+                    }`}>
+                        {filteredImages.map(image => (
+                            <div 
+                                key={image.id} 
+                                className={`group relative bg-neutral-800 border border-neutral-700 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:border-neutral-500 ${
+                                    viewMode === 'list' ? 'flex h-32' : 'aspect-video'
+                                }`}
+                            >
+                                <div className={`${viewMode === 'list' ? 'w-48 h-full' : 'w-full h-full'} relative bg-black`}>
+                                    <img 
+                                        src={`data:image/jpeg;base64,${image.base64Image}`}
+                                        alt="Inspiration"
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                    />
+                                    {/* Overlay */}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
+                                        <button
+                                            onClick={() => onUseAsGuide(image.base64Image)}
+                                            className="p-2 bg-white/10 hover:bg-blue-600 text-white transition-colors rounded-lg border border-white/20 backdrop-blur-sm"
+                                            title="Use as Reference"
+                                        >
+                                            <UseAsGuideIcon className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => onRemove(image.id)}
+                                            className="p-2 bg-white/10 hover:bg-red-600 text-white transition-colors rounded-lg border border-white/20 backdrop-blur-sm"
+                                            title="Delete"
+                                        >
+                                            <TrashIcon className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {/* Info (List View Only) */}
+                                {viewMode === 'list' && (
+                                    <div className="flex-grow p-4 flex flex-col justify-center">
+                                        <h4 className="text-neutral-200 font-bold mb-1">Inspiration Asset</h4>
+                                        <p className="text-xs text-neutral-500 font-mono">{image.id}</p>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

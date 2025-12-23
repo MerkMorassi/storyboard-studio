@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { LoreEntry } from '../types.ts';
 import { LoreIcon } from './icons.tsx';
@@ -66,7 +65,7 @@ export const LoreStudio: React.FC<LoreStudioProps> = ({ lore, onCreate, onUpdate
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
+        <div className="p-6 max-w-7xl mx-auto w-full space-y-8 h-full overflow-y-auto">
             <div className="mb-8">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Lore Studio</h2>
                 <p className="text-neutral-400 mb-6">Define the elements of your story universe. This lore will be used as context to guide every AI image generation, ensuring consistency.</p>

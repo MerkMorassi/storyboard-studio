@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { FaceRepairState } from '../types.ts';
 import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, FaceSparkleIcon } from './icons.tsx';
+import { getGradioClient } from '../services/gradioService';
 
 interface FaceRepairStudioProps {
     faceRepairState: FaceRepairState;
@@ -9,10 +10,16 @@ interface FaceRepairStudioProps {
     error: string | null;
     onUpload: (file: File) => void;
     onRemoveImage: () => void;
-    onGenerate: () => void;
+    onGenerate: () => void; // Legacy
     onAddToStoryboard: (base64: string) => void;
     onAddToInspiration: (base64: string) => void;
+    hfToken?: string;
 }
+
+const base64ToBlob = async (base64: string, mimeType: string): Promise<Blob> => {
+    const res = await fetch(`data:${mimeType};base64,${base64}`);
+    return await res.blob();
+};
 
 const ImageUpload: React.FC<{
     image: { base64: string; mimeType: string } | null;
@@ -29,11 +36,11 @@ const ImageUpload: React.FC<{
 
     if (image) {
         return (
-            <div className="relative group w-full max-w-lg mx-auto rounded overflow-hidden">
+            <div className="relative group w-full max-w-lg mx-auto rounded overflow-hidden bg-black/20">
                 <img src={`data:${image.mimeType};base64,${image.base64}`} alt="Source for face repair" className="w-full h-full object-cover" />
                 <button
                     onClick={onRemoveImage}
-                    className="absolute top-2 right-2 bg-black/50 text-white p-1.5 opacity-0 group-hover:opacity-100 transition-opacity rounded"
+                    className="absolute top-2 right-2 bg-black/50 text-white p-1.5 opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-red-600"
                     aria-label="Remove Image"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
@@ -93,9 +100,60 @@ const ResultDisplay: React.FC<{
     );
 };
 
-export const FaceRepairStudio: React.FC<FaceRepairStudioProps> = ({ faceRepairState, isLoading, error, onUpload, onRemoveImage, onGenerate, onAddToStoryboard, onAddToInspiration }) => {
+export const FaceRepairStudio: React.FC<FaceRepairStudioProps> = ({ faceRepairState, isLoading: parentIsLoading, error: parentError, onUpload, onRemoveImage, onGenerate: parentOnGenerate, onAddToStoryboard, onAddToInspiration, hfToken }) => {
+    const [localLoading, setLocalLoading] = useState(false);
+    const [localError, setLocalError] = useState<string | null>(null);
+    const [localResult, setLocalResult] = useState<string | null>(faceRepairState.result);
+
+    const handleRepair = async () => {
+        if (!faceRepairState.source) return;
+        setLocalLoading(true);
+        setLocalError(null);
+
+        try {
+            const blob = await base64ToBlob(faceRepairState.source.base64, faceRepairState.source.mimeType);
+            
+            // TODO: Point to local server (http://localhost:7860) when running CodeFormer locally.
+            // Target: sczhou/CodeFormer (standard reference)
+            const client = await getGradioClient("sczhou/CodeFormer", { hfToken });
+            
+            // CodeFormer predict params: [image, background_enhance(bool), face_upsample(bool), upscale(float)]
+            const result = await client.predict("/predict", [
+                blob,
+                true, // Background enhance
+                true, // Face upsample
+                2     // Upscale factor
+            ]);
+
+            if (result && result.data && result.data.length > 0) {
+                let resultUrl = result.data[0];
+                if (typeof resultUrl === 'object' && resultUrl.url) resultUrl = resultUrl.url;
+
+                const res = await fetch(resultUrl);
+                const resBlob = await res.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64 = (reader.result as string).split(',')[1];
+                    setLocalResult(base64);
+                    setLocalLoading(false);
+                };
+                reader.readAsDataURL(resBlob);
+            } else {
+                throw new Error("Invalid response from Restoration API");
+            }
+
+        } catch (e) {
+            console.error("Face Repair Error:", e);
+            setLocalError(e instanceof Error ? e.message : "Repair failed.");
+            setLocalLoading(false);
+        }
+    };
+
+    const isLoading = parentIsLoading || localLoading;
+    const error = parentError || localError;
+
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full">
+        <div className="p-6 max-w-7xl mx-auto w-full h-full overflow-y-auto">
             <div className="mb-8">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Face Repair Studio</h2>
                 <p className="text-neutral-400">Improve the quality of faces in your images. Fix blur, enhance details, and correct lighting.</p>
@@ -106,7 +164,7 @@ export const FaceRepairStudio: React.FC<FaceRepairStudioProps> = ({ faceRepairSt
 
                 {faceRepairState.source && (
                     <button
-                        onClick={onGenerate}
+                        onClick={handleRepair}
                         disabled={isLoading}
                         className="w-full max-w-xs bg-neutral-700 text-white font-bold py-3 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded"
                     >
@@ -129,10 +187,10 @@ export const FaceRepairStudio: React.FC<FaceRepairStudioProps> = ({ faceRepairSt
                 </div>
             )}
             
-            {faceRepairState.result && faceRepairState.source && !isLoading && (
+            {localResult && faceRepairState.source && !isLoading && (
                  <ResultDisplay
                     source={faceRepairState.source}
-                    resultImage={faceRepairState.result}
+                    resultImage={localResult}
                     onAddToStoryboard={onAddToStoryboard}
                     onAddToInspiration={onAddToInspiration}
                 />

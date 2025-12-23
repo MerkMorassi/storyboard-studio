@@ -1,8 +1,8 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { DynamicPromptList } from '../types.ts';
 import { ShuffleIcon } from './icons.tsx';
+import { Dataframe } from './Dataframe.tsx';
 
 interface DynamicPromptsStudioProps {
     lists: DynamicPromptList[];
@@ -18,10 +18,17 @@ const ListEditor: React.FC<{
     onCancel: () => void;
 }> = ({ list, onUpdate, onDelete, onCancel }) => {
     const [name, setName] = useState(list.name);
-    const [items, setItems] = useState(list.items.join('\n'));
+    // Convert flat list to Dataframe format: [[item1], [item2], ...]
+    const [dataframeData, setDataframeData] = useState<(string | number | boolean)[][]>(
+        list.items.map(item => [item])
+    );
 
     const handleSave = () => {
-        const itemsArray = items.split('\n').map(item => item.trim()).filter(Boolean);
+        // Flatten dataframe back to simple string array
+        const itemsArray = dataframeData
+            .map(row => String(row[0]).trim())
+            .filter(Boolean); // Remove empty rows
+
         if (name.trim() && itemsArray.length > 0) {
             onUpdate(list.id, name, itemsArray);
             onCancel();
@@ -29,26 +36,42 @@ const ListEditor: React.FC<{
     };
 
     return (
-        <div className="bg-neutral-800/60 p-4 border border-neutral-700 space-y-3 animate-fade-in rounded-lg">
+        <div className="bg-neutral-800/60 p-4 border border-neutral-700 space-y-4 animate-fade-in rounded-lg">
              <style>{`.animate-fade-in { animation: fadeIn 0.3s ease-out; } @keyframes fadeIn { 0% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 1; transform: translateY(0); } }`}</style>
-            <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="List Name (e.g., character, location)"
-                className="w-full bg-neutral-900 border border-neutral-600 p-2 text-lg font-bold focus:ring-2 focus:ring-neutral-500 outline-none rounded"
-            />
-            <textarea
-                value={items}
-                onChange={(e) => setItems(e.target.value)}
-                placeholder="Add items, one per line..."
-                className="w-full h-48 bg-neutral-900 border border-neutral-600 p-2 text-sm resize-y focus:ring-2 focus:ring-neutral-500 outline-none font-mono rounded"
-            />
-            <div className="flex justify-end gap-3">
-                <button onClick={() => onDelete(list.id)} className="px-4 py-2 text-sm font-medium text-red-400 bg-neutral-900 hover:bg-red-900/50 transition rounded">Delete</button>
-                <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition rounded">Cancel</button>
-                <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-neutral-600 hover:bg-neutral-500 transition rounded">Save Changes</button>
+            
+            <div className="flex justify-between items-center">
+                <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="List Name (e.g., character, location)"
+                    className="w-full bg-neutral-900 border border-neutral-600 p-2 text-lg font-bold focus:ring-2 focus:ring-neutral-500 outline-none rounded mr-4"
+                />
+                <div className="flex gap-2">
+                    <button onClick={() => onDelete(list.id)} className="px-3 py-2 text-sm font-medium text-red-400 bg-neutral-900 hover:bg-red-900/50 transition rounded">Delete</button>
+                    <button onClick={onCancel} className="px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition rounded">Cancel</button>
+                    <button onClick={handleSave} className="px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 transition rounded shadow-lg shadow-blue-900/20">Save</button>
+                </div>
             </div>
+
+            <div className="h-96">
+                <Dataframe 
+                    value={{ 
+                        headers: ["Prompt Options"], 
+                        data: dataframeData 
+                    }}
+                    editable={true}
+                    show_row_numbers={true}
+                    show_search={true}
+                    onChange={(newData) => setDataframeData(newData.data)}
+                    show_label={false}
+                    max_height={380}
+                />
+            </div>
+            
+            <p className="text-xs text-neutral-500 text-right">
+                Use the table above to manage your random prompt options. Each row is one variation.
+            </p>
         </div>
     );
 };
@@ -57,16 +80,19 @@ const CreateListForm: React.FC<{
     onCreate: (name: string, items: string[]) => void;
 }> = ({ onCreate }) => {
     const [name, setName] = useState('');
-    const [items, setItems] = useState('');
+    const [dataframeData, setDataframeData] = useState<(string | number | boolean)[][]>([['']]); // Start with one empty row
     const [isExpanded, setIsExpanded] = useState(false);
 
     const handleCreate = (e: React.FormEvent) => {
         e.preventDefault();
-        const itemsArray = items.split('\n').map(item => item.trim()).filter(Boolean);
+        const itemsArray = dataframeData
+            .map(row => String(row[0]).trim())
+            .filter(Boolean);
+
         if (name.trim() && itemsArray.length > 0) {
             onCreate(name.trim(), itemsArray);
             setName('');
-            setItems('');
+            setDataframeData([['']]);
             setIsExpanded(false);
         }
     };
@@ -83,7 +109,7 @@ const CreateListForm: React.FC<{
     }
 
     return (
-        <form onSubmit={handleCreate} className="bg-neutral-800/50 p-4 border border-neutral-700 space-y-3 animate-fade-in rounded-lg">
+        <form onSubmit={handleCreate} className="bg-neutral-800/50 p-4 border border-neutral-700 space-y-4 animate-fade-in rounded-lg">
             <h3 className="text-lg font-semibold text-neutral-300">New Dynamic List</h3>
             <input
                 type="text"
@@ -92,12 +118,21 @@ const CreateListForm: React.FC<{
                 placeholder="List Name (e.g., colors, moods)"
                 className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none rounded"
             />
-            <textarea
-                value={items}
-                onChange={(e) => setItems(e.target.value)}
-                placeholder="List items here, one per line..."
-                className="w-full h-28 bg-neutral-900 border border-neutral-600 p-2 resize-y focus:ring-2 focus:ring-neutral-500 outline-none font-mono rounded"
-            />
+            
+            <div className="h-64">
+                <Dataframe 
+                    value={{ 
+                        headers: ["Prompt Options"], 
+                        data: dataframeData 
+                    }}
+                    editable={true}
+                    show_row_numbers={true}
+                    onChange={(newData) => setDataframeData(newData.data)}
+                    show_label={false}
+                    max_height={250}
+                />
+            </div>
+
             <div className="flex gap-2">
                 <button
                     type="button"
@@ -108,7 +143,7 @@ const CreateListForm: React.FC<{
                 </button>
                 <button
                     type="submit"
-                    disabled={!name.trim() || !items.trim()}
+                    disabled={!name.trim()}
                     className="flex-1 bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed rounded"
                 >
                     Create List
@@ -122,7 +157,7 @@ export const DynamicPromptsStudio: React.FC<DynamicPromptsStudioProps> = ({ list
     const [editingId, setEditingId] = useState<string | null>(null);
 
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
+        <div className="p-6 max-w-7xl mx-auto w-full space-y-8 h-full overflow-y-auto">
             <div className="mb-8">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Dynamic Prompts</h2>
                 <p className="text-neutral-400 mb-6">Create lists of variables (like [character], [location]) to inject randomness into your prompts.</p>
@@ -157,7 +192,7 @@ export const DynamicPromptsStudio: React.FC<DynamicPromptsStudioProps> = ({ list
                                         </div>
                                         <div className="bg-neutral-900/50 p-2 rounded text-xs text-neutral-400 font-mono h-24 overflow-y-auto border border-neutral-800">
                                             {list.items.map((item, i) => (
-                                                <div key={i} className="truncate">• {item}</div>
+                                                <div key={i} className="truncate border-b border-neutral-800/50 last:border-0 py-0.5">• {item}</div>
                                             ))}
                                         </div>
                                         <p className="text-xs text-neutral-500 mt-2 text-right">{list.items.length} items</p>

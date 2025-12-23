@@ -1,8 +1,8 @@
 
-
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { BlenderImage } from '../types.ts';
 import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, BlenderIcon } from './icons.tsx';
+import { getGradioClient } from '../services/gradioService';
 
 interface BlenderStudioProps {
     sourceImages: BlenderImage[];
@@ -11,10 +11,17 @@ interface BlenderStudioProps {
     error: string | null;
     onUpload: (files: FileList) => void;
     onRemoveImage: (id: string) => void;
-    onGenerate: () => void;
+    onGenerate: () => void; // Legacy
     onAddToStoryboard: (base64: string) => void;
     onAddToInspiration: (base64: string) => void;
+    hfToken?: string;
 }
+
+const base64ToBlob = async (base64: string): Promise<Blob> => {
+    // Assuming jpeg for simplicity in blender context, or detect from mime if stored in blender image type
+    const res = await fetch(`data:image/jpeg;base64,${base64}`);
+    return await res.blob();
+};
 
 const ResultDisplay: React.FC<{
     resultImage: string;
@@ -47,8 +54,11 @@ const ResultDisplay: React.FC<{
 };
 
 
-export const BlenderStudio: React.FC<BlenderStudioProps> = ({ sourceImages, resultImage, isLoading, error, onUpload, onRemoveImage, onGenerate, onAddToStoryboard, onAddToInspiration }) => {
+export const BlenderStudio: React.FC<BlenderStudioProps> = ({ sourceImages, resultImage: parentResult, isLoading: parentIsLoading, error: parentError, onUpload, onRemoveImage, onGenerate, onAddToStoryboard, onAddToInspiration, hfToken }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [localLoading, setLocalLoading] = useState(false);
+    const [localError, setLocalError] = useState<string | null>(null);
+    const [localResult, setLocalResult] = useState<string | null>(parentResult);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
@@ -56,16 +66,80 @@ export const BlenderStudio: React.FC<BlenderStudioProps> = ({ sourceImages, resu
         }
         event.target.value = ''; // Reset
     };
+
+    const handleBlend = async () => {
+        if (sourceImages.length === 0) return;
+        setLocalLoading(true);
+        setLocalError(null);
+
+        try {
+            // Prepare inputs: Standard Image Mixer usually takes 1-5 images
+            const inputs = await Promise.all(sourceImages.map(img => base64ToBlob(img.base64)));
+            
+            // TODO: Point to local server (http://localhost:7860) when Image Mixer is running locally.
+            // Target: lambda-labs/image-mixer-demo (standard ref) takes 5 images + 5 strengths
+            
+            const client = await getGradioClient("lambda-labs/image-mixer-demo", { hfToken });
+            
+            // Construct args: [img1, strength1, img2, strength2, ... prompt, negative, cfg, steps, seed]
+            const args = [];
+            for (let i = 0; i < 5; i++) {
+                if (i < inputs.length) {
+                    args.push(inputs[i]); // Image
+                    args.push(1.0);       // Strength default
+                } else {
+                    args.push(null);
+                    args.push(1.0);
+                }
+            }
+            
+            // Add prompt args
+            args.push(""); // Prompt
+            args.push("blurry, low quality"); // Negative
+            args.push(5.0); // CFG
+            args.push(30); // Steps
+            args.push(42); // Seed
+            
+            const result = await client.predict("/predict", args);
+
+            if (result && result.data && result.data.length > 0) {
+                // Usually returns [image]
+                let resultUrl = result.data[0];
+                if (typeof resultUrl === 'object' && resultUrl.url) resultUrl = resultUrl.url;
+
+                const res = await fetch(resultUrl);
+                const resBlob = await res.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64 = (reader.result as string).split(',')[1];
+                    setLocalResult(base64);
+                    setLocalLoading(false);
+                };
+                reader.readAsDataURL(resBlob);
+            } else {
+                throw new Error("Invalid response from Image Mixer API");
+            }
+
+        } catch (e) {
+            console.error("Blender Error:", e);
+            setLocalError(e instanceof Error ? e.message : "Blending failed.");
+            setLocalLoading(false);
+        }
+    };
+
+    const isLoading = parentIsLoading || localLoading;
+    const error = parentError || localError;
+    const resultToDisplay = localResult || parentResult;
     
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full">
+        <div className="p-6 max-w-7xl mx-auto w-full h-full overflow-y-auto">
             <div className="mb-8">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Blender Studio</h2>
-                <p className="text-neutral-400">Upload multiple images (e.g., portraits) and the AI will blend their features into a single, new character.</p>
+                <p className="text-neutral-400">Upload multiple images (concepts, styles, or faces) and the AI will blend their features into a single, new composition.</p>
             </div>
 
             <div className="bg-neutral-800/50 p-6 border border-neutral-700 rounded-lg">
-                <h3 className="text-lg font-semibold text-neutral-300 mb-4">Source Images</h3>
+                <h3 className="text-lg font-semibold text-neutral-300 mb-4">Source Images (Max 5)</h3>
                 
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 mb-6">
                     {sourceImages.map(img => (
@@ -90,8 +164,8 @@ export const BlenderStudio: React.FC<BlenderStudioProps> = ({ sourceImages, resu
                 </div>
 
                  <button
-                    onClick={onGenerate}
-                    disabled={isLoading || sourceImages.length < 2}
+                    onClick={handleBlend}
+                    disabled={isLoading || sourceImages.length < 1}
                     className="w-full bg-neutral-700 text-white font-bold py-3 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center rounded"
                 >
                     {isLoading ? 'Blending...' : `Generate Blend (${sourceImages.length} images)`}
@@ -112,9 +186,9 @@ export const BlenderStudio: React.FC<BlenderStudioProps> = ({ sourceImages, resu
                 </div>
             )}
 
-            {resultImage && !isLoading && (
+            {resultToDisplay && !isLoading && (
                 <ResultDisplay 
-                    resultImage={resultImage}
+                    resultImage={resultToDisplay}
                     onAddToStoryboard={onAddToStoryboard}
                     onAddToInspiration={onAddToInspiration}
                 />

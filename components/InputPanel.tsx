@@ -292,15 +292,17 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
         <AccordionSection title="2. IMAGE SETTINGS" sectionId="settings" isOpen={openSections.has('settings')} onToggle={() => toggleSection('settings')}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                  <FormField label={`Images: ${numImages}`} className="col-span-2">
-                    <input type="range" min="1" max={model === 'imagen-4.0-generate-001' ? 8 : 16} value={numImages} onChange={(e) => setNumImages(parseInt(e.target.value))} className="w-full" disabled={prompt.includes('[') && prompt.includes(']')} />
+                    <div className="flex gap-2 items-center">
+                        <input type="range" min="1" max={model === 'imagen-4.0-generate-001' ? 8 : 16} value={numImages} onChange={(e) => setNumImages(parseInt(e.target.value))} className="w-full accent-blue-500" disabled={prompt.includes('[') && prompt.includes(']')} />
+                        <input type="number" min="1" max="16" value={numImages} onChange={(e) => setNumImages(parseInt(e.target.value))} className="w-12 bg-neutral-900 border border-neutral-600 rounded text-center text-sm p-1" />
+                    </div>
                 </FormField>
                  <FormField label="Aspect Ratio" className="col-span-2">
                     <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value as any)} className="w-full">
                         <option value="16:9">16:9 (Widescreen)</option>
                         <option value="9:16">9:16 (Vertical)</option>
                         <option value="1:1">1:1 (Square)</option>
-                        <option value="4:3">4:3 (Standard)</option>
-                        <option value="3:4">3:4 (Portrait)</option>
+                        <option value="2.39:1">2.39:1 (Cinematic)</option>
                     </select>
                 </FormField>
                  <FormField label={`Guidance: ${guidanceScale}`} className="col-span-2">

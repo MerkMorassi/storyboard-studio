@@ -1,5 +1,4 @@
 
-
 import React, { useRef } from 'react';
 import { ScriptIcon } from './icons.tsx';
 
@@ -24,7 +23,7 @@ export const ScriptViewer: React.FC<ScriptViewerProps> = ({ scriptText, onUpload
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full">
+        <div className="p-6 max-w-7xl mx-auto w-full h-full overflow-y-auto">
             <div className="flex justify-between items-center mb-8">
                 <div>
                     <h2 className="text-3xl font-bold text-neutral-200 mb-2">Script</h2>
