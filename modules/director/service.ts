@@ -1,6 +1,6 @@
-
 import { GoogleGenAI, Type } from '@google/genai';
 import { ChatMessage, AutomationConfig } from '../../types.ts';
+import { extractFramesFromVideo } from '../../utils/video';
 
 // Defined solely for the Director module to keep it self-contained
 const DIRECTOR_SYSTEM_INSTRUCTION = `
@@ -59,6 +59,53 @@ export const analyzeImage = async (apiKey: string, base64Image: string, mimeType
     throw new Error("Failed to analyze image.");
 };
 
+export const analyzeVideo = async (apiKey: string, videoUrl: string): Promise<any> => {
+    if (!apiKey) throw new Error("API Key is missing.");
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Extract frames (e.g., 5 frames for analysis to get a sense of motion and consistent style)
+    // This allows analyzing local video files without uploading heavy binaries
+    const frames = await extractFramesFromVideo(videoUrl, 5); 
+    
+    const prompt = `Analyze this video sequence as a Director of Photography. 
+    Return a JSON object with the following fields:
+    - subject: Brief description of the subject and action in the video.
+    - lighting: Technical description of the lighting setup and changes.
+    - camera: Camera movement (pan, tilt, dolly, zoom), angles, and lens choices.
+    - color: Color grading, mood, and temporal visual changes.
+    - composition: Framing and dynamic composition notes.
+    - extractedPrompt: A video generation prompt to recreate this scene.`;
+
+    const parts = [
+        { text: prompt },
+        ...frames.map(frame => ({ inlineData: { mimeType: 'image/jpeg', data: frame } }))
+    ];
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image', // Flash Image supports high-token context suitable for multiple frames
+        contents: { parts },
+        config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    subject: { type: Type.STRING },
+                    lighting: { type: Type.STRING },
+                    camera: { type: Type.STRING },
+                    color: { type: Type.STRING },
+                    composition: { type: Type.STRING },
+                    extractedPrompt: { type: Type.STRING },
+                }
+            }
+        }
+    });
+
+    if (response.text) {
+        return JSON.parse(response.text);
+    }
+    throw new Error("Failed to analyze video.");
+};
+
 export const chatWithDirector = async (
     apiKey: string,
     history: ChatMessage[],
@@ -69,13 +116,6 @@ export const chatWithDirector = async (
 ): Promise<string> => {
     if (!apiKey) throw new Error("API Key is missing.");
     const ai = new GoogleGenAI({ apiKey });
-
-    // Build context
-    let context = "";
-    if (ragConfig && projectId) {
-        // Optional: Retrieve relevant cinematography lore
-        // For now, we can just pass the current working prompt as the primary context
-    }
 
     const systemWithContext = `${DIRECTOR_SYSTEM_INSTRUCTION}
     

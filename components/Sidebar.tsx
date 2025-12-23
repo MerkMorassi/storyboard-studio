@@ -1,17 +1,20 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import { ActiveView } from '../types.ts';
-import {
-  SettingsIcon, DashboardIcon, GridIcon, BlenderIcon, LayersIcon, SwapIcon, FaceSparkleIcon, PhotoRealismIcon,
-  PinIcon, CharacterIcon, LoreIcon, ShuffleIcon, LibraryIcon, StoryboardIcon, VideoIcon, ScriptIcon, AutomationIcon,
-  ChevronLeftIcon, ChevronRightIcon, ClapperboardIcon, MagicIcon, CameraLensIcon, ImageIcon, ScissorsIcon, PuzzleIcon, ExpandIcon, AgentsIcon, AnalyzerIcon
-} from './icons.tsx';
-import { DatabaseIcon } from './icons/DatabaseIcon';
-import { PencilIcon } from './icons/PencilIcon';
+import React, { useState, useRef, useEffect } from 'react';
+import { ActiveView } from '../types';
+import { 
+    DashboardIcon, FolderIcon, AgentsIcon, AutomationIcon, MagicIcon, ScriptIcon, 
+    PencilIcon, ImageIcon, AnalyzerIcon, CameraLensIcon, ClapperboardIcon, 
+    BlenderIcon, LayersIcon, PuzzleIcon, SwapIcon, FaceSparkleIcon, PhotoRealismIcon, 
+    ExpandIcon, ScissorsIcon, GridIcon, StoryboardIcon, PinIcon, LoreIcon, 
+    LibraryIcon, ShuffleIcon, SettingsIcon, WritersRoomIcon
+} from './icons';
 
 interface SidebarProps {
   activeView: ActiveView;
   onNavigate: (view: ActiveView) => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  onOpenSettings: () => void;
+  isOnline: boolean;
   stats: {
     storyboard: number;
     inspiration: number;
@@ -20,256 +23,221 @@ interface SidebarProps {
     dynamicPrompts: number;
     promptLibrary: number;
   };
-  isOnline: boolean;
-  onOpenSettings: () => void;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
 }
 
-type SidebarItemType = 'link' | 'header';
-
-interface SidebarItem {
+interface MenuItem {
     id: string;
-    type: SidebarItemType;
+    type: 'link' | 'header';
     label: string;
-    view?: ActiveView; // Only for links
-    icon?: string; // String key for icon lookup
-    statKey?: keyof SidebarProps['stats']; // Optional stat count to show
+    view?: ActiveView;
+    icon?: React.FC<{ className?: string }>;
 }
 
-// Icon Mapping for serialization
-const ICON_MAP: Record<string, React.ReactNode> = {
-    'DashboardIcon': <DashboardIcon />,
-    'ProjectsIcon': <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>,
-    'AgentsIcon': <AgentsIcon />,
-    'AutomationIcon': <AutomationIcon />,
-    'MagicIcon': <MagicIcon />,
-    'ScriptIcon': <ScriptIcon />,
-    'PencilIcon': <PencilIcon className="w-5 h-5" />,
-    'ImageIcon': <ImageIcon />,
-    'AnalyzerIcon': <AnalyzerIcon />,
-    'ClapperboardIcon': <ClapperboardIcon />,
-    'VideoIcon': <VideoIcon />,
-    'LayersIcon': <LayersIcon />,
-    'ScissorsIcon': <ScissorsIcon />,
-    'ExpandIcon': <ExpandIcon />,
-    'SwapIcon': <SwapIcon />,
-    'FaceSparkleIcon': <FaceSparkleIcon />,
-    'BlenderIcon': <BlenderIcon />,
-    'PuzzleIcon': <PuzzleIcon />,
-    'PhotoRealismIcon': <PhotoRealismIcon />,
-    'GridIcon': <GridIcon />,
-    'StoryboardIcon': <StoryboardIcon />,
-    'CharacterIcon': <CharacterIcon />,
-    'DatabaseIcon': <DatabaseIcon />,
-    'LoreIcon': <LoreIcon />,
-    'LibraryIcon': <LibraryIcon />,
-    'ShuffleIcon': <ShuffleIcon />,
-    'PinIcon': <PinIcon />,
-    'CameraLensIcon': <CameraLensIcon />,
-};
-
-const DEFAULT_SIDEBAR_ITEMS: SidebarItem[] = [
-    { id: 'dashboard', type: 'link', label: 'Dashboard', view: 'dashboard', icon: 'DashboardIcon' },
-    { id: 'projects', type: 'link', label: 'Projects', view: 'projects', icon: 'ProjectsIcon' },
+const DEFAULT_MENU_ITEMS: MenuItem[] = [
+    { id: 'dashboard', type: 'link', label: 'Dashboard', view: 'dashboard', icon: DashboardIcon },
+    { id: 'projects', type: 'link', label: 'Projects', view: 'projects', icon: FolderIcon },
     
-    { id: 'header-depts', type: 'header', label: 'Departments' },
-    { id: 'team', type: 'link', label: 'Team Overview', view: 'team', icon: 'AgentsIcon' },
-    { id: 'core', type: 'link', label: 'Producer (Core)', view: 'core', icon: 'AutomationIcon' },
-    { id: 'ideation', type: 'link', label: 'Ideation (Spark)', view: 'ideation', icon: 'MagicIcon' },
-    { id: 'scripting', type: 'link', label: 'Scripting (Scribe)', view: 'scripting', icon: 'ScriptIcon' },
-    { id: 'design', type: 'link', label: 'Design (Stylus)', view: 'design', icon: 'PencilIcon' },
-    { id: 'art', type: 'link', label: 'Art (Canvas)', view: 'art', icon: 'ImageIcon' },
+    { id: 'header-team', type: 'header', label: 'AnimAgents Team' },
+    { id: 'team', type: 'link', label: 'Team Overview', view: 'team', icon: AgentsIcon },
+    { id: 'core', type: 'link', label: 'Producer (Nexus)', view: 'core', icon: AutomationIcon },
+    { id: 'ideation', type: 'link', label: 'Ideation (Spark)', view: 'ideation', icon: MagicIcon },
+    { id: 'scripting', type: 'link', label: 'Scripting (Scribe)', view: 'scripting', icon: ScriptIcon },
+    { id: 'design', type: 'link', label: 'Design (Stylus)', view: 'design', icon: PencilIcon },
+    { id: 'art', type: 'link', label: 'Art (Canvas)', view: 'art', icon: ImageIcon },
 
     { id: 'header-tools', type: 'header', label: 'Creation Tools' },
-    { id: 'director', type: 'link', label: 'Visual Analyzer', view: 'director', icon: 'AnalyzerIcon' },
-    { id: 'mythos-engine', type: 'link', label: 'MythOS Cinematic Engine', view: 'mythos-cinematic-engine', icon: 'CameraLensIcon' },
-    { id: 'image-generator', type: 'link', label: 'Image Studio', view: 'image-generator', icon: 'ImageIcon' },
-    { id: 'generative-video', type: 'link', label: 'Video Creator', view: 'generative-video', icon: 'ClapperboardIcon' },
-    { id: 'video', type: 'link', label: 'Animatic Studio', view: 'video', icon: 'VideoIcon' },
+    { id: 'director', type: 'link', label: 'Visual (Kine)', view: 'director', icon: AnalyzerIcon },
+    { id: 'mythos-engine', type: 'link', label: 'MythOS Cinematic', view: 'mythos-cinematic-engine', icon: CameraLensIcon },
+    { id: 'image-generator', type: 'link', label: 'Image Studio', view: 'image-generator', icon: ImageIcon },
+    { id: 'generative-video', type: 'link', label: 'Video Creator', view: 'generative-video', icon: ClapperboardIcon },
     
-    { id: 'header-post', type: 'header', label: 'Post-Production' },
-    { id: 'topaz', type: 'link', label: 'Enhance Studio', view: 'topaz', icon: 'MagicIcon' },
-    { id: 'scene-compositor', type: 'link', label: 'Compositor', view: 'scene-compositor', icon: 'LayersIcon' },
-    { id: 'green-screen', type: 'link', label: 'Green Screen', view: 'green-screen', icon: 'ScissorsIcon' },
-    { id: 'resize', type: 'link', label: 'Resize & Outpaint', view: 'resize', icon: 'ExpandIcon' },
-    { id: 'face-swap', type: 'link', label: 'Face Swap', view: 'face-swap', icon: 'SwapIcon' },
-    { id: 'face-repair', type: 'link', label: 'Face Repair', view: 'face-repair', icon: 'FaceSparkleIcon' },
-    { id: 'blender', type: 'link', label: 'Blender', view: 'blender', icon: 'BlenderIcon' },
-    { id: 'composite', type: 'link', label: 'Composite', view: 'composite', icon: 'PuzzleIcon' },
-    { id: 'photorealism', type: 'link', label: 'UHD Generator', view: 'photorealism', icon: 'PhotoRealismIcon' },
-
-    { id: 'header-assets', type: 'header', label: 'Assets & Lore' },
-    { id: 'grid', type: 'link', label: 'Gallery', view: 'grid', icon: 'GridIcon' },
-    { id: 'story', type: 'link', label: 'Storyboard', view: 'story', icon: 'StoryboardIcon', statKey: 'storyboard' },
-    { id: 'agents', type: 'link', label: 'Studio Players', view: 'agents', icon: 'CharacterIcon', statKey: 'agents' },
-    { id: 'knowledge', type: 'link', label: 'Knowledge Base', view: 'knowledge', icon: 'DatabaseIcon' },
-    { id: 'lore', type: 'link', label: 'Lore', view: 'lore', icon: 'LoreIcon', statKey: 'lore' },
-    { id: 'prompt-library', type: 'link', label: 'Prompt Library', view: 'prompt-library', icon: 'LibraryIcon', statKey: 'promptLibrary' },
-    { id: 'dynamic-prompts', type: 'link', label: 'Dynamic Prompts', view: 'dynamic-prompts', icon: 'ShuffleIcon', statKey: 'dynamicPrompts' },
-    { id: 'script', type: 'link', label: 'Script', view: 'script', icon: 'ScriptIcon' },
-    { id: 'inspiration', type: 'link', label: 'Inspiration', view: 'inspiration', icon: 'PinIcon', statKey: 'inspiration' },
-    { id: 'automation', type: 'link', label: 'Automation', view: 'automation', icon: 'AutomationIcon' },
+    { id: 'header-utils', type: 'header', label: 'Utilities' },
+    { id: 'blender', type: 'link', label: 'Blender', view: 'blender', icon: BlenderIcon },
+    { id: 'scene-compositor', type: 'link', label: 'Compositor', view: 'scene-compositor', icon: LayersIcon },
+    { id: 'composite', type: 'link', label: 'Composite', view: 'composite', icon: PuzzleIcon },
+    { id: 'face-swap', type: 'link', label: 'Face Swap', view: 'face-swap', icon: SwapIcon },
+    { id: 'face-repair', type: 'link', label: 'Face Repair', view: 'face-repair', icon: FaceSparkleIcon },
+    { id: 'photorealism', type: 'link', label: 'UHD Generator', view: 'photorealism', icon: PhotoRealismIcon },
+    { id: 'resize', type: 'link', label: 'Resize/Outpaint', view: 'resize', icon: ExpandIcon },
+    { id: 'green-screen', type: 'link', label: 'Green Screen', view: 'green-screen', icon: ScissorsIcon },
+    { id: 'topaz', type: 'link', label: 'Enhance (Topaz)', view: 'topaz', icon: MagicIcon },
+    
+    { id: 'header-assets', type: 'header', label: 'Assets' },
+    { id: 'grid', type: 'link', label: 'Gallery', view: 'grid', icon: GridIcon },
+    { id: 'story', type: 'link', label: 'Storyboard', view: 'story', icon: StoryboardIcon },
+    { id: 'inspiration', type: 'link', label: 'Inspiration', view: 'inspiration', icon: PinIcon },
+    
+    { id: 'header-data', type: 'header', label: 'Knowledge' },
+    { id: 'agents', type: 'link', label: 'Studio Players', view: 'agents', icon: AgentsIcon },
+    { id: 'lore', type: 'link', label: 'Lore', view: 'lore', icon: LoreIcon },
+    { id: 'prompt-library', type: 'link', label: 'Prompt Library', view: 'prompt-library', icon: LibraryIcon },
+    { id: 'dynamic-prompts', type: 'link', label: 'Dynamic Prompts', view: 'dynamic-prompts', icon: ShuffleIcon },
+    { id: 'agent-chat', type: 'link', label: 'Agent Chat', view: 'agent-chat', icon: WritersRoomIcon },
+    { id: 'knowledge', type: 'link', label: 'Knowledge Base', view: 'knowledge', icon: ScriptIcon },
+    { id: 'automation', type: 'link', label: 'Automation', view: 'automation', icon: AutomationIcon },
 ];
 
-const STORAGE_KEY = 'sidebar-order-v3'; // Bumped version for new items
-
-const NavButton: React.FC<{
-    label: string;
-    view: ActiveView;
-    activeView: ActiveView;
-    onNavigate: (view: ActiveView) => void;
-    icon: React.ReactNode;
-    count?: number;
-    isCollapsed: boolean;
-}> = ({ label, view, activeView, onNavigate, icon, count, isCollapsed }) => (
-  <button
-    onClick={() => onNavigate(view)}
-    title={isCollapsed ? label : undefined}
-    className={`w-full flex items-center px-3 py-2 mb-1 text-sm font-medium rounded-md transition-colors duration-200 cursor-pointer ${
-      activeView === view 
-        ? 'bg-blue-900/30 text-blue-400 border-r-2 border-blue-500' 
-        : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'
-    } ${isCollapsed ? 'justify-center px-2' : ''}`}
-  >
-    <div className={`flex-shrink-0 ${activeView === view ? 'text-blue-400' : 'text-neutral-500 group-hover:text-neutral-300'}`}>
-        {icon}
-    </div>
-    {!isCollapsed && <span className="ml-3 truncate">{label}</span>}
-    {typeof count !== 'undefined' && count > 0 && !isCollapsed && (
-      <span className="ml-auto text-xs bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded-full border border-neutral-700">
-        {count}
-      </span>
-    )}
-  </button>
-);
-
-const SectionHeader: React.FC<{ title: string; isCollapsed: boolean }> = ({ title, isCollapsed }) => (
-    !isCollapsed ? (
-        <div className="px-3 pt-4 pb-2 text-[10px] font-bold text-neutral-500 uppercase tracking-widest cursor-move">
-            {title}
-        </div>
-    ) : (
-        <div className="py-2 border-t border-neutral-800 mx-2 mt-2 cursor-move"></div>
-    )
-);
-
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, stats, isOnline, onOpenSettings, isCollapsed, onToggleCollapse }) => {
-    const [items, setItems] = useState<SidebarItem[]>(DEFAULT_SIDEBAR_ITEMS);
-    const dragItem = useRef<number | null>(null);
-    const dragOverItem = useRef<number | null>(null);
-
-    useEffect(() => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isCollapsed, onToggleCollapse, onOpenSettings, isOnline, stats }) => {
+    // State for reorderable menu items
+    const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
         try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                setItems(JSON.parse(saved));
+            const savedOrder = localStorage.getItem('mythos_sidebar_order');
+            if (savedOrder) {
+                const orderedIds = JSON.parse(savedOrder) as string[];
+                // Map saved IDs back to full item objects
+                const rehydrated = orderedIds
+                    .map(id => DEFAULT_MENU_ITEMS.find(item => item.id === id))
+                    .filter((item): item is MenuItem => !!item);
+                
+                // Append any new items that might have been added since last save
+                const newItems = DEFAULT_MENU_ITEMS.filter(item => !orderedIds.includes(item.id));
+                return [...rehydrated, ...newItems];
             }
         } catch (e) {
             console.error("Failed to load sidebar order", e);
         }
-    }, []);
+        return DEFAULT_MENU_ITEMS;
+    });
 
-    const saveOrder = (newItems: SidebarItem[]) => {
-        setItems(newItems);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newItems));
-    };
+    const dragItem = useRef<number | null>(null);
+    const dragOverItem = useRef<number | null>(null);
 
-    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, position: number) => {
-        dragItem.current = position;
+    const onDragStart = (e: React.DragEvent, index: number) => {
+        dragItem.current = index;
         e.dataTransfer.effectAllowed = "move";
-        // Make the ghost transparent or styled if needed, defaults are usually okay
-        if (e.currentTarget) {
-             e.currentTarget.style.opacity = '0.5';
-        }
+        // Firefox compatibility
+        e.dataTransfer.setData("text/plain", index.toString());
     };
 
-    const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, position: number) => {
-        dragOverItem.current = position;
-        e.preventDefault();
+    const onDragEnter = (e: React.DragEvent, index: number) => {
+        dragOverItem.current = index;
     };
-    
-    const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-        if (e.currentTarget) {
-             e.currentTarget.style.opacity = '1';
+
+    // Explicitly handle DragOver to allow dropping and update reference
+    // This is often more reliable than just DragEnter for child elements
+    const onDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault(); 
+        dragOverItem.current = index;
+    };
+
+    const onDragEnd = () => {
+        const startIndex = dragItem.current;
+        const endIndex = dragOverItem.current;
+
+        if (startIndex !== null && endIndex !== null && startIndex !== endIndex) {
+            const newItems = [...menuItems];
+            const [removed] = newItems.splice(startIndex, 1);
+            newItems.splice(endIndex, 0, removed);
+            setMenuItems(newItems);
+            // Persist
+            localStorage.setItem('mythos_sidebar_order', JSON.stringify(newItems.map(i => i.id)));
         }
         
-        if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
-            const newItems = [...items];
-            const draggedItemContent = newItems[dragItem.current];
-            newItems.splice(dragItem.current, 1);
-            newItems.splice(dragOverItem.current, 0, draggedItemContent);
-            dragItem.current = null;
-            dragOverItem.current = null;
-            saveOrder(newItems);
-        } else {
-            dragItem.current = null;
-            dragOverItem.current = null;
-        }
+        dragItem.current = null;
+        dragOverItem.current = null;
     };
 
     return (
-        <aside 
-            id="sidebar" 
-            className={`flex flex-col h-full bg-neutral-900 border-r border-neutral-800 flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'w-[60px]' : 'w-[240px]'}`}
-        >
-            <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'px-6'} py-5 border-b border-neutral-800 mb-2`}>
-                {!isCollapsed ? (
-                    <span className="text-sm font-black text-white uppercase tracking-widest">Mythos</span>
-                ) : (
-                    <div className="w-6 h-6 rounded bg-gradient-to-br from-blue-600 to-purple-600"></div>
+        <aside className={`bg-neutral-900 border-r border-neutral-800 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} h-full shrink-0 z-20`}>
+            {/* Header / Brand */}
+            <div className="h-16 flex items-center justify-between px-4 border-b border-neutral-800 shrink-0">
+                {!isCollapsed && (
+                    <h1 className="text-xl font-black tracking-tighter text-white">MYTHOS</h1>
                 )}
+                <button 
+                    onClick={onToggleCollapse} 
+                    className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
             </div>
-            
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 space-y-0.5 scrollbar-thin scrollbar-thumb-neutral-800">
-                {items.map((item, index) => (
-                    <div 
-                        key={item.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, index)}
-                        onDragEnter={(e) => handleDragEnter(e, index)}
-                        onDragEnd={handleDragEnd}
-                        onDragOver={(e) => e.preventDefault()}
-                        className="transition-transform duration-200"
-                    >
-                        {item.type === 'header' ? (
-                            <SectionHeader title={item.label} isCollapsed={isCollapsed} />
-                        ) : (
-                            <NavButton 
-                                label={item.label} 
-                                view={item.view!} 
-                                activeView={activeView} 
-                                onNavigate={onNavigate} 
-                                icon={ICON_MAP[item.icon || ''] || <div className="w-5 h-5 bg-neutral-700 rounded-full" />} 
-                                count={item.statKey ? stats[item.statKey] : undefined}
-                                isCollapsed={isCollapsed} 
-                            />
-                        )}
-                    </div>
-                ))}
+
+            {/* Scrollable Menu */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 custom-scrollbar">
+                {menuItems.map((item, index) => {
+                    // Header Item
+                    if (item.type === 'header') {
+                        if (isCollapsed) return <div key={item.id} className="h-px bg-neutral-800 mx-4 my-2"></div>;
+                        return (
+                            <div 
+                                key={item.id} 
+                                className="px-6 py-2 mt-4 first:mt-0 cursor-grab active:cursor-grabbing hover:bg-neutral-800/30 transition-colors"
+                                draggable
+                                onDragStart={(e) => onDragStart(e, index)}
+                                onDragEnter={(e) => onDragEnter(e, index)}
+                                onDragOver={(e) => onDragOver(e, index)}
+                                onDragEnd={onDragEnd}
+                            >
+                                <h3 className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest pointer-events-none select-none">{item.label}</h3>
+                            </div>
+                        );
+                    }
+
+                    // Link Item
+                    const Icon = item.icon;
+                    const isActive = activeView === item.view;
+                    const count = item.view === 'story' ? stats.storyboard 
+                                : item.view === 'agents' ? stats.agents
+                                : item.view === 'lore' ? stats.lore
+                                : item.view === 'inspiration' ? stats.inspiration
+                                : undefined;
+
+                    return (
+                        <div
+                            key={item.id}
+                            draggable
+                            onDragStart={(e) => onDragStart(e, index)}
+                            onDragEnter={(e) => onDragEnter(e, index)}
+                            onDragOver={(e) => onDragOver(e, index)}
+                            onDragEnd={onDragEnd}
+                            className="cursor-grab active:cursor-grabbing"
+                        >
+                            <button
+                                onClick={() => item.view && onNavigate(item.view)}
+                                className={`w-full flex items-center px-4 py-2.5 mx-2 mb-1 rounded-lg transition-all duration-200 group relative ${isCollapsed ? 'justify-center max-w-[calc(100%-16px)]' : 'max-w-[calc(100%-16px)]'} ${
+                                    isActive 
+                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                                        : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                                }`}
+                                title={isCollapsed ? item.label : undefined}
+                            >
+                                {Icon && <Icon className={`w-5 h-5 flex-shrink-0 ${isCollapsed ? '' : 'mr-3'} ${isActive ? 'text-white' : 'text-neutral-500 group-hover:text-white'}`} />}
+                                
+                                {!isCollapsed && (
+                                    <div className="flex-1 text-left flex justify-between items-center overflow-hidden pointer-events-none">
+                                        <span className="text-sm font-medium truncate">{item.label}</span>
+                                        {count !== undefined && count > 0 && (
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-blue-800 text-blue-200' : 'bg-neutral-800 text-neutral-500'}`}>
+                                                {count}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </button>
+                        </div>
+                    );
+                })}
             </div>
-            
-            <div className="mt-auto p-2 border-t border-neutral-800 bg-neutral-900">
-                <div className={`flex items-center ${isCollapsed ? 'justify-center flex-col gap-4' : 'justify-between px-2'} py-2 mb-1`}>
-                    <div className="flex items-center gap-2" title={isOnline ? "System Online" : "System Offline"}>
-                        <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></div>
-                        {!isCollapsed && <span className="text-xs font-medium text-neutral-500">{isOnline ? 'ONLINE' : 'OFFLINE'}</span>}
-                    </div>
+
+            {/* Footer / Status */}
+            <div className="p-4 border-t border-neutral-800 shrink-0 bg-neutral-900">
+                <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} mb-4`}>
+                    {!isCollapsed && (
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <span className="text-xs font-medium text-neutral-400">{isOnline ? 'System Online' : 'Offline'}</span>
+                        </div>
+                    )}
                     <button 
-                      onClick={onOpenSettings} 
-                      className="text-neutral-500 hover:text-neutral-300 transition-colors p-1 rounded-md hover:bg-neutral-800"
-                      title="Settings"
+                        onClick={onOpenSettings}
+                        className={`p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors ${isCollapsed ? '' : 'ml-auto'}`}
+                        title="Settings"
                     >
-                      <SettingsIcon />
+                        <SettingsIcon className="w-5 h-5" />
                     </button>
                 </div>
-                <button
-                    onClick={onToggleCollapse}
-                    className="w-full py-2 text-neutral-600 hover:text-neutral-300 hover:bg-neutral-800 flex justify-center rounded-md transition-all"
-                    title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-                >
-                    {isCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-                </button>
             </div>
         </aside>
     );
