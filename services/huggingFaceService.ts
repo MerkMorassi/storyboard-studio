@@ -44,12 +44,12 @@ export const generateImageSDXL = async (
   useCustomEngine: boolean = true // Default to your new engine
 ): Promise<Blob> => {
   
-  if (!hfToken) {
-    console.warn("[MythOS] No HF Token provided. Ensure .env is set or entered in Settings.");
-  }
-
   // --- PATH A: Custom MythOS Engine (FastAPI) ---
   if (useCustomEngine) {
+    if (!hfToken || hfToken.trim() === '') {
+        throw new Error("Hugging Face Token is MISSING. Please add it in Settings > Hugging Face Access Token to access your private engine.");
+    }
+
     console.log(`[MythOS] Requesting shot from ${MYTHOS_ENGINE_URL}...`);
     
     // Construct payload matching app.py 'CinematicRequest'
@@ -57,7 +57,7 @@ export const generateImageSDXL = async (
       prompt: params.prompt,
       negative_prompt: params.negative_prompt || "blurry, low quality, letterbox, text, watermark",
       seed: params.seed ?? 0,
-      width: params.width || 2304, // Default to 2.39:1 Anamorphic
+      width: params.width || 2304,
       height: params.height || 960,
       steps: params.num_inference_steps || 30,
       guidance: params.guidance_scale || 7.0,
@@ -66,17 +66,32 @@ export const generateImageSDXL = async (
 
     try {
       // EXACT URL and HEADER Logic Verification
-      // URL: https://merkmorassi-mythos-engine.hf.space + /generate
       const response = await fetch(`${MYTHOS_ENGINE_URL}/generate`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${hfToken}`, // Matches PowerShell: "Authorization" = "Bearer $token"
+          "Authorization": `Bearer ${hfToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
+        // If we get HTML back (like a 404 page), it usually means Auth failed on a Private Space
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("text/html")) {
+            const status = response.status;
+            if (status === 404) {
+                throw new Error("Engine not found (404). This usually means your HF Token is invalid or does not have access to this Private Space.");
+            }
+            if (status === 401 || status === 403) {
+                throw new Error("Access Denied (401/403). Check your Hugging Face Token permissions.");
+            }
+            if (status === 500) {
+                throw new Error("Engine Server Error (500). The Space might be crashing or restarting.");
+            }
+            throw new Error(`Engine Error (${status}): Received HTML response instead of JSON. Check Space status.`);
+        }
+
         const errText = await response.text();
         throw new Error(`MythOS Engine Error (${response.status}): ${errText}`);
       }

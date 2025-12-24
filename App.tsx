@@ -100,12 +100,13 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Global API Key State with Lazy Initialization for robust persistence
+  // Persistent API Keys
+  // Initialize from storage immediately
   const [apiKey, setApiKey] = useState(() => getApiKey() || '');
   const [topazApiKey, setTopazKey] = useState(() => getTopazApiKey() || '');
   const [hfApiKey, setHfApiKey] = useState(() => getHfApiKey() || '');
 
-  // Failsafe: Ensure keys are synced on mount (in case of hydration/render mismatches)
+  // Double-check storage on mount to handle hydration mismatches
   useEffect(() => {
       const storedGemini = getApiKey();
       const storedTopaz = getTopazApiKey();

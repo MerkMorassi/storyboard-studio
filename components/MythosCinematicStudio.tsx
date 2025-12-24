@@ -19,6 +19,31 @@ const RATIOS = [
     { label: '9:16 (Vertical)', w: 768, h: 1344 },
 ];
 
+const SHOT_TYPES = [
+    "None",
+    "Extreme Close Up",
+    "Close Up",
+    "Medium Close Up",
+    "Medium Shot",
+    "Cowboy Shot",
+    "Full Shot", 
+    "Long Shot",
+    "Extreme Long Shot",
+    "Establishing Shot"
+];
+
+const CAMERA_ANGLES = [
+    "None",
+    "Eye Level",
+    "Low Angle",
+    "High Angle",
+    "Bird's Eye View (Overhead)",
+    "Worm's Eye View",
+    "Dutch Angle",
+    "Over the Shoulder",
+    "Point of View (POV)"
+];
+
 export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({ 
     hfToken, 
     onAddAssetToGrid,
@@ -30,6 +55,9 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
     const [width, setWidth] = useState(2304);
     const [height, setHeight] = useState(960);
     const [seed, setSeed] = useState<number | undefined>(undefined);
+    const [shotType, setShotType] = useState(SHOT_TYPES[0]);
+    const [cameraAngle, setCameraAngle] = useState(CAMERA_ANGLES[0]);
+    
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState<{ base64: string; mimeType: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -43,8 +71,15 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
         try {
             const usedSeed = seed !== undefined ? seed : Math.floor(Math.random() * 2147483647);
             
+            // Construct Final Prompt
+            const promptParts = [];
+            if (shotType !== "None") promptParts.push(shotType);
+            if (cameraAngle !== "None") promptParts.push(cameraAngle);
+            promptParts.push(prompt);
+            const finalPrompt = promptParts.join(', ');
+
             const blob = await generateImageSDXL({
-                prompt: prompt,
+                prompt: finalPrompt,
                 negative_prompt: negativePrompt,
                 width: width,
                 height: height,
@@ -69,10 +104,12 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
                     ...asset, 
                     metadata: { 
                         engine: 'MythOS Cinematic', 
-                        prompt, 
+                        prompt: finalPrompt, 
                         seed: usedSeed, 
                         width, 
-                        height 
+                        height,
+                        shotType,
+                        cameraAngle
                     } 
                 });
             };
@@ -90,8 +127,8 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
         <div className="p-6 max-w-7xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
             <div className="flex-shrink-0 flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold text-neutral-200 mb-2">MythOS Cinematic Engine</h2>
-                    <p className="text-neutral-400">Next-generation photography engine based on Illustrious SDXL. Designed for high-fidelity cinematic stills.</p>
+                    <h2 className="text-3xl font-bold text-neutral-200 mb-2">Engine: MythOS Cinematic <span className="text-lg font-normal text-neutral-500">v1.0</span></h2>
+                    <p className="text-neutral-400">Next-generation photography engine based on MythOS SDXL. Designed for high-fidelity cinematic stills.</p>
                 </div>
                 <div className="px-3 py-1 bg-blue-900/30 border border-blue-500/30 rounded-full text-xs font-bold text-blue-300">
                     BETA ACCESS
@@ -102,6 +139,29 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
                 {/* Controls */}
                 <div className="lg:col-span-1 bg-neutral-800/50 p-6 border border-neutral-700 rounded-xl space-y-6 h-fit">
                     
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Shot Type</label>
+                            <select 
+                                value={shotType}
+                                onChange={(e) => setShotType(e.target.value)}
+                                className="w-full bg-neutral-900 border border-neutral-600 p-2 rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            >
+                                {SHOT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Camera Angle</label>
+                            <select 
+                                value={cameraAngle}
+                                onChange={(e) => setCameraAngle(e.target.value)}
+                                className="w-full bg-neutral-900 border border-neutral-600 p-2 rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            >
+                                {CAMERA_ANGLES.map(a => <option key={a} value={a}>{a}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
                     <div>
                         <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Prompt</label>
                         <textarea 

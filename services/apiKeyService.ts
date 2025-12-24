@@ -1,11 +1,14 @@
 
-const API_KEY_STORAGE_KEY = 'gemini_api_key_v1';
-const TOPAZ_API_KEY_STORAGE_KEY = 'topaz_api_key_v1';
-const HF_API_KEY_STORAGE_KEY = 'hf_api_key_v1';
+// Updated keys to v2 to ensure freshness and persistence
+const API_KEY_STORAGE_KEY = 'mythos_gemini_api_key_v2';
+const TOPAZ_API_KEY_STORAGE_KEY = 'mythos_topaz_api_key_v2';
+const HF_API_KEY_STORAGE_KEY = 'mythos_hf_api_key_v2';
 
 export const saveApiKey = (key: string): void => {
   try {
-    localStorage.setItem(API_KEY_STORAGE_KEY, key);
+    if (key) {
+        localStorage.setItem(API_KEY_STORAGE_KEY, key);
+    }
   } catch (error) {
     console.error("Failed to save API key to localStorage:", error);
   }
@@ -41,7 +44,7 @@ export const clearApiKey = (): void => {
 
 export const saveTopazApiKey = (key: string): void => {
     try {
-        localStorage.setItem(TOPAZ_API_KEY_STORAGE_KEY, key);
+        if (key) localStorage.setItem(TOPAZ_API_KEY_STORAGE_KEY, key);
     } catch (error) {
         console.error("Failed to save Topaz API key:", error);
     }
@@ -57,7 +60,7 @@ export const getTopazApiKey = (): string | null => {
 
 export const saveHfApiKey = (key: string): void => {
     try {
-        localStorage.setItem(HF_API_KEY_STORAGE_KEY, key);
+        if (key) localStorage.setItem(HF_API_KEY_STORAGE_KEY, key);
     } catch (error) {
         console.error("Failed to save Hugging Face API key:", error);
     }

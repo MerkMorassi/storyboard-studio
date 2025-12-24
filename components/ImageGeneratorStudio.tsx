@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { GenerationOptions, PromptTemplate, DynamicPromptList, Agent } from '../types.ts';
-import { getGradioClient } from '../services/gradioService';
+import { generateImageSDXL } from '../services/huggingFaceService';
 import { MagicIcon, DiceIcon, ChevronDownIcon, ImageIcon, ScriptIcon, ListIcon } from './icons.tsx';
 import { WarningIcon } from './icons/WarningIcon';
 import { AssetActions } from './AssetActions';
@@ -70,7 +70,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
     const [randomizeSeed, setRandomizeSeed] = useState(true);
     const [numImages, setNumImages] = useState(1);
     
-    // Illustrious Specific Settings
+    // Legacy / Extra Settings (Preserved for UI, though some might not affect MythOS directly yet)
     const [useUpscaler, setUseUpscaler] = useState(false);
     const [upscaleBy, setUpscaleBy] = useState(1.5);
     const [addQualityTags, setAddQualityTags] = useState(true);
@@ -137,8 +137,8 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                 setWidth(768); setHeight(1344); setUseUpscaler(false);
                 break;
             case '2.39:1':
-                // Base 1536x640 -> Upscale 1.5x -> 2304x960
-                setWidth(1536); setHeight(640); setUseUpscaler(true); setUpscaleBy(1.5);
+                // Base 1536x640 -> MythOS handles native wide gen well, but we set dims explicitly
+                setWidth(2304); setHeight(960); setUseUpscaler(true); setUpscaleBy(1.5);
                 break;
         }
     };
@@ -179,83 +179,61 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
         setError(null);
         setGeneratedImage(null);
         setMetadata(null);
-        setProgress('Connecting to Illustrious SDXL...');
+        setProgress('Connecting to MythOS Cinematic Engine...');
 
         try {
-            const client = await getGradioClient("IbarakiDouji/WAI-NSFW-illustrious-SDXL", { hfToken });
-            
             // Loop for multiple images if requested
             let lastAsset = null;
             const seedToUse = randomizeSeed ? Math.floor(Math.random() * 2147483647) : (parseInt(seed) || 0);
 
             for (let i = 0; i < numImages; i++) {
-                setProgress(numImages > 1 ? `Generating image ${i+1}/${numImages}...` : 'Generating image...');
+                setProgress(numImages > 1 ? `Developing shot ${i+1}/${numImages}...` : 'Developing shot...');
                 
                 const currentSeed = seedToUse + i;
                 
-                // API Signature: /generate
-                // prompt, negative_prompt, seed, custom_width, custom_height, guidance_scale, 
-                // num_inference_steps, sampler, model_name, aspect_ratio_selector, 
-                // use_upscaler, upscaler_strength, upscale_by, add_quality_tags
-                
-                const result = await client.predict("/generate", { 		
-                    prompt: finalPrompt, 		
-                    negative_prompt: negativePrompt || "sensitive, nsfw, explicit, bad quality, worst quality, worst detail, sketch, censor", 		
-                    seed: currentSeed, 		
-                    custom_width: width, 		
-                    custom_height: height, 		
-                    guidance_scale: guidanceScale, 		
-                    num_inference_steps: steps, 		
-                    sampler: "DPM++ 2M Karras", 		
-                    model_name: modelVersion, 		
-                    aspect_ratio_selector: "Custom", 		
-                    use_upscaler: useUpscaler, 		
-                    upscaler_strength: 0.55, 		
-                    upscale_by: upscaleBy, 		
-                    add_quality_tags: addQualityTags, 
+                // Call MythOS Engine via Service
+                const blob = await generateImageSDXL({
+                    prompt: finalPrompt,
+                    negative_prompt: negativePrompt || "sensitive, nsfw, explicit, bad quality, worst quality, worst detail, sketch, censor",
+                    seed: currentSeed,
+                    width: width,
+                    height: height,
+                    guidance_scale: guidanceScale,
+                    num_inference_steps: steps,
+                    model_name: modelVersion // 'v15' default
+                }, hfToken, true);
+
+                // Convert Blob to Asset
+                const asset = await new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64data = reader.result as string;
+                        const base64 = base64data.split(',')[1];
+                        const mimeType = blob.type;
+                        resolve({ base64, mimeType });
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
                 });
+                
+                lastAsset = asset;
+                
+                // Metadata construction for grid
+                const meta = {
+                    engine: 'MythOS Cinematic',
+                    prompt: finalPrompt,
+                    seed: currentSeed,
+                    width,
+                    height,
+                    steps,
+                    guidance: guidanceScale,
+                    model: modelVersion
+                };
+                setMetadata(meta);
 
-                if (result && result.data && result.data.length > 0) {
-                    // Result structure: [Gallery, MetadataJSON]
-                    // Gallery might be [{ image: { url: ... } }] or similar
-                    let imageUrl = '';
-                    const gallery = result.data[0];
-                    const meta = result.data[1];
-                    
-                    if (meta) setMetadata(meta);
-
-                    if (Array.isArray(gallery) && gallery.length > 0) {
-                        const item = gallery[0];
-                        if (item?.image?.url) imageUrl = item.image.url;
-                        else if (item?.url) imageUrl = item.url;
-                    } else if (typeof gallery === 'object' && gallery?.url) {
-                        imageUrl = gallery.url;
-                    } else if (typeof gallery === 'string') {
-                        imageUrl = gallery;
-                    }
-
-                    if (imageUrl) {
-                        const res = await fetch(imageUrl);
-                        const blob = await res.blob();
-                        const reader = new FileReader();
-                        const asset = await new Promise<{ base64: string; mimeType: string }>((resolve) => {
-                            reader.onloadend = () => {
-                                const base64data = reader.result as string;
-                                const base64 = base64data.split(',')[1];
-                                const mimeType = blob.type;
-                                resolve({ base64, mimeType });
-                            };
-                            reader.readAsDataURL(blob);
-                        });
-                        
-                        lastAsset = asset;
-                        // Auto-add to grid if generating multiple, passing metadata
-                        if (numImages > 1) {
-                            onAddAssetToGrid({ type: 'image', ...asset, metadata: meta });
-                        }
-                    } else {
-                        console.warn("Could not extract image URL from result:", result);
-                    }
+                // Auto-add to grid if generating multiple
+                if (numImages > 1) {
+                    onAddAssetToGrid({ type: 'image', ...asset, metadata: meta });
                 }
             }
             
@@ -266,13 +244,8 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
             }
 
         } catch (e) {
-            console.error("SDXL Gen Error:", e);
+            console.error("MythOS Gen Error:", e);
             let msg = e instanceof Error ? e.message : "Image generation failed.";
-            if (msg.includes("401") || msg.includes("Unauthorized") || msg.includes("token")) {
-                msg = "Authorization Failed (401). Please check your Hugging Face Access Token in Settings.";
-            } else if (msg.includes("503") || msg.includes("Service Unavailable")) {
-                msg = "Model is currently loading or unavailable (503). Please try again in a moment.";
-            }
             setError(msg);
         } finally {
             setIsLoading(false);
@@ -286,7 +259,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                 {/* Controls Column */}
                 <div className="lg:col-span-1 bg-neutral-800/50 p-6 border border-neutral-700 rounded-lg space-y-4 h-fit">
                     <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-1 rounded bg-purple-900/50 border border-purple-500/30 text-purple-200 text-[10px] font-bold uppercase tracking-wider">Engine: Illustrious SDXL</span>
+                        <span className="px-2 py-1 rounded bg-purple-900/50 border border-purple-500/30 text-purple-200 text-[10px] font-bold uppercase tracking-wider">Engine: MythOS Cinematic</span>
                         <span className="px-2 py-1 rounded bg-neutral-900 border border-neutral-700 text-neutral-400 text-[10px] font-bold">{modelVersion}</span>
                     </div>
 
@@ -434,11 +407,11 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                             </FormField>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-neutral-700/50">
+                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-neutral-700/50 opacity-50 pointer-events-none">
                             <div className="col-span-1">
                                 <label className="flex items-center gap-2 cursor-pointer mb-1">
                                     <input type="checkbox" checked={useUpscaler} onChange={e => setUseUpscaler(e.target.checked)} className="rounded border-neutral-600 bg-neutral-900 text-blue-600" />
-                                    <span className="text-xs text-neutral-300 font-medium">Upscaler</span>
+                                    <span className="text-xs text-neutral-300 font-medium">Upscaler (Inactive)</span>
                                 </label>
                                 {useUpscaler && (
                                     <div className="flex items-center gap-1">
@@ -449,7 +422,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                             </div>
                             <label className="flex items-center gap-2 cursor-pointer h-fit">
                                 <input type="checkbox" checked={addQualityTags} onChange={e => setAddQualityTags(e.target.checked)} className="rounded border-neutral-600 bg-neutral-900 text-blue-600" />
-                                <span className="text-xs text-neutral-300 font-medium">Quality Tags</span>
+                                <span className="text-xs text-neutral-300 font-medium">Quality Tags (Inactive)</span>
                             </label>
                         </div>
                     </AccordionSection>
@@ -500,7 +473,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                                     <ImageIcon className="w-16 h-16 mb-4" />
                                     <p className="text-sm font-medium">Ready to Imagine</p>
                                     {aspectRatioLabel === '2.39:1' && (
-                                        <p className="text-xs text-neutral-500 mt-2">Cinematic 2.39:1 selected (2304x960 output via 1.5x upscale)</p>
+                                        <p className="text-xs text-neutral-500 mt-2">Cinematic 2.39:1 selected</p>
                                     )}
                                 </div>
                             )}
