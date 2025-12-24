@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { GenerativeVideoState } from '../types.ts';
-import { LoadingSpinner, ClapperboardIcon, ChevronDownIcon } from './icons.tsx';
+import { LoadingSpinner, ClapperboardIcon, ChevronDownIcon, CameraLensIcon } from './icons.tsx';
 import { WarningIcon } from './icons/WarningIcon';
 import { AssetActions } from './AssetActions';
 import { getGradioClient } from '../services/gradioService';
@@ -22,6 +22,29 @@ const base64ToBlob = async (base64: string, mimeType: string): Promise<Blob> => 
     return await res.blob();
 };
 
+const CAMERA_MOVEMENTS = [
+    { label: 'None / Static', value: '' },
+    { label: 'Crane', value: 'crane shot, camera moving vertically' },
+    { label: 'Dolly', value: 'dolly shot, camera moving forward' },
+    { label: 'Dolly Zoom', value: 'dolly zoom effect, vertigo effect' },
+    { label: 'Drone', value: 'drone shot, aerial view' },
+    { label: 'Handheld', value: 'handheld camera style, slightly shaky' },
+    { label: 'Orbit', value: 'orbit shot, camera rotating around subject' },
+    { label: 'Pan', value: 'pan camera movement' },
+    { label: 'Push & Pull', value: 'push in and pull out camera movement' },
+    { label: 'Slide', value: 'smooth sliding camera movement' },
+    { label: 'Steadicam', value: 'steadicam shot, smooth handheld' },
+    { label: 'Tilt', value: 'tilt camera movement' },
+    { label: 'Tracking', value: 'tracking shot, camera following subject' },
+    { label: 'Zoom', value: 'zoom camera movement' }
+];
+
+const SPEED_OPTIONS = [
+    { label: 'Slow', value: 'slow, cinematic' },
+    { label: 'Medium', value: 'smooth, steady' },
+    { label: 'Fast', value: 'fast, dynamic' }
+];
+
 export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({ 
     apiKey, // Kept for consistency
     hfToken,
@@ -36,6 +59,9 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
     const [progress, setProgress] = useState<string>('');
     const [showAdvanced, setShowAdvanced] = useState(true); // Default open to show all options
     const [usedFallback, setUsedFallback] = useState(false); // Track if fallback was used
+    const [cameraMovement, setCameraMovement] = useState<string>(''); // Local state for camera movement
+    const [movementSpeed, setMovementSpeed] = useState<string>(SPEED_OPTIONS[1].value); // Default Medium
+    
     const videoRef = useRef<HTMLVideoElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const lastImageInputRef = useRef<HTMLInputElement>(null);
@@ -108,10 +134,26 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
             // New Default Negative Prompt (Chinese)
             const DEFAULT_NEGATIVE_PROMPT = "色调艳丽, 过曝, 静态, 细节模糊不清, 字幕, 风格, 作品, 画作, 画面, 静止, 整体发灰, 最差质量, 低质量, JPEG压缩残留, 丑陋的, 残缺的, 多余的手指, 画得不好的手部, 画得不好的脸部, 畸形的, 毁容的, 形态畸形的肢体, 手指融合, 静止不动的画面, 杂乱的背景, 三条腿, 背景人很多, 倒着走";
 
+            // Combine user prompt with camera movement and speed
+            const basePrompt = videoState.prompt || "make this image come alive, cinematic motion, smooth animation";
+            
+            // Construct movement string: e.g. "slow, cinematic pan camera movement"
+            let movementString = "";
+            if (cameraMovement) {
+                // If specific movement selected: "slow, cinematic pan camera movement"
+                movementString = `${movementSpeed} ${cameraMovement}`;
+            } else {
+                // If no specific movement (static camera), still apply speed to the subject/general motion
+                // e.g. "slow, cinematic motion"
+                movementString = `${movementSpeed} motion`;
+            }
+
+            const finalPrompt = movementString ? `${basePrompt}, ${movementString}` : basePrompt;
+
             // Define payload for linoyts/wan2-2-i2v-rCM
             const payload: any = { 
                 input_image: inputImageBlob, 
-                prompt: videoState.prompt || "make this image come alive, cinematic motion, smooth animation", 		
+                prompt: finalPrompt, 		
                 steps: videoState.steps || 6, 		
                 negative_prompt: videoState.negativePrompt || DEFAULT_NEGATIVE_PROMPT, 		
                 duration_seconds: videoState.duration || 3.5, 		
@@ -244,6 +286,40 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                                 <span className="text-sm font-medium text-center">Upload Start Frame</span>
                             </div>
                         )}
+                    </div>
+
+                    {/* Camera Movement */}
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <CameraLensIcon className="w-4 h-4 text-blue-400" />
+                            <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Camera Movement</label>
+                        </div>
+                        <div className="flex gap-2">
+                            {/* Speed Selector */}
+                            <div className="w-1/3">
+                                <select
+                                    value={movementSpeed}
+                                    onChange={(e) => setMovementSpeed(e.target.value)}
+                                    className="w-full bg-neutral-900 border border-neutral-600 p-2.5 rounded-lg text-sm text-neutral-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer hover:border-neutral-500"
+                                >
+                                    {SPEED_OPTIONS.map((speed, i) => (
+                                        <option key={i} value={speed.value}>{speed.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {/* Movement Selector */}
+                            <div className="w-2/3">
+                                <select 
+                                    value={cameraMovement}
+                                    onChange={(e) => setCameraMovement(e.target.value)}
+                                    className="w-full bg-neutral-900 border border-neutral-600 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer hover:border-neutral-500"
+                                >
+                                    {CAMERA_MOVEMENTS.map((move, i) => (
+                                        <option key={i} value={move.value}>{move.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
                     <div>

@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { GenerationOptions, PromptTemplate, DynamicPromptList, Agent } from '../types.ts';
+import React, { useState, useEffect, useCallback } from 'react';
+import { PromptTemplate, DynamicPromptList, Agent } from '../types.ts';
 import { generateImageSDXL } from '../services/huggingFaceService';
 import { MagicIcon, DiceIcon, ChevronDownIcon, ImageIcon, ScriptIcon, ListIcon } from './icons.tsx';
 import { WarningIcon } from './icons/WarningIcon';
@@ -38,6 +38,39 @@ const AccordionSection: React.FC<{ title: string; sectionId: string; isOpen: boo
     </div>
 );
 
+const SHOT_TYPES = [
+    'None',
+    'Eye level',
+    'Low angle',
+    'Over the shoulder',
+    'Overhead',
+    "Bird's eye view"
+];
+
+const IMAGE_STYLES = [
+    'None',
+    'Cinematic',
+    'Vintage',
+    'Storyboard',
+    'Low Key',
+    'Indie',
+    'Y2K',
+    'Pop',
+    'Grunge',
+    'Dreamy',
+    'Hand Drawn',
+    '2D Novel',
+    'Boost',
+    'Scribble',
+    'Film Noir',
+    'Anime',
+    '3D Cartoon',
+    'Colored'
+];
+
+const WEATHER_TYPES = ['None', 'Sunny', 'Cloudy', 'Overcast', 'Rainy', 'Stormy', 'Foggy', 'Snowy', 'Hazy', 'Clear'];
+const LIGHTING_TYPES = ['None', 'Natural', 'Cinematic', 'Low Key', 'High Key', 'Golden Hour', 'Blue Hour', 'Neon', 'Studio', 'Hard', 'Soft', 'Volumetric', 'Rembrandt', 'Split'];
+
 export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({ 
     hfToken, 
     promptTemplates, 
@@ -51,11 +84,19 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
     const [sceneType, setSceneType] = useState<'INT' | 'EXT'>('INT');
     const [location, setLocation] = useState('');
     const [timeOfDay, setTimeOfDay] = useState<'DAY' | 'NIGHT' | 'SUNSET' | 'DAWN'>('DAY');
-    const [selectedAgentId, setSelectedAgentId] = useState('');
-    const [cameraAngle, setCameraAngle] = useState('Medium Shot');
+    const [weather, setWeather] = useState('None');
+    const [lighting, setLighting] = useState('None');
+    
+    // Characters
+    const [numCharacters, setNumCharacters] = useState(1);
+    const [characterIds, setCharacterIds] = useState<string[]>(['', '', '']); // Up to 3 characters
+
+    const [cameraAngle, setCameraAngle] = useState('Medium');
+    const [shotType, setShotType] = useState('None');
+    const [visualStyle, setVisualStyle] = useState('None');
     
     // Core Gen State
-    const [prompt, setPrompt] = useState('');
+    const [prompt, setPrompt] = useState(''); // This is the main "Action & Style" field which now contains everything
     const [negativePrompt, setNegativePrompt] = useState('');
     
     // Resolution & Ratio
@@ -70,14 +111,11 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
     const [randomizeSeed, setRandomizeSeed] = useState(true);
     const [numImages, setNumImages] = useState(1);
     
-    // Legacy / Extra Settings (Preserved for UI, though some might not affect MythOS directly yet)
+    // Legacy / Extra Settings
     const [useUpscaler, setUseUpscaler] = useState(false);
     const [upscaleBy, setUpscaleBy] = useState(1.5);
     const [addQualityTags, setAddQualityTags] = useState(true);
     const [modelVersion, setModelVersion] = useState('v15');
-    
-    // Live Script Preview State
-    const [finalPrompt, setFinalPrompt] = useState('');
     
     // Output State
     const [isLoading, setIsLoading] = useState(false);
@@ -87,42 +125,123 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
     const [openSections, setOpenSections] = useState<Set<string>>(new Set(['scene', 'prompt', 'settings']));
     const [progress, setProgress] = useState('');
 
-    // Construct the final prompt dynamically whenever inputs change
-    useEffect(() => {
-        // 1. Slugline: INT. LOCATION - TIME
-        const locString = location.trim().toUpperCase() || 'LOCATION';
-        const slugline = `${sceneType}. ${locString} - ${timeOfDay}`;
+    // --- PROMPT INJECTION LOGIC ---
 
-        // 2. Character: Look up agent name
-        let characterString = '';
-        if (selectedAgentId) {
-            const agent = agents.find(a => a.id === selectedAgentId);
-            if (agent) {
-                characterString = agent.name.toUpperCase();
+    const updatePrompt = useCallback((
+        type: 'slugline' | 'lighting' | 'cast' | 'style' | 'camera' | 'shot', 
+        val: string
+    ) => {
+        setPrompt(currentPrompt => {
+            let newPrompt = currentPrompt;
+            
+            // Helper to replace or append
+            const replaceOrAppend = (regex: RegExp, prefix: string, suffix: string = '') => {
+                const newValue = val ? `${prefix}${val}${suffix}` : '';
+                if (regex.test(newPrompt)) {
+                    return newPrompt.replace(regex, newValue);
+                } else if (val) {
+                    // Append if not found
+                    return newPrompt + (newPrompt ? ' ' : '') + newValue;
+                }
+                return newPrompt;
+            };
+
+            switch (type) {
+                case 'slugline':
+                    // Regex for INT./EXT. LOCATION - TIME [ - WEATHER]
+                    const slugRegex = /^(INT\.|EXT\.)\s+.*?(?:\.|\n|$)/;
+                    if (val) {
+                        if (slugRegex.test(newPrompt)) {
+                            newPrompt = newPrompt.replace(slugRegex, val + '. ');
+                        } else {
+                            newPrompt = val + '. ' + newPrompt;
+                        }
+                    }
+                    break;
+                case 'lighting':
+                    newPrompt = replaceOrAppend(/Lighting:\s+.*?(?:\.|\n|$)/, 'Lighting: ', '.');
+                    break;
+                case 'cast':
+                    newPrompt = replaceOrAppend(/Cast:\s+.*?(?:\.|\n|$)/, 'Cast: ', '.');
+                    break;
+                case 'style':
+                    newPrompt = replaceOrAppend(/Style:\s+.*?(?:\.|\n|$)/, 'Style: ', '.');
+                    break;
+                case 'camera':
+                    newPrompt = replaceOrAppend(/Framing:\s+.*?(?:\.|\n|$)/, 'Framing: ', '.');
+                    break;
+                case 'shot':
+                    newPrompt = replaceOrAppend(/Shot Type:\s+.*?(?:\.|\n|$)/, 'Shot Type: ', '.');
+                    break;
             }
-        }
+            
+            // Clean up double spaces or weird punctuation
+            return newPrompt.replace(/\s+/g, ' ').replace(/\s+\./g, '.').replace(/^\s+/, '');
+        });
+    }, []);
 
-        // 3. Camera & Action
-        const cameraString = cameraAngle ? `Camera: ${cameraAngle}` : '';
-        const actionString = prompt.trim(); // The user's specific action description
+    // Handlers for individual dropdowns
+    const handleSluglineUpdate = (newType: string, newLoc: string, newTime: string, newWeather: string) => {
+        const wStr = newWeather !== 'None' ? ` - ${newWeather.toUpperCase()}` : '';
+        const slug = `${newType}. ${newLoc.toUpperCase() || 'LOCATION'} - ${newTime}${wStr}`;
+        updatePrompt('slugline', slug);
+    };
 
-        // 4. Assemble: SLUGLINE. CHARACTER. ACTION. CAMERA.
-        const parts = [slugline];
-        
-        if (characterString) {
-            // If action doesn't start with character name, prepend it for script style
-            if (!actionString.toUpperCase().startsWith(characterString)) {
-                parts.push(characterString + '.'); 
-            }
-        }
-        
-        if (actionString) parts.push(actionString);
-        if (cameraString) parts.push(cameraString + '.');
+    const handleSceneTypeChange = (val: 'INT' | 'EXT') => {
+        setSceneType(val);
+        handleSluglineUpdate(val, location, timeOfDay, weather);
+    };
+    const handleLocationChange = (val: string) => {
+        setLocation(val);
+        handleSluglineUpdate(sceneType, val, timeOfDay, weather);
+    };
+    const handleTimeChange = (val: 'DAY' | 'NIGHT' | 'SUNSET' | 'DAWN') => {
+        setTimeOfDay(val);
+        handleSluglineUpdate(sceneType, location, val, weather);
+    };
+    const handleWeatherChange = (val: string) => {
+        setWeather(val);
+        handleSluglineUpdate(sceneType, location, timeOfDay, val);
+    };
 
-        // Join with spaces, ensuring punctuation
-        setFinalPrompt(parts.join(' '));
+    const handleLightingChange = (val: string) => {
+        setLighting(val);
+        updatePrompt('lighting', val !== 'None' ? val : '');
+    };
 
-    }, [sceneType, location, timeOfDay, selectedAgentId, cameraAngle, prompt, agents]);
+    const handleCastChange = (newNum: number, newIds: string[]) => {
+        const activeIds = newIds.slice(0, newNum);
+        const selectedAgents = activeIds.map(id => agents.find(a => a.id === id)).filter(Boolean);
+        const names = selectedAgents.map(a => a?.name.toUpperCase()).join(' and ');
+        updatePrompt('cast', names);
+    };
+
+    const handleNumCharactersChange = (val: number) => {
+        setNumCharacters(val);
+        handleCastChange(val, characterIds);
+    };
+
+    const handleCharacterSelection = (index: number, id: string) => {
+        const newIds = [...characterIds];
+        newIds[index] = id;
+        setCharacterIds(newIds);
+        handleCastChange(numCharacters, newIds);
+    };
+
+    const handleStyleChange = (val: string) => {
+        setVisualStyle(val);
+        updatePrompt('style', val !== 'None' ? val : '');
+    };
+
+    const handleFramingChange = (val: string) => {
+        setCameraAngle(val);
+        updatePrompt('camera', val !== 'Medium' ? val : ''); // Assuming Medium is default/invisible
+    };
+
+    const handleShotTypeChange = (val: string) => {
+        setShotType(val);
+        updatePrompt('shot', val !== 'None' ? val : '');
+    };
 
     const handleRatioChange = (ratio: string) => {
         setAspectRatioLabel(ratio);
@@ -170,7 +289,6 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
     };
 
     const handleGenerate = async () => {
-        // Warning if token missing, but allow trying public spaces if available
         if (!hfToken) {
             console.warn("No HF Token provided. Generation might fail if the space is private or throttled.");
         }
@@ -182,7 +300,6 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
         setProgress('Connecting to MythOS Cinematic Engine...');
 
         try {
-            // Loop for multiple images if requested
             let lastAsset = null;
             const seedToUse = randomizeSeed ? Math.floor(Math.random() * 2147483647) : (parseInt(seed) || 0);
 
@@ -191,19 +308,18 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                 
                 const currentSeed = seedToUse + i;
                 
-                // Call MythOS Engine via Service
+                // Use 'prompt' directly as it now contains all the info
                 const blob = await generateImageSDXL({
-                    prompt: finalPrompt,
+                    prompt: prompt, 
                     negative_prompt: negativePrompt || "sensitive, nsfw, explicit, bad quality, worst quality, worst detail, sketch, censor",
                     seed: currentSeed,
                     width: width,
                     height: height,
                     guidance_scale: guidanceScale,
                     num_inference_steps: steps,
-                    model_name: modelVersion // 'v15' default
+                    model_name: modelVersion
                 }, hfToken, true);
 
-                // Convert Blob to Asset
                 const asset = await new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onloadend = () => {
@@ -218,20 +334,22 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                 
                 lastAsset = asset;
                 
-                // Metadata construction for grid
                 const meta = {
                     engine: 'MythOS Cinematic',
-                    prompt: finalPrompt,
+                    prompt: prompt,
                     seed: currentSeed,
                     width,
                     height,
                     steps,
                     guidance: guidanceScale,
-                    model: modelVersion
+                    model: modelVersion,
+                    shotType,
+                    visualStyle,
+                    lighting,
+                    weather
                 };
                 setMetadata(meta);
 
-                // Auto-add to grid if generating multiple
                 if (numImages > 1) {
                     onAddAssetToGrid({ type: 'image', ...asset, metadata: meta });
                 }
@@ -266,13 +384,13 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                     <AccordionSection title="1. SCENE BUILDER" sectionId="scene" isOpen={openSections.has('scene')} onToggle={() => toggleSection('scene')}>
                         <div className="grid grid-cols-2 gap-3">
                             <FormField label="Scene Type">
-                                <select value={sceneType} onChange={(e) => setSceneType(e.target.value as any)} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                                <select value={sceneType} onChange={(e) => handleSceneTypeChange(e.target.value as any)} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
                                     <option value="INT">INT.</option>
                                     <option value="EXT">EXT.</option>
                                 </select>
                             </FormField>
                             <FormField label="Time">
-                                <select value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value as any)} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                                <select value={timeOfDay} onChange={(e) => handleTimeChange(e.target.value as any)} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
                                     <option value="DAY">DAY</option>
                                     <option value="NIGHT">NIGHT</option>
                                     <option value="SUNSET">SUNSET</option>
@@ -280,40 +398,98 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                                 </select>
                             </FormField>
                         </div>
-                        <FormField label="Location">
-                            <input 
-                                type="text" 
-                                list="saved-locations"
-                                value={location} 
-                                onChange={(e) => setLocation(e.target.value)} 
-                                placeholder="e.g. COFFEE SHOP" 
-                                className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                            <datalist id="saved-locations">
-                                <option value="INTERROGATION ROOM" />
-                                <option value="CASTLE THRONE ROOM" />
-                                <option value="SPACESHIP BRIDGE" />
-                                <option value="CYBERPUNK ALLEY" />
-                                <option value="FOREST CLEARING" />
-                            </datalist>
-                        </FormField>
-                        <FormField label="Character">
-                            <select 
-                                value={selectedAgentId} 
-                                onChange={(e) => setSelectedAgentId(e.target.value)} 
-                                className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                            >
-                                <option value="">- No Specific Character -</option>
-                                {agents.map(agent => (
-                                    <option key={agent.id} value={agent.id}>{agent.name}</option>
-                                ))}
+                        
+                        <div className="grid grid-cols-12 gap-2">
+                            <div className="col-span-6">
+                                <FormField label="Location">
+                                    <input 
+                                        type="text" 
+                                        list="saved-locations"
+                                        value={location} 
+                                        onChange={(e) => handleLocationChange(e.target.value)} 
+                                        placeholder="e.g. COFFEE SHOP" 
+                                        className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                                    />
+                                    <datalist id="saved-locations">
+                                        <option value="INTERROGATION ROOM" />
+                                        <option value="CASTLE THRONE ROOM" />
+                                        <option value="SPACESHIP BRIDGE" />
+                                        <option value="CYBERPUNK ALLEY" />
+                                        <option value="FOREST CLEARING" />
+                                    </datalist>
+                                </FormField>
+                            </div>
+                            <div className="col-span-3">
+                                <FormField label="Weather">
+                                    <select value={weather} onChange={(e) => handleWeatherChange(e.target.value)} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                                        {WEATHER_TYPES.map(w => <option key={w} value={w}>{w}</option>)}
+                                    </select>
+                                </FormField>
+                            </div>
+                            <div className="col-span-3">
+                                <FormField label="Lighting">
+                                    <select value={lighting} onChange={(e) => handleLightingChange(e.target.value)} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                                        {LIGHTING_TYPES.map(l => <option key={l} value={l}>{l}</option>)}
+                                    </select>
+                                </FormField>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-12 gap-2">
+                            <div className="col-span-3">
+                                <FormField label="Cast Size">
+                                    <select value={numCharacters} onChange={(e) => handleNumCharactersChange(parseInt(e.target.value))} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                                        <option value={0}>None</option>
+                                        <option value={1}>1</option>
+                                        <option value={2}>2</option>
+                                        <option value={3}>3</option>
+                                    </select>
+                                </FormField>
+                            </div>
+                            <div className="col-span-9">
+                                <div className="grid grid-cols-3 gap-1">
+                                    {Array.from({ length: numCharacters }).map((_, idx) => (
+                                        <div key={idx} className="col-span-1">
+                                            <FormField label={`Cast ${idx + 1}`}>
+                                                <select 
+                                                    value={characterIds[idx] || ''} 
+                                                    onChange={(e) => handleCharacterSelection(idx, e.target.value)} 
+                                                    className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                                >
+                                                    <option value="">- Select -</option>
+                                                    {agents.map(agent => (
+                                                        <option key={agent.id} value={agent.id}>{agent.name}</option>
+                                                    ))}
+                                                </select>
+                                            </FormField>
+                                        </div>
+                                    ))}
+                                    {numCharacters === 0 && (
+                                        <div className="col-span-3 flex items-center justify-center h-full text-neutral-600 text-xs italic border border-neutral-800 rounded bg-neutral-900/50 mt-5 py-2">
+                                            No characters in scene
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <FormField label="Visual Style">
+                            <select value={visualStyle} onChange={(e) => handleStyleChange(e.target.value)} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                                {IMAGE_STYLES.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </FormField>
-                        <FormField label="Camera Angle">
-                            <select value={cameraAngle} onChange={(e) => setCameraAngle(e.target.value)} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
-                                {['Medium Shot', 'Close-up', 'Wide Angle', 'Establishing Shot', 'Low Angle', 'High Angle', 'Dutch Angle', 'Over the Shoulder', 'Tracking Shot', 'Dolly Zoom'].map(a => <option key={a} value={a}>{a}</option>)}
-                            </select>
-                        </FormField>
+                        <div className="grid grid-cols-2 gap-3">
+                            <FormField label="Framing">
+                                <select value={cameraAngle} onChange={(e) => handleFramingChange(e.target.value)} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                                    {['Extreme Close Up', 'Close Up', 'Medium', 'Wide', 'Extreme Wide'].map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
+                            </FormField>
+                            <FormField label="Shot Type">
+                                <select value={shotType} onChange={(e) => handleShotTypeChange(e.target.value)} className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                                    {SHOT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </FormField>
+                        </div>
                     </AccordionSection>
 
                     <AccordionSection title="2. ACTION & STYLE" sectionId="prompt" isOpen={openSections.has('prompt')} onToggle={() => toggleSection('prompt')}>
@@ -321,7 +497,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                             <textarea 
                                 value={prompt} 
                                 onChange={(e) => setPrompt(e.target.value)} 
-                                placeholder="What is happening? Describe the action, emotion, and lighting details..." 
+                                placeholder="What is happening? Describe the action, emotion, and interactions..." 
                                 className="w-full h-32 bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none resize-y" 
                             />
                         </FormField>
@@ -435,7 +611,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                         <div className="font-mono text-xs text-neutral-300 leading-relaxed whitespace-pre-wrap pt-4">
                             <span className="font-bold text-white">{sceneType}. {location.toUpperCase() || 'LOCATION'} - {timeOfDay}</span>
                             <br/><br/>
-                            {finalPrompt.replace(`${sceneType}. ${location.toUpperCase() || 'LOCATION'} - ${timeOfDay}`, '').trim()}
+                            {prompt.replace(`${sceneType}. ${location.toUpperCase() || 'LOCATION'} - ${timeOfDay}`, '').trim()}
                         </div>
                     </div>
 

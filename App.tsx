@@ -174,7 +174,21 @@ export const App: React.FC = () => {
                 />;
             case 'core': return <CoreStudio agent={allAgents.find(a => a.id === 'agent-core')!} onNavigate={handleNavigate} onCallAgent={(a) => { setActiveAgentId(a.id); setActiveView('agent-chat'); }} />;
             case 'ideation': return <IdeationStudio agent={allAgents.find(a => a.id === 'agent-ideation')!} onNavigate={handleNavigate} onCallAgent={(a) => { setActiveAgentId(a.id); setActiveView('agent-chat'); }} />;
-            case 'scripting': return <ScriptingStudio agent={allAgents.find(a => a.id === 'agent-scripting')!} onNavigate={handleNavigate} onCallAgent={(a) => { setActiveAgentId(a.id); setActiveView('agent-chat'); }} />;
+            case 'scripting': 
+                return <ScriptingStudio 
+                    agent={allAgents.find(a => a.id === 'agent-scripting')!} 
+                    onNavigate={handleNavigate} 
+                    onCallAgent={(a) => { setActiveAgentId(a.id); setActiveView('agent-chat'); }}
+                    scriptText={project.data.scriptText}
+                    onScriptUpload={(file) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const text = e.target?.result as string;
+                            updateProjectData({ scriptText: text });
+                        };
+                        reader.readAsText(file);
+                    }}
+                />;
             case 'design': return <DesignStudio agent={allAgents.find(a => a.id === 'agent-design')!} onNavigate={handleNavigate} onCallAgent={(a) => { setActiveAgentId(a.id); setActiveView('agent-chat'); }} />;
             case 'art': return <ArtStudio agent={allAgents.find(a => a.id === 'agent-art')!} onNavigate={handleNavigate} onCallAgent={(a) => { setActiveAgentId(a.id); setActiveView('agent-chat'); }} />;
             case 'director': return <DirectorStudio onNavigate={handleNavigate} />;
