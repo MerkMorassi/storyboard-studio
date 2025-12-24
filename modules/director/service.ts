@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from '@google/genai';
 import { ChatMessage, AutomationConfig } from '../../types.ts';
 import { extractFramesFromVideo } from '../../utils/video';
@@ -21,7 +22,9 @@ export const analyzeImage = async (apiKey: string, base64Image: string, mimeType
     const ai = new GoogleGenAI({ apiKey });
 
     const prompt = `Analyze this image as a Director of Photography. 
-    Return a JSON object with the following fields:
+    Return a JSON object with the following fields. 
+    IMPORTANT: Do NOT use Markdown code blocks (like \`\`\`html) inside the JSON values. Return raw text or raw HTML strings only.
+    
     - subject: Brief description of the subject and action.
     - lighting: Technical description of the lighting setup.
     - camera: Estimated focal length, camera angle, and lens characteristics.
@@ -30,7 +33,7 @@ export const analyzeImage = async (apiKey: string, base64Image: string, mimeType
     - extractedPrompt: A highly optimized, comma-separated text prompt to recreate this style and image in an AI generator.`;
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
+        model: 'gemini-2.5-flash',
         contents: {
             parts: [
                 { inlineData: { mimeType, data: base64Image } },
@@ -68,7 +71,9 @@ export const analyzeVideo = async (apiKey: string, videoUrl: string): Promise<an
     const frames = await extractFramesFromVideo(videoUrl, 5); 
     
     const prompt = `Analyze this video sequence as a Director of Photography. 
-    Return a JSON object with the following fields:
+    Return a JSON object with the following fields.
+    IMPORTANT: Do NOT use Markdown code blocks (like \`\`\`html) inside the JSON values. Return raw text or raw HTML strings only.
+
     - subject: Brief description of the subject and action in the video.
     - lighting: Technical description of the lighting setup and changes.
     - camera: Camera movement (pan, tilt, dolly, zoom), angles, and lens choices.
@@ -82,7 +87,7 @@ export const analyzeVideo = async (apiKey: string, videoUrl: string): Promise<an
     ];
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image', // Flash Image supports high-token context suitable for multiple frames
+        model: 'gemini-2.5-flash', // Supports multimodal input
         contents: { parts },
         config: {
             responseMimeType: 'application/json',

@@ -100,10 +100,21 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Global API Key State
-  const [apiKey, setApiKey] = useState(getApiKey() || '');
-  const [topazApiKey, setTopazKey] = useState(getTopazApiKey() || '');
-  const [hfApiKey, setHfApiKey] = useState(getHfApiKey() || '');
+  // Global API Key State with Lazy Initialization for robust persistence
+  const [apiKey, setApiKey] = useState(() => getApiKey() || '');
+  const [topazApiKey, setTopazKey] = useState(() => getTopazApiKey() || '');
+  const [hfApiKey, setHfApiKey] = useState(() => getHfApiKey() || '');
+
+  // Failsafe: Ensure keys are synced on mount (in case of hydration/render mismatches)
+  useEffect(() => {
+      const storedGemini = getApiKey();
+      const storedTopaz = getTopazApiKey();
+      const storedHf = getHfApiKey();
+      
+      if (storedGemini && storedGemini !== apiKey) setApiKey(storedGemini);
+      if (storedTopaz && storedTopaz !== topazApiKey) setTopazKey(storedTopaz);
+      if (storedHf && storedHf !== hfApiKey) setHfApiKey(storedHf);
+  }, []);
 
   // --- Application State ---
   const [images, setImages] = useState<ImageState[]>([]);

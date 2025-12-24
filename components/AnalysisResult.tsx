@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { SpeakerIcon } from './icons/SpeakerIcon';
 import { SpeakerOffIcon } from './icons/SpeakerOffIcon';
@@ -7,6 +6,7 @@ import { WandIcon } from './icons/WandIcon';
 import { WarningIcon } from './icons/WarningIcon';
 import { HammerIcon } from './icons/HammerIcon';
 import { simpleMarkdownToHtml } from '../utils/textFormatting';
+import { htmlToMarkdown } from '../utils/htmlToMarkdown';
 
 interface AudioState {
     isGenerating?: boolean;
@@ -39,8 +39,10 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    // Copy markdown text to clipboard (or formatted text if preferred, usually markdown is better for re-use)
-    navigator.clipboard.writeText(result).then(() => {
+    // Ensure we copy clean Markdown/Text, even if the source 'result' contains HTML tags
+    const textToCopy = htmlToMarkdown(result);
+    
+    navigator.clipboard.writeText(textToCopy).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -61,7 +63,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({
             <button
               onClick={handleCopy}
               className="p-2 rounded-xl hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-brand flex items-center gap-2 group"
-              title="Copy analysis text"
+              title="Copy analysis text (Markdown)"
             >
                 <ClipboardIcon className="w-4 h-4 text-text-secondary group-hover:text-text-primary" />
                 {copied && <span className="text-xs font-medium text-brand-hover animate-fade-in">Copied!</span>}

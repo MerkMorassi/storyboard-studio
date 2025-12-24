@@ -48,7 +48,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   }
 
   const handleSave = () => {
-    onSave(apiKeyInput.trim(), topazApiKeyInput.trim(), hfApiKeyInput.trim());
+    // Defensive Saving: If the input is locked, use the original 'current' key prop.
+    // This prevents saving empty strings if the input state accidentally got desynced while locked.
+    const finalGemini = isGeminiLocked ? currentApiKey : apiKeyInput.trim();
+    const finalTopaz = isTopazLocked ? currentTopazApiKey : topazApiKeyInput.trim();
+    const finalHf = isHfLocked ? currentHfApiKey : hfApiKeyInput.trim();
+
+    onSave(finalGemini, finalTopaz, finalHf);
   };
 
   const LockedInput: React.FC<{ label: string, onUnlock: () => void }> = ({ label, onUnlock }) => (

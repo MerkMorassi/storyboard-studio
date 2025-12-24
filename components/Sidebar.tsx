@@ -44,9 +44,9 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'scripting', type: 'link', label: 'Scripting (Scribe)', view: 'scripting', icon: ScriptIcon },
     { id: 'design', type: 'link', label: 'Design (Stylus)', view: 'design', icon: PencilIcon },
     { id: 'art', type: 'link', label: 'Art (Canvas)', view: 'art', icon: ImageIcon },
+    { id: 'director', type: 'link', label: 'Visual (Kine)', view: 'director', icon: AnalyzerIcon },
 
     { id: 'header-tools', type: 'header', label: 'Creation Tools' },
-    { id: 'director', type: 'link', label: 'Visual (Kine)', view: 'director', icon: AnalyzerIcon },
     { id: 'mythos-engine', type: 'link', label: 'MythOS Cinematic', view: 'mythos-cinematic-engine', icon: CameraLensIcon },
     { id: 'image-generator', type: 'link', label: 'Image Studio', view: 'image-generator', icon: ImageIcon },
     { id: 'generative-video', type: 'link', label: 'Video Creator', view: 'generative-video', icon: ClapperboardIcon },
@@ -81,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isColl
     // State for reorderable menu items
     const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
         try {
-            const savedOrder = localStorage.getItem('mythos_sidebar_order');
+            const savedOrder = localStorage.getItem('mythos_sidebar_order_v2');
             if (savedOrder) {
                 const orderedIds = JSON.parse(savedOrder) as string[];
                 // Map saved IDs back to full item objects
@@ -114,7 +114,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isColl
     };
 
     // Explicitly handle DragOver to allow dropping and update reference
-    // This is often more reliable than just DragEnter for child elements
     const onDragOver = (e: React.DragEvent, index: number) => {
         e.preventDefault(); 
         dragOverItem.current = index;
@@ -130,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isColl
             newItems.splice(endIndex, 0, removed);
             setMenuItems(newItems);
             // Persist
-            localStorage.setItem('mythos_sidebar_order', JSON.stringify(newItems.map(i => i.id)));
+            localStorage.setItem('mythos_sidebar_order_v2', JSON.stringify(newItems.map(i => i.id)));
         }
         
         dragItem.current = null;

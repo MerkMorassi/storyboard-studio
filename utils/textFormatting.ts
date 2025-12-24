@@ -2,11 +2,15 @@
 export const simpleMarkdownToHtml = (markdown: string): string => {
     if (!markdown) return '';
 
-    let html = markdown
-        // Escape HTML characters to prevent injection (basic)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
+    // Cleanup: Remove code block wrappers if the model wrapped HTML in them
+    // This fixes the issue where users see ```html ... ``` as text instead of rendered HTML
+    let cleanMarkdown = markdown.replace(/^```html\s*/i, '').replace(/```$/i, '');
+
+    let html = cleanMarkdown
+        // Removed HTML escaping to allow rendering of model-generated HTML
+        // .replace(/&/g, "&amp;")
+        // .replace(/</g, "&lt;")
+        // .replace(/>/g, "&gt;")
         
         // Headers
         .replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-brand-hover mt-4 mb-2">$1</h3>')
@@ -24,7 +28,7 @@ export const simpleMarkdownToHtml = (markdown: string): string => {
         // Blockquotes
         .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-brand pl-4 py-1 my-4 italic text-neutral-400 bg-neutral-800/30 rounded-r">$1</blockquote>')
         
-        // Code blocks
+        // Code blocks - Only format if they are NOT html blocks (which we stripped)
         .replace(/```([\s\S]*?)```/gim, '<pre class="bg-black/50 p-4 rounded-lg my-4 overflow-x-auto border border-accent"><code class="font-mono text-sm text-green-400">$1</code></pre>')
         
         // Inline code
@@ -39,7 +43,7 @@ export const simpleMarkdownToHtml = (markdown: string): string => {
 
     // Paragraphs: Any text block separated by double newlines that isn't already a tag
     return html.split('\n\n').map(block => {
-        if (block.trim().match(/^<(h|div|blockquote|pre|hr)/)) return block;
+        if (block.trim().match(/^<(h|div|blockquote|pre|hr|ul|li|ol)/i)) return block;
         return `<p class="mb-4 leading-relaxed">${block.replace(/\n/g, '<br/>')}</p>`;
     }).join('');
 };

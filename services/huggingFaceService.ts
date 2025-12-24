@@ -24,7 +24,7 @@ export interface SDXLParams {
  */
 const base64ToBlob = (base64: string, mimeType: string = 'image/png'): Blob => {
   // Remove data URL prefix if present
-  const base64Clean = base64.replace(/^data:image\/(png|jpg);base64,/, "");
+  const base64Clean = base64.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
   
   const byteCharacters = atob(base64Clean);
   const byteNumbers = new Array(byteCharacters.length);
@@ -45,7 +45,7 @@ export const generateImageSDXL = async (
 ): Promise<Blob> => {
   
   if (!hfToken) {
-    console.warn("[MythOS] No HF Token provided. Ensure .env is set.");
+    console.warn("[MythOS] No HF Token provided. Ensure .env is set or entered in Settings.");
   }
 
   // --- PATH A: Custom MythOS Engine (FastAPI) ---
@@ -56,7 +56,7 @@ export const generateImageSDXL = async (
     const payload = {
       prompt: params.prompt,
       negative_prompt: params.negative_prompt || "blurry, low quality, letterbox, text, watermark",
-      seed: params.seed || 0,
+      seed: params.seed ?? 0,
       width: params.width || 2304, // Default to 2.39:1 Anamorphic
       height: params.height || 960,
       steps: params.num_inference_steps || 30,
@@ -65,10 +65,12 @@ export const generateImageSDXL = async (
     };
 
     try {
+      // EXACT URL and HEADER Logic Verification
+      // URL: https://merkmorassi-mythos-engine.hf.space + /generate
       const response = await fetch(`${MYTHOS_ENGINE_URL}/generate`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${hfToken}`,
+          "Authorization": `Bearer ${hfToken}`, // Matches PowerShell: "Authorization" = "Bearer $token"
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -85,7 +87,7 @@ export const generateImageSDXL = async (
         console.log("[MythOS] Shot received.");
         return base64ToBlob(data.image_base64);
       } else {
-        throw new Error("Invalid response from MythOS Engine");
+        throw new Error("Invalid response from MythOS Engine: Missing image_base64");
       }
 
     } catch (error) {
