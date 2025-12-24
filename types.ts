@@ -57,6 +57,7 @@ export interface PromptTemplate {
   name: string;
   positivePrompt: string;
   negativePrompt: string;
+  isDefault?: boolean;
 }
 
 export interface GenerationResult {

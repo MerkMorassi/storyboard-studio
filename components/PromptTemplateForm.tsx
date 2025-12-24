@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { PromptTemplate } from '../services/promptTemplateService';
+import { PromptTemplate } from '../types';
 
 interface PromptTemplateFormProps {
   template?: PromptTemplate | null;
@@ -10,7 +10,8 @@ interface PromptTemplateFormProps {
 
 export const PromptTemplateForm: React.FC<PromptTemplateFormProps> = ({ template, onSave, onCancel }) => {
   const [name, setName] = useState(template?.name || '');
-  const [content, setContent] = useState(template?.content || '');
+  const [positivePrompt, setPositivePrompt] = useState(template?.positivePrompt || '');
+  const [negativePrompt, setNegativePrompt] = useState(template?.negativePrompt || '');
   const [formError, setFormError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
@@ -18,13 +19,9 @@ export const PromptTemplateForm: React.FC<PromptTemplateFormProps> = ({ template
     e.preventDefault();
     if (saveState !== 'idle') return;
 
-    if (!name.trim() || !content.trim()) {
-      setFormError("Template Name and Content cannot be empty.");
+    if (!name.trim() || !positivePrompt.trim()) {
+      setFormError("Template Name and Positive Prompt cannot be empty.");
       return;
-    }
-    if (!content.includes('{{ANALYSIS_TEXT}}')) {
-        setFormError("Template must include the {{ANALYSIS_TEXT}} placeholder.");
-        return;
     }
     
     setFormError(null);
@@ -33,7 +30,8 @@ export const PromptTemplateForm: React.FC<PromptTemplateFormProps> = ({ template
     onSave({
       id: template?.id,
       name,
-      content,
+      positivePrompt,
+      negativePrompt
     });
     
     setSaveState('saved');
@@ -66,18 +64,29 @@ export const PromptTemplateForm: React.FC<PromptTemplateFormProps> = ({ template
           />
         </div>
         <div>
-          <label htmlFor="template-content" className="block text-sm font-medium text-text-primary mb-1">Template Content</label>
+          <label htmlFor="template-positive" className="block text-sm font-medium text-text-primary mb-1">Positive Prompt</label>
           <textarea
-            id="template-content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Define the structure of your prompt..."
-            className="w-full h-48 p-2 bg-primary border border-accent rounded-xl focus:ring-2 focus:ring-brand focus:outline-none resize-none font-mono text-sm"
+            id="template-positive"
+            value={positivePrompt}
+            onChange={(e) => setPositivePrompt(e.target.value)}
+            placeholder="Define the structure of your positive prompt..."
+            className="w-full h-32 p-2 bg-primary border border-accent rounded-xl focus:ring-2 focus:ring-brand focus:outline-none resize-none font-mono text-sm"
             required
           />
            <p className="text-xs text-text-secondary px-1 mt-1">
               Use the placeholder <code className="text-xs bg-primary p-0.5 rounded text-brand-hover">{'{{ANALYSIS_TEXT}}'}</code> where the analysis should be inserted.
             </p>
+        </div>
+        
+        <div>
+          <label htmlFor="template-negative" className="block text-sm font-medium text-text-primary mb-1">Negative Prompt</label>
+          <textarea
+            id="template-negative"
+            value={negativePrompt}
+            onChange={(e) => setNegativePrompt(e.target.value)}
+            placeholder="Negative prompt keywords..."
+            className="w-full h-24 p-2 bg-primary border border-accent rounded-xl focus:ring-2 focus:ring-brand focus:outline-none resize-none font-mono text-sm"
+          />
         </div>
         
         <div className="flex justify-end space-x-3 pt-2">

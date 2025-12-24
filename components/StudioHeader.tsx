@@ -13,7 +13,13 @@ interface StudioHeaderProps {
 
 export const StudioHeader: React.FC<StudioHeaderProps> = ({ breadcrumbs, agent, onCallAgent }) => {
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const [initialMode, setInitialMode] = useState<'chat' | 'call'>('chat');
     const hasApiKey = !!getApiKey();
+
+    const handleOpenChat = (mode: 'chat' | 'call') => {
+        setInitialMode(mode);
+        setIsChatOpen(true);
+    };
 
     return (
         <>
@@ -55,7 +61,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ breadcrumbs, agent, 
                     </div>
 
                     <button 
-                        onClick={() => setIsChatOpen(true)}
+                        onClick={() => handleOpenChat('chat')}
                         className="p-2.5 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white transition-colors border border-neutral-700 group relative"
                         title="Chat with Agent"
                     >
@@ -64,9 +70,9 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ breadcrumbs, agent, 
                     </button>
 
                     <button 
-                        onClick={onCallAgent}
+                        onClick={() => handleOpenChat('call')}
                         className="p-2.5 rounded-full bg-green-600 hover:bg-green-500 text-white transition-colors shadow-lg hover:shadow-green-500/20 active:scale-95"
-                        title="Call Agent (Live Mode)"
+                        title="Call Agent (Voice Mode)"
                     >
                         <PhoneIcon className="w-5 h-5" />
                     </button>
@@ -77,18 +83,25 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ breadcrumbs, agent, 
             {isChatOpen && (
                 <div className="fixed inset-0 z-50 flex justify-end">
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsChatOpen(false)}></div>
-                    <div className="relative w-full max-w-md bg-neutral-900 border-l border-neutral-700 shadow-2xl h-full flex flex-col animate-slide-in-right">
-                        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-                            <h3 className="font-bold text-white flex items-center gap-2">
-                                <ChatIcon className="w-5 h-5 text-blue-500" />
-                                Chat with {agent.name}
-                            </h3>
-                            <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-neutral-800 rounded-full text-neutral-400 hover:text-white">
-                                <CloseIcon className="w-5 h-5" />
-                            </button>
-                        </div>
+                    <div className={`relative w-full ${initialMode === 'call' ? 'max-w-lg' : 'max-w-md'} bg-neutral-900 border-l border-neutral-700 shadow-2xl h-full flex flex-col animate-slide-in-right`}>
+                        {initialMode === 'chat' && (
+                            <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+                                <h3 className="font-bold text-white flex items-center gap-2">
+                                    <ChatIcon className="w-5 h-5 text-blue-500" />
+                                    Chat with {agent.name}
+                                </h3>
+                                <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-neutral-800 rounded-full text-neutral-400 hover:text-white">
+                                    <CloseIcon className="w-5 h-5" />
+                                </button>
+                            </div>
+                        )}
                         <div className="flex-grow overflow-hidden">
-                            <AgentChatView agent={agent} hasApiKey={hasApiKey} />
+                            <AgentChatView 
+                                agent={agent} 
+                                hasApiKey={hasApiKey} 
+                                initialMode={initialMode}
+                                onClose={() => setIsChatOpen(false)}
+                            />
                         </div>
                     </div>
                 </div>

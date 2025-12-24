@@ -12,10 +12,13 @@ import { WarningIcon } from './icons/WarningIcon';
 import { useLiveChat } from '../hooks/useLiveChat';
 import { MicIcon } from './icons/MicIcon';
 import { MicOffIcon } from './icons/MicOffIcon';
+import { PhoneIcon } from './icons.tsx';
 
 interface AgentChatViewProps {
   agent: Agent;
   hasApiKey: boolean;
+  initialMode?: 'chat' | 'call';
+  onClose?: () => void;
 }
 
 const fileToBase64 = (file: File): Promise<string> =>
@@ -36,11 +39,13 @@ interface ChatMessagePart {
 }
 
 
-export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }) => {
+export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey, initialMode = 'chat', onClose }) => {
   const [chatSession, setChatSession] = useState<Chat | null>(null);
   const [chatHistory, setChatHistory] = useState<{ id: string; role: 'user' | 'model'; parts: ChatMessagePart[] }[]>([]);
   const [chatMessage, setChatMessage] = useState<string>('');
   const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'chat' | 'call'>(initialMode);
+  
   const [messageAudioStates, setMessageAudioStates] = useState<Record<string, {
     isGenerating: boolean;
     isPlaying: boolean;
@@ -114,10 +119,9 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }
   }, [chatHistory, saveHistory]);
 
   useEffect(() => {
-    // Scroll to bottom whenever history updates or live transcript changes, but only if near bottom?
-    // For now, always scroll to bottom for live chat to follow conversation
+    // Scroll to bottom whenever history updates
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [chatHistory, isChatLoading, liveTranscript]);
+  }, [chatHistory, isChatLoading, liveTranscript, viewMode]);
   
     const getAudioContext = () => {
     if (!audioContextRef.current) {
@@ -166,6 +170,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }
             ...prev,
             [messageId]: { ...prev[messageId], isGenerating: false, buffer, isPlaying: false }
         }));
+        // Auto-play immediately in call mode or if configured
         playAudio(messageId);
     } catch (audioErr) {
          console.error("Audio generation failed", audioErr);
@@ -213,7 +218,9 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }
       if (responseText) {
         const modelMessageId = `model-${Date.now()}`;
         setChatHistory((prev) => [...prev, { id: modelMessageId, role: 'model', parts: [{ text: responseText }] }]);
-        if (agent.autoPlayAudio) {
+        
+        // Auto-generate audio if in call mode OR if agent setting is on
+        if (viewMode === 'call' || agent.autoPlayAudio) {
           handleGenerateAudio(responseText, modelMessageId);
         }
       }
@@ -232,8 +239,6 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }
       setChatHistory(prev => {
           return prev.map(msg => {
               if (msg.id === messageId) {
-                  // Assuming user messages usually just have one text part for now in the simple edit case
-                  // We preserve attachments if any, just updating the text part
                   const newParts = msg.parts.map(p => {
                       if (p.text !== undefined) return { ...p, text: newText };
                       return p;
@@ -279,7 +284,6 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }
     const handleToggleLiveChat = async () => {
         if (isLive) {
             await stopLiveChat();
-            // Final transcript handling is done via handleLiveTurnComplete callback now
         } else {
             startLiveChat();
         }
@@ -288,12 +292,11 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }
     const getLiveStatusText = () => {
         switch (connectionState) {
             case 'connecting': return 'Connecting...';
-            case 'connected': return 'Live - Speak Now';
-            case 'error': return 'Connection Error';
-            default: return 'Voice Mode';
+            case 'connected': return 'Live';
+            case 'error': return 'Error';
+            default: return 'Voice';
         }
     };
-
 
   if (!hasApiKey) {
     return (
@@ -307,29 +310,122 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }
     );
   }
 
+  // --- CALL MODE UI ---
+  if (viewMode === 'call') {
+      const lastMessage = chatHistory[chatHistory.length - 1];
+      const isAgentSpeaking = lastMessage?.role === 'model' && messageAudioStates[lastMessage.id]?.isPlaying;
+      
+      return (
+          <div className="flex flex-col h-full bg-black relative overflow-hidden animate-fade-in">
+              {/* Blurred Background */}
+              <div className="absolute inset-0 z-0 opacity-40">
+                  <img 
+                    src={agent.avatar || `https://ui-avatars.com/api/?name=${agent.name}&background=random`} 
+                    className="w-full h-full object-cover blur-2xl scale-125" 
+                    alt="Background" 
+                  />
+                  <div className="absolute inset-0 bg-black/60"></div>
+              </div>
+
+              {/* Call Header */}
+              <div className="relative z-10 flex justify-between items-center p-4">
+                  <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`}></div>
+                      <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">
+                          {isLive ? 'Live Connection' : 'Voice Call'}
+                      </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <button onClick={() => setViewMode('chat')} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-colors" title="Switch to Text View">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+                      </button>
+                      <button onClick={onClose} className="p-2 bg-red-600 hover:bg-red-500 rounded-full text-white shadow-lg transition-colors" title="End Call">
+                          <PhoneIcon className="h-5 w-5 transform rotate-[135deg]" />
+                      </button>
+                  </div>
+              </div>
+
+              {/* Main Avatar Area */}
+              <div className="relative z-10 flex-grow flex flex-col items-center justify-center p-6 space-y-8">
+                  <div className="relative">
+                      <div className={`absolute inset-0 rounded-full bg-blue-500 blur-xl transition-opacity duration-300 ${isAgentSpeaking || (isLive && liveTranscript.model) ? 'opacity-40 animate-pulse' : 'opacity-0'}`}></div>
+                      <div className="w-48 h-48 rounded-full border-4 border-neutral-800 overflow-hidden shadow-2xl relative z-10">
+                          <img 
+                            src={agent.avatar || `https://ui-avatars.com/api/?name=${agent.name}&background=random`} 
+                            className="w-full h-full object-cover" 
+                            alt={agent.name} 
+                          />
+                      </div>
+                      <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-neutral-900/80 backdrop-blur-md px-4 py-1 rounded-full border border-neutral-700 z-20">
+                          <h3 className="text-white font-bold text-lg">{agent.name}</h3>
+                      </div>
+                  </div>
+
+                  {/* Transcript Overlay */}
+                  <div className="w-full max-w-lg bg-black/40 backdrop-blur-sm rounded-xl p-4 min-h-[100px] max-h-[200px] overflow-y-auto border border-white/5 text-center flex flex-col items-center justify-center custom-scrollbar">
+                      {isLive && (liveTranscript.user || liveTranscript.model) ? (
+                          <div className="space-y-2">
+                              {liveTranscript.user && <p className="text-blue-300 text-sm">"{liveTranscript.user}"</p>}
+                              {liveTranscript.model && <p className="text-white text-base font-medium">"{liveTranscript.model}"</p>}
+                          </div>
+                      ) : (
+                          <p className="text-neutral-300 text-base font-medium leading-relaxed">
+                              {lastMessage?.role === 'model' ? 
+                                lastMessage.parts[0].text : 
+                                (isChatLoading ? "Listening..." : "Waiting for input...")}
+                          </p>
+                      )}
+                  </div>
+              </div>
+
+              {/* Bottom Controls */}
+              <div className="relative z-20 bg-neutral-900/90 backdrop-blur-lg border-t border-neutral-800 p-4 pb-6">
+                  <ChatInterface 
+                      history={chatHistory} 
+                      message={chatMessage} 
+                      onMessageChange={setChatMessage} 
+                      onSendMessage={handleSendMessage} 
+                      isLoading={isChatLoading} 
+                  />
+                  <div className="flex justify-center mt-4">
+                      <button
+                          onClick={handleToggleLiveChat}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all shadow-lg ${
+                              isLive 
+                                ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
+                                : 'bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700'
+                          }`}
+                      >
+                          {isLive ? <MicOffIcon className="w-5 h-5" /> : <MicIcon className="w-5 h-5" />}
+                          {isLive ? 'Stop Live Voice' : 'Start Live Voice'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  // --- STANDARD CHAT UI ---
   return (
     <div className="flex flex-col h-full animate-fade-in px-4 pb-4 md:px-6 md:pb-6 pt-2">
         <div className="flex justify-between items-center mb-4 shrink-0">
             <div>
                 <h2 className="text-2xl font-bold text-text-primary">Agent Chat</h2>
-                <p className="text-text-secondary">Have a free-form conversation with <span className="font-semibold text-text-primary">{agent.name}</span>.</p>
+                <p className="text-text-secondary">Have a conversation with <span className="font-semibold text-text-primary">{agent.name}</span>.</p>
             </div>
              <div className="flex items-center gap-2">
                  <button
-                    onClick={handleToggleLiveChat}
-                    className={`px-4 py-2 text-sm font-semibold border rounded-xl transition-all flex items-center gap-2 ${
-                        isLive ? 'bg-red-900/40 border-red-500/50 text-red-200 animate-pulse' : 'bg-secondary border-accent text-text-secondary hover:bg-accent hover:text-text-primary'
-                    }`}
+                    onClick={() => setViewMode('call')}
+                    className="px-4 py-2 text-sm font-semibold bg-green-600/10 border border-green-600/50 text-green-400 hover:bg-green-600/20 rounded-xl transition-all flex items-center gap-2"
                 >
-                    {isLive ? <MicOffIcon className="w-5 h-5" /> : <MicIcon className="w-5 h-5" />}
-                    <span>{getLiveStatusText()}</span>
+                    <PhoneIcon className="w-4 h-4" /> Switch to Call
                 </button>
                 <button
                     onClick={handleDownloadTranscript}
                     disabled={chatHistory.length === 0 || isLive}
                     className="px-4 py-2 text-sm font-semibold bg-secondary border border-accent text-text-secondary hover:bg-accent hover:text-text-primary rounded-xl transition-colors disabled:opacity-50"
                 >
-                    Download Transcript
+                    Transcript
                 </button>
                  <button
                     onClick={handleClearChat}
@@ -345,7 +441,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }
         <div className="flex-grow flex flex-col space-y-4 overflow-y-auto min-h-0 pr-2">
              {chatHistory.length === 0 && !isChatLoading && !isLive && (
                 <div className="text-center p-8 text-text-secondary italic">
-                    No messages yet. Start the conversation below or activate Voice Mode.
+                    No messages yet. Start the conversation below or switch to Call Mode.
                 </div>
             )}
              {chatHistory.map((msg) => (
@@ -361,19 +457,6 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }
               />
             ))}
             
-            {isLive && (
-                <div className="bg-secondary/30 border border-accent rounded-xl p-4 space-y-2">
-                    <div className="flex items-start gap-3">
-                        <span className="text-sm font-bold text-text-secondary w-12">YOU:</span>
-                        <p className="text-text-primary flex-1">{liveTranscript.user}</p>
-                    </div>
-                     <div className="flex items-start gap-3 border-t border-accent pt-2">
-                        <span className="text-sm font-bold text-brand-hover w-12">{agent.name.toUpperCase()}:</span>
-                        <p className="text-text-primary flex-1">{liveTranscript.model}</p>
-                    </div>
-                </div>
-            )}
-            
             {isChatLoading && (
                 <div className="flex justify-start">
                     <div className="flex items-center gap-4 bg-secondary/30 border border-accent rounded-xl p-4 shadow-sm w-full">
@@ -385,7 +468,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey }
             <div ref={chatEndRef} />
         </div>
 
-      <div className={`mt-4 shrink-0 z-20 ${isLive ? 'pointer-events-none opacity-50' : ''}`}>
+      <div className="mt-4 shrink-0 z-20">
         <ChatInterface 
             history={chatHistory} 
             message={chatMessage} 

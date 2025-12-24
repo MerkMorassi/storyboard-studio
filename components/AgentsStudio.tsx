@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Agent, ImageState } from '../types.ts';
-import { CharacterIcon, EditIcon, CloseIcon } from './icons.tsx';
+import { CharacterIcon, EditIcon, CloseIcon, PhoneIcon, ImageIcon } from './icons.tsx';
 import { TrashIcon } from './icons/TrashIcon';
 import { UploadIcon } from './icons/UploadIcon';
 
@@ -13,6 +13,7 @@ interface AgentsStudioProps {
     onUpdateAgent: (agentId: string, newName: string) => void;
     onDeleteAgent: (agentId: string) => void;
     onImageUpload: (agentId: string, file: File) => void;
+    onCallAgent: (agent: Agent) => void;
 }
 
 // --- Character Sheet Modal ---
@@ -25,6 +26,7 @@ const CharacterSheetModal: React.FC<{
     onViewImage: (image: ImageState) => void;
 }> = ({ agent, assignedImages, onClose, onSave, onImageUpload, onViewImage }) => {
     const [isEditing, setIsEditing] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
     
     // Form State
     const [name, setName] = useState(agent.name);
@@ -56,14 +58,39 @@ const CharacterSheetModal: React.FC<{
     };
 
     const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            // We use the existing image upload logic which assigns to agent
-            // But we also might want to specifically set this as the 'avatar' string if it's small enough,
-            // or just rely on the assigned images list.
-            // For this implementation, we upload to the grid assigned to this agent.
-            onImageUpload(agent.id, file);
+        if (e.target.files && e.target.files.length > 0) {
+            Array.from(e.target.files).forEach(file => {
+                onImageUpload(agent.id, file);
+            });
         }
+        // Reset input
+        e.target.value = '';
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            Array.from(e.dataTransfer.files).forEach((file: File) => {
+                if (file.type.startsWith('image/')) {
+                    onImageUpload(agent.id, file);
+                }
+            });
+        }
+    };
+
+    const setAsHeadshot = (img: ImageState) => {
+        onSave({ avatar: `data:${img.mimeType};base64,${img.base64}` });
     };
 
     // Determine the primary headshot to display
@@ -80,7 +107,7 @@ const CharacterSheetModal: React.FC<{
                 .animate-fade-in { animation: fade-in 0.2s ease-out; }
             `}</style>
             
-            <div className="bg-neutral-900 border border-neutral-700 w-full max-w-5xl h-[85vh] rounded-xl flex flex-col overflow-hidden shadow-2xl relative">
+            <div className="bg-neutral-900 border border-neutral-700 w-full max-w-6xl h-[90vh] rounded-xl flex flex-col overflow-hidden shadow-2xl relative">
                 {/* Header */}
                 <div className="flex justify-between items-center p-6 border-b border-neutral-800 bg-neutral-800/50">
                     <div>
@@ -101,55 +128,93 @@ const CharacterSheetModal: React.FC<{
                 </div>
 
                 <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
-                    {/* Left Column: Headshot */}
-                    <div className="w-full md:w-1/3 bg-black flex flex-col border-r border-neutral-800 relative">
-                        <div className="flex-grow relative overflow-hidden group">
+                    {/* Left Column: Headshot & Gallery */}
+                    <div className="w-full md:w-2/5 lg:w-1/3 bg-black flex flex-col border-r border-neutral-800 relative">
+                        {/* Main Headshot Area */}
+                        <div 
+                            className={`flex-grow relative overflow-hidden group ${isDragging ? 'bg-blue-900/30 border-2 border-blue-500 border-dashed' : ''}`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                        >
                             {headshotSrc ? (
                                 <img src={headshotSrc} alt={agent.name} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-neutral-600 bg-neutral-900">
                                     <CharacterIcon className="w-20 h-20 opacity-20" />
                                     <p className="mt-4 text-sm font-medium opacity-50">No Headshot</p>
+                                    <p className="text-xs opacity-30 mt-2">Drag image here</p>
                                 </div>
                             )}
                             
-                            {/* Headshot Actions */}
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                            {/* Headshot Actions Overlay */}
+                            <div className={`absolute inset-0 bg-black/60 transition-opacity flex flex-col items-center justify-center gap-4 ${isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                                 <button 
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-lg text-white text-sm font-bold border border-white/20"
+                                    className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-lg text-white text-sm font-bold border border-white/20 flex items-center gap-2 transition-all hover:scale-105"
                                 >
-                                    Change Headshot
+                                    <UploadIcon className="w-5 h-5" />
+                                    Upload / Import
                                 </button>
+                                <p className="text-neutral-400 text-xs font-medium">or Drag & Drop Images</p>
                                 <input 
                                     type="file" 
                                     ref={fileInputRef} 
                                     className="hidden" 
                                     accept="image/*" 
+                                    multiple
                                     onChange={handleAvatarUpload} 
                                 />
                             </div>
                         </div>
                         
                         {/* Image Gallery Strip */}
-                        {assignedImages.length > 0 && (
-                            <div className="h-24 bg-neutral-900 border-t border-neutral-800 p-2 flex gap-2 overflow-x-auto">
+                        <div className="h-40 bg-neutral-900 border-t border-neutral-800 p-4">
+                            <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 flex justify-between items-center">
+                                <span>Gallery ({assignedImages.length})</span>
+                                <span className="text-[10px] opacity-50">Click to view • Hover to set</span>
+                            </h4>
+                            <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 h-28">
+                                {assignedImages.length === 0 && (
+                                    <div className="w-full h-full flex items-center justify-center border border-dashed border-neutral-800 rounded text-neutral-600 text-xs">
+                                        No images yet
+                                    </div>
+                                )}
                                 {assignedImages.map(img => (
-                                    <img 
-                                        key={img.id}
-                                        src={`data:${img.mimeType};base64,${img.base64}`}
-                                        className="h-full aspect-square object-cover rounded cursor-pointer hover:opacity-80 border border-transparent hover:border-blue-500"
-                                        onClick={() => onViewImage(img)}
-                                    />
+                                    <div key={img.id} className="relative aspect-square h-full flex-shrink-0 group/thumb">
+                                        <img 
+                                            src={`data:${img.mimeType};base64,${img.base64}`}
+                                            className="w-full h-full object-cover rounded border border-neutral-800 group-hover/thumb:border-blue-500 transition-colors cursor-pointer"
+                                            onClick={() => onViewImage(img)}
+                                            alt="Gallery thumbnail"
+                                        />
+                                        {/* Thumbnail Hover Actions */}
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 rounded">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); setAsHeadshot(img); }}
+                                                className="p-1.5 bg-blue-600 hover:bg-blue-500 rounded-full text-white shadow-lg"
+                                                title="Set as Headshot"
+                                            >
+                                                <CharacterIcon className="w-3 h-3" />
+                                            </button>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); onViewImage(img); }}
+                                                className="p-1.5 bg-neutral-700 hover:bg-neutral-600 rounded-full text-white shadow-lg"
+                                                title="View Full"
+                                            >
+                                                <ImageIcon className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
-                        )}
+                        </div>
                     </div>
 
                     {/* Right Column: Data */}
-                    <div className="w-full md:w-2/3 p-8 overflow-y-auto bg-neutral-900/50">
+                    <div className="w-full md:w-3/5 lg:w-2/3 p-8 overflow-y-auto bg-neutral-900/50">
                         {isEditing ? (
-                            <div className="space-y-6">
+                            <div className="space-y-6 max-w-3xl mx-auto">
                                 <div>
                                     <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Player Name</label>
                                     <input 
@@ -211,46 +276,58 @@ const CharacterSheetModal: React.FC<{
                                 </div>
                             </div>
                         ) : (
-                            <div className="space-y-8 animate-fade-in">
+                            <div className="space-y-8 animate-fade-in max-w-3xl mx-auto">
                                 <div>
-                                    <h1 className="text-4xl font-black text-white tracking-tight">{name}</h1>
-                                    <div className="flex items-center gap-2 mt-2 text-xl">
-                                        <span className="text-neutral-500">Portrayed by</span>
-                                        <span className="text-blue-400 font-semibold">{actorName || 'Digital Twin'}</span>
-                                    </div>
-                                    {actorContact && (
-                                        <div className="mt-2 text-sm">
-                                            {actorContact.startsWith('http') ? (
-                                                <a href={actorContact} target="_blank" rel="noreferrer" className="text-neutral-400 hover:text-white underline decoration-neutral-600 underline-offset-4">
-                                                    View Contact Info &rarr;
-                                                </a>
-                                            ) : (
-                                                <span className="text-neutral-400 font-mono bg-neutral-800 px-2 py-1 rounded">{actorContact}</span>
-                                            )}
+                                    <h1 className="text-5xl font-black text-white tracking-tight mb-2">{name}</h1>
+                                    <div className="flex flex-wrap items-center gap-4 text-lg">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-neutral-500">Portrayed by</span>
+                                            <span className="text-blue-400 font-semibold">{actorName || 'Digital Twin'}</span>
                                         </div>
-                                    )}
+                                        {actorContact && (
+                                            <>
+                                                <span className="text-neutral-700">•</span>
+                                                {actorContact.startsWith('http') ? (
+                                                    <a href={actorContact} target="_blank" rel="noreferrer" className="text-neutral-400 hover:text-white underline decoration-neutral-600 underline-offset-4 text-sm">
+                                                        Contact Info
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-neutral-400 font-mono bg-neutral-800 px-2 py-0.5 rounded text-sm">{actorContact}</span>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <div className="bg-neutral-800/30 border border-neutral-800 p-6 rounded-xl">
-                                        <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-3 border-b border-neutral-700 pb-2">Biography</h3>
-                                        <p className="text-neutral-200 leading-relaxed whitespace-pre-wrap">
+                                <div className="space-y-6">
+                                    <div className="bg-neutral-800/30 border border-neutral-800 p-8 rounded-2xl">
+                                        <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4 border-b border-neutral-700 pb-2 flex items-center gap-2">
+                                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span> Biography
+                                        </h3>
+                                        <p className="text-neutral-200 leading-relaxed whitespace-pre-wrap text-lg font-light">
                                             {bio || <span className="italic text-neutral-600">No biography added yet.</span>}
                                         </p>
                                     </div>
 
-                                    <div className="bg-neutral-800/30 border border-neutral-800 p-6 rounded-xl">
-                                        <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-3 border-b border-neutral-700 pb-2">Typical Roles</h3>
-                                        <p className="text-neutral-200 leading-relaxed whitespace-pre-wrap">
-                                            {narrativeRole || <span className="italic text-neutral-600">No role details added yet.</span>}
-                                        </p>
-                                    </div>
-                                    
-                                    <div className="bg-neutral-800/30 border border-neutral-800 p-6 rounded-xl">
-                                        <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-3 border-b border-neutral-700 pb-2">Training Data</h3>
-                                        <div className="flex items-center gap-2 text-neutral-400">
-                                            <UploadIcon className="w-4 h-4" />
-                                            <span>{assignedImages.length} reference images in studio vault.</span>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-neutral-800/30 border border-neutral-800 p-6 rounded-2xl">
+                                            <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3 border-b border-neutral-700 pb-2">Typical Roles</h3>
+                                            <p className="text-neutral-300 leading-relaxed whitespace-pre-wrap">
+                                                {narrativeRole || <span className="italic text-neutral-600">No role details added yet.</span>}
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="bg-neutral-800/30 border border-neutral-800 p-6 rounded-2xl">
+                                            <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3 border-b border-neutral-700 pb-2">Training Data</h3>
+                                            <div className="flex items-center gap-3 text-neutral-400">
+                                                <div className="p-3 bg-neutral-800 rounded-full">
+                                                    <UploadIcon className="w-5 h-5 text-neutral-300" />
+                                                </div>
+                                                <div>
+                                                    <span className="block text-2xl font-bold text-white">{assignedImages.length}</span>
+                                                    <span className="text-xs uppercase font-bold tracking-wider">Reference Images</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -269,7 +346,8 @@ const CastingCard: React.FC<{
     images: ImageState[];
     onClick: () => void;
     onDelete: () => void;
-}> = ({ agent, images, onClick, onDelete }) => {
+    onCall: () => void;
+}> = ({ agent, images, onClick, onDelete, onCall }) => {
     // Determine image to show
     let bgImage = agent.avatar;
     if (!bgImage && images.length > 0) {
@@ -297,10 +375,17 @@ const CastingCard: React.FC<{
             <div className="absolute bottom-0 left-0 right-0 p-5 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
                 <h3 className="text-2xl font-black text-white leading-none mb-1 shadow-black drop-shadow-md">{agent.name}</h3>
                 <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-blue-300 truncate max-w-[70%]">
+                    <p className="text-sm font-medium text-blue-300 truncate max-w-[50%]">
                         {agent.actorName ? agent.actorName : <span className="italic opacity-70">Uncast</span>}
                     </p>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity delay-100">
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onCall(); }}
+                            className="p-2 bg-green-500/20 hover:bg-green-500 text-green-200 hover:text-white rounded-full transition-colors backdrop-blur-sm"
+                            title="Call Player"
+                        >
+                            <PhoneIcon className="w-4 h-4" />
+                        </button>
                         <button 
                             onClick={(e) => { e.stopPropagation(); onDelete(); }}
                             className="p-2 bg-red-500/20 hover:bg-red-500 text-red-200 hover:text-white rounded-full transition-colors backdrop-blur-sm"
@@ -353,14 +438,8 @@ const CreateAgentForm: React.FC<{
     );
 };
 
-export const AgentsStudio: React.FC<AgentsStudioProps> = ({ agents, images, onCreateAgent, onViewImage, onUpdateAgent, onDeleteAgent, onImageUpload }) => {
+export const AgentsStudio: React.FC<AgentsStudioProps> = ({ agents, images, onCreateAgent, onViewImage, onUpdateAgent, onDeleteAgent, onImageUpload, onCallAgent }) => {
     const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-
-    const handleUpdateSelectedAgent = (updatedData: Partial<Agent>) => {
-        if (selectedAgent) {
-            onUpdateAgent(selectedAgent.id, updatedData.name || selectedAgent.name);
-        }
-    };
 
     return (
         <div className="p-6 max-w-7xl mx-auto w-full space-y-8 h-full overflow-y-auto">
@@ -391,6 +470,7 @@ export const AgentsStudio: React.FC<AgentsStudioProps> = ({ agents, images, onCr
                             images={images.filter(img => img.agentId === agent.id)}
                             onClick={() => setSelectedAgent(agent)}
                             onDelete={() => onDeleteAgent(agent.id)}
+                            onCall={() => onCallAgent(agent)}
                         />
                     ))}
                 </div>

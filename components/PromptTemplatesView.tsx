@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { PromptTemplate, getPromptTemplates, savePromptTemplate, deletePromptTemplate, setDefaultPromptTemplate, resetPromptTemplatesToDefault } from '../services/promptTemplateService';
+import { PromptTemplate } from '../types';
+import { getPromptTemplates, savePromptTemplate, deletePromptTemplate, setDefaultPromptTemplate, resetPromptTemplatesToDefault } from '../services/promptTemplateService';
 import { PlusIcon } from './icons/PlusIcon';
 import { PencilIcon } from './icons/PencilIcon';
 import { TrashIcon } from './icons/TrashIcon';
@@ -13,8 +15,17 @@ const TemplateCard: React.FC<{template: PromptTemplate, isDefault: boolean, onSe
         
         <div className="flex-grow">
             <h3 className="font-bold text-lg text-text-primary leading-tight truncate pr-20">{template.name}</h3>
-            <div className="text-sm text-text-secondary mt-3 p-2 bg-primary/50 rounded-lg overflow-y-auto h-28">
-                <p className="whitespace-pre-wrap font-mono text-xs">{template.content}</p>
+            <div className="text-sm text-text-secondary mt-3 p-2 bg-primary/50 rounded-lg overflow-y-auto h-28 space-y-2">
+                <div>
+                    <p className="text-[10px] uppercase font-bold text-green-400">Positive</p>
+                    <p className="whitespace-pre-wrap font-mono text-xs">{template.positivePrompt}</p>
+                </div>
+                {template.negativePrompt && (
+                    <div>
+                        <p className="text-[10px] uppercase font-bold text-red-400">Negative</p>
+                        <p className="whitespace-pre-wrap font-mono text-xs">{template.negativePrompt}</p>
+                    </div>
+                )}
             </div>
         </div>
         

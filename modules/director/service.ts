@@ -17,11 +17,13 @@ When analyzing an image, focus on:
 Always be concise, professional, and focus on visual descriptors.
 `;
 
-export const analyzeImage = async (apiKey: string, base64Image: string, mimeType: string): Promise<any> => {
+export const analyzeImage = async (apiKey: string, base64Image: string, mimeType: string, userDirectives?: string): Promise<any> => {
     if (!apiKey) throw new Error("API Key is missing.");
     const ai = new GoogleGenAI({ apiKey });
 
     const prompt = `Analyze this image as a Director of Photography. 
+    ${userDirectives ? `PAY SPECIAL ATTENTION TO THE USER'S REQUEST: "${userDirectives}"` : ''}
+    
     Return a JSON object with the following fields. 
     IMPORTANT: Do NOT use Markdown code blocks (like \`\`\`html) inside the JSON values. Return raw text or raw HTML strings only.
     
@@ -62,7 +64,7 @@ export const analyzeImage = async (apiKey: string, base64Image: string, mimeType
     throw new Error("Failed to analyze image.");
 };
 
-export const analyzeVideo = async (apiKey: string, videoUrl: string): Promise<any> => {
+export const analyzeVideo = async (apiKey: string, videoUrl: string, userDirectives?: string): Promise<any> => {
     if (!apiKey) throw new Error("API Key is missing.");
     const ai = new GoogleGenAI({ apiKey });
 
@@ -71,6 +73,8 @@ export const analyzeVideo = async (apiKey: string, videoUrl: string): Promise<an
     const frames = await extractFramesFromVideo(videoUrl, 5); 
     
     const prompt = `Analyze this video sequence as a Director of Photography. 
+    ${userDirectives ? `PAY SPECIAL ATTENTION TO THE USER'S REQUEST: "${userDirectives}"` : ''}
+
     Return a JSON object with the following fields.
     IMPORTANT: Do NOT use Markdown code blocks (like \`\`\`html) inside the JSON values. Return raw text or raw HTML strings only.
 

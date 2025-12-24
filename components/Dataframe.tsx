@@ -55,7 +55,8 @@ export const Dataframe: React.FC<DataframeProps> = ({
   }, [value]);
 
   const filteredData = React.useMemo(() => {
-      if (!searchTerm || (show_search as any) === "none") return data;
+      // Handle "none" string or false boolean for show_search to return full data
+      if (!searchTerm || (show_search as any) === "none" || (show_search as any) === false) return data;
       const lowerSearch = searchTerm.toLowerCase();
       return data.filter(row => row.some(cell => String(cell).toLowerCase().includes(lowerSearch)));
   }, [data, searchTerm, show_search]);
@@ -110,7 +111,7 @@ export const Dataframe: React.FC<DataframeProps> = ({
       <div className="flex items-center justify-between p-2 bg-neutral-800 border-b border-neutral-700">
           <div className="flex items-center gap-2">
               {show_label && label && <span className="font-bold text-neutral-300 px-2">{label}</span>}
-              {(show_search === 'search' || show_search === 'filter' || show_search === true) && (
+              {((show_search as any) === 'search' || (show_search as any) === 'filter' || (show_search as any) === true) && (
                   <div className="relative">
                       <input 
                         type="text" 

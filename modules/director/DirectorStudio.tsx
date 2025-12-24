@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ActiveView } from '../../types';
 import { MediaInput } from '../../components/MediaInput';
@@ -6,6 +7,7 @@ import {
     StoryboardIcon, PinIcon, BlenderIcon, LayersIcon, SwapIcon, 
     PhotoRealismIcon, MagicIcon, FaceSparkleIcon, PuzzleIcon, ExpandIcon, ScissorsIcon
 } from '../../components/icons';
+import { PlusIcon } from '../../components/icons/PlusIcon';
 import { analyzeImage, analyzeVideo } from './service';
 import { AnalysisResult } from '../../components/AnalysisResult';
 import { AgentChatView } from '../../components/AgentChatView';
@@ -43,17 +45,43 @@ const StudioCard: React.FC<StudioCardProps> = ({ title, description, icon, onCli
     </div>
 );
 
+const FOCUS_TAGS = {
+    "Lighting": ["Key Light Direction", "Hard vs Soft Light", "Contrast Ratio", "Practical Sources", "Volumetric Lighting"],
+    "Camera & Lens": ["Focal Length Est.", "Depth of Field", "Camera Angle", "Lens Distortion", "Sensor Size/Format"],
+    "Color & Mood": ["Color Palette", "Skin Tones", "Grading Style", "Film Grain/Texture", "Emotional Tone"],
+    "Composition": ["Rule of Thirds", "Leading Lines", "Framing/Blocking", "Negative Space", "Aspect Ratio"]
+};
+
 export const DirectorStudio: React.FC<DirectorStudioProps> = ({ onNavigate }) => {
     const [activeTab, setActiveTab] = useState<'hub' | 'analyzer' | 'chat'>('hub');
     const [analysis, setAnalysis] = useState<string | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [clearKey, setClearKey] = useState(0);
+    
+    // New state for deferred analysis
+    const [selectedMedia, setSelectedMedia] = useState<{ type: 'video' | 'image'; source: File | string | null } | null>(null);
+    const [userDirectives, setUserDirectives] = useState('');
 
     const kineAgent = getAgent(); // Or specifically find Kine from team
     const hasApiKey = !!getApiKey();
 
-    const handleMediaChange = async (media: { type: 'video' | 'image'; source: File | string | null }) => {
-        if (!media.source) return;
+    const handleMediaChange = (media: { type: 'video' | 'image'; source: File | string | null }) => {
+        setSelectedMedia(media);
+        setAnalysis(null); // Clear previous results but stay in "ready to analyze" state
+    };
+
+    const handleAddTag = (tag: string) => {
+        setUserDirectives(prev => {
+            const trimmed = prev.trim();
+            if (trimmed.length > 0 && !trimmed.endsWith(',')) {
+                return `${trimmed}, ${tag}`;
+            }
+            return trimmed ? `${trimmed} ${tag}` : tag;
+        });
+    };
+
+    const handleAnalyze = async () => {
+        if (!selectedMedia || !selectedMedia.source) return;
         
         setIsAnalyzing(true);
         setAnalysis(null);
@@ -64,17 +92,17 @@ export const DirectorStudio: React.FC<DirectorStudioProps> = ({ onNavigate }) =>
 
             let result;
 
-            if (media.type === 'image') {
+            if (selectedMedia.type === 'image') {
                 let base64 = '';
                 let mimeType = '';
 
-                if (typeof media.source === 'string') {
+                if (typeof selectedMedia.source === 'string') {
                     // Handle URL if passed directly (uncommon for image unless from grid)
                     console.warn("URL analysis not fully implemented for images in this view");
                     setIsAnalyzing(false);
                     return;
                 } else {
-                    const file = media.source;
+                    const file = selectedMedia.source;
                     mimeType = file.type;
                     const reader = new FileReader();
                     base64 = await new Promise<string>((resolve) => {
@@ -83,17 +111,17 @@ export const DirectorStudio: React.FC<DirectorStudioProps> = ({ onNavigate }) =>
                     });
                 }
                 
-                result = await analyzeImage(apiKey, base64, mimeType);
+                result = await analyzeImage(apiKey, base64, mimeType, userDirectives);
 
-            } else if (media.type === 'video') {
+            } else if (selectedMedia.type === 'video') {
                 let videoUrl = '';
-                if (typeof media.source === 'string') {
-                    videoUrl = media.source;
+                if (typeof selectedMedia.source === 'string') {
+                    videoUrl = selectedMedia.source;
                 } else {
-                    videoUrl = URL.createObjectURL(media.source);
+                    videoUrl = URL.createObjectURL(selectedMedia.source);
                 }
                 
-                result = await analyzeVideo(apiKey, videoUrl);
+                result = await analyzeVideo(apiKey, videoUrl, userDirectives);
             }
 
             if (result) {
@@ -129,6 +157,8 @@ ${result.composition}
 
     const handleClear = () => {
         setAnalysis(null);
+        setSelectedMedia(null);
+        setUserDirectives('');
         setClearKey(prev => prev + 1);
     };
 
@@ -303,6 +333,63 @@ ${result.composition}
                             <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 shadow-lg">
                                 <h3 className="text-lg font-bold text-white mb-4">Input Reference</h3>
                                 <MediaInput key={clearKey} onMediaChange={handleMediaChange} />
+                                
+                                {selectedMedia && selectedMedia.source && (
+                                    <div className="mt-6 pt-6 border-t border-neutral-800 animate-fade-in">
+                                        <div className="flex flex-col gap-4">
+                                            <div>
+                                                <label className="text-sm font-bold text-neutral-400 uppercase tracking-wider block mb-3">Director's Focus / Questions</label>
+                                                
+                                                {/* Focus Tags / Pills */}
+                                                <div className="space-y-3 mb-4">
+                                                    {Object.entries(FOCUS_TAGS).map(([category, tags]) => (
+                                                        <div key={category} className="flex flex-wrap items-center gap-2">
+                                                            <span className="text-[10px] text-neutral-500 font-bold uppercase w-24 flex-shrink-0">{category}</span>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {tags.map(tag => (
+                                                                    <button
+                                                                        key={tag}
+                                                                        onClick={() => handleAddTag(tag)}
+                                                                        className="px-2 py-1 text-[10px] font-medium bg-neutral-800 border border-neutral-700 hover:border-blue-500 hover:text-blue-300 hover:bg-blue-900/20 text-neutral-300 rounded-md transition-all flex items-center gap-1"
+                                                                    >
+                                                                        <PlusIcon className="w-3 h-3" /> {tag}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <textarea 
+                                                    value={userDirectives}
+                                                    onChange={(e) => setUserDirectives(e.target.value)}
+                                                    placeholder="e.g. Analyze the lighting ratios, identify the exact lens used, or describe the color palette mood..."
+                                                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-neutral-200 focus:ring-2 focus:ring-blue-500 outline-none resize-none h-24 text-sm"
+                                                />
+                                            </div>
+
+                                            <div className="flex justify-end gap-3 mt-2">
+                                                <button 
+                                                    onClick={handleClear}
+                                                    className="px-4 py-2 text-sm font-medium text-neutral-400 hover:text-white transition-colors"
+                                                >
+                                                    Cancel / Clear
+                                                </button>
+                                                <button 
+                                                    onClick={handleAnalyze}
+                                                    disabled={isAnalyzing}
+                                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg hover:shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                                >
+                                                    {isAnalyzing ? (
+                                                        <>Analyzing...</>
+                                                    ) : (
+                                                        <><AnalyzerIcon className="w-4 h-4"/> Analyze Shot</>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {isAnalyzing && (

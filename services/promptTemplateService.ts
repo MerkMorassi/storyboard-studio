@@ -1,28 +1,15 @@
-export interface PromptTemplate {
-  id: string;
-  name: string;
-  content: string;
-  isDefault?: boolean;
-}
+
+import { PromptTemplate } from '../types';
 
 const TEMPLATES_STORAGE_KEY = 'prompt-templates-v1';
 
 const DEFAULT_TEMPLATES: PromptTemplate[] = [
   {
-    id: 'default-sdxl-1',
-    name: 'Standard SDXL Cinematography',
-    isDefault: true,
-    content: `Based on the following detailed analysis, generate a complete and optimized Stable Diffusion XL prompt set. The output MUST be formatted as clean, semantic HTML.
-
-The response must include the following three sections:
-1.  An <h3> with the text "🎬 Positive Prompt". Followed by a <p> tag containing the single, consolidated paragraph of keywords.
-2.  An <h3> with the text "🛑 Negative Prompt". Followed by a <p> tag containing the tailored negative prompt.
-3.  An <h3> with the text "💡 Cinematographer's Notes". Followed by a <ul> with <li> items explaining 2-3 key choices made in the positive prompt (e.g., why a specific lens was chosen, or how a lighting term will affect the outcome).
-
-Do not include <html>, <head>, or <body> tags.
-
-**Analysis:**
-"{{ANALYSIS_TEXT}}"`,
+    id: 'default-cinematic',
+    name: 'Cinematic',
+    positivePrompt: 'cinematic, dramatic lighting, high detail, 8k, photorealistic, depth of field, masterpiece',
+    negativePrompt: 'blurry, low quality, distortion, illustration, painting, cartoon, low resolution, bad anatomy',
+    isDefault: true
   },
 ];
 
@@ -58,8 +45,11 @@ export function savePromptTemplate(template: Omit<PromptTemplate, 'id'> & { id?:
   const isNew = !template.id;
 
   const newTemplateData: PromptTemplate = {
-    ...template,
     id: template.id || `custom-${crypto.randomUUID()}`,
+    name: template.name,
+    positivePrompt: template.positivePrompt,
+    negativePrompt: template.negativePrompt,
+    isDefault: template.isDefault,
   };
 
   if (isNew) {
