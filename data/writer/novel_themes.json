@@ -3,7 +3,7 @@
     "version": "4.1-mythos-english-core",
     "description": "MythOS Studio Narrative Framework"
   },
-  "core_concepts": {
+  "core_themes": {
     "digital_extinction": {
       "logline": "The last biological survivor of humanity faces a choice: preserve their 'flawed' organic humanity or accept flawless, ad-free digital immortality in the Cloud.",
       "tags": ["sci-fi", "dystopia", "psychological-thriller"],
