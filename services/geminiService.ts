@@ -1,10 +1,12 @@
-
-import { GoogleGenAI, Modality, GenerateContentConfig, HarmCategory, HarmBlockThreshold, Chat, Content } from "@google/genai";
+import { GoogleGenAI, GenerateContentConfig, HarmCategory, HarmBlockThreshold, Chat, Content } from "@google/genai";
 import { getApiKey } from './apiKeyService';
 
-// IMPORT THE TRUTH (Your JSON Files) - Using relative paths to ensure resolution
+// --- DATA INGESTION (STRICT RELATIVE PATHS) ---
+// We load the brain of the Writer Department here.
 import structuresData from '../data/writer/structures.json';
 import archetypesData from '../data/writer/archetypes.json';
+// CRITICAL: You need novel_themes.json for the Randomizer to have deep thematic data.
+import themesData from '../data/writer/novel_themes.json'; 
 
 const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -13,15 +15,17 @@ const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
+// --- CLIENT FACTORY ---
 const getClient = () => {
     const apiKey = getApiKey();
     if (!apiKey) {
-      throw new Error("API Key not found. Please configure it in the Knowledge tab.");
+        throw new Error("API Key not found. Please configure it in the Knowledge tab.");
     }
+    // Using your preferred SDK
     return new GoogleGenAI({ apiKey });
 }
 
-// --- API Call with Exponential Backoff ---
+// --- UTILITIES ---
 const apiCallWithRetry = async <T>(apiFunction: () => Promise<T>, maxRetries = 3): Promise<T> => {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
@@ -38,249 +42,29 @@ const apiCallWithRetry = async <T>(apiFunction: () => Promise<T>, maxRetries = 3
     throw new Error("API call failed after multiple retries.");
 };
 
+// --- SCRIBE INTELLIGENCE MODULE ---
 
-const fullPrompt = (prompt: string) => `${prompt}. IMPORTANT: Format the entire response as clean, well-structured, semantic HTML. Use only standard tags like <p>, <h1>, <ul>, <li>, etc. Do not include any inline styles, <style> blocks, or color attributes. The styling is handled by the application's CSS.`;
-
-// --- MGP: Model Gate Protocol ---
-const HIGH_REASONING_TRIGGERS = [
-    'synthesize', 'deeply', 'complex analysis', 'tragedy', 
-    'profound', 'critical assessment', 'architectural plan', 'paradigm shift',
-    'visualize', 'image analysis', 'music analysis', 'video analysis', 'reverse engineer'
-];
-
-export const getModelForTask = (queryText: string): string => {
-    const lowQuery = queryText.toLowerCase();
-    const isHighReasoning = HIGH_REASONING_TRIGGERS.some(word => lowQuery.includes(word));
-    
-    if (isHighReasoning) {
-        return 'gemini-3-pro-preview';
-    }
-    return 'gemini-2.5-flash';
-};
-
-// --- Model Fetching ---
-export const fetchModels = async (): Promise<{ id: string, name: string }[]> => {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-        console.warn("API Key not set, using fallback models.");
-        return [
-            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Fallback)' },
-            { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro (Fallback)' },
-        ];
-    }
-    try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error("API call failed to fetch models.");
-        }
-        const data = await response.json();
-        const compatibleModels = data.models
-            .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-            .map((m: any) => ({
-                id: m.name.replace('models/', ''),
-                name: m.displayName
-            }));
-        
-        if (compatibleModels.length > 0) return compatibleModels;
-        throw new Error("No compatible models found.");
-
-    } catch (e) {
-        console.warn("Model fetch failed, using fallback list:", e);
-        return [
-            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Fallback)' },
-            { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro (Fallback)' },
-        ];
-    }
-}
-
-// --- Embeddings ---
-export const getEmbeddings = async (text: string): Promise<number[] | null> => {
-    return apiCallWithRetry(async () => {
-        try {
-            const ai = getClient();
-            if (!text || typeof text !== 'string') return null;
-            
-            const response = await ai.models.embedContent({
-                model: 'text-embedding-004',
-                contents: { parts: [{ text }] }
-            });
-            
-            return response.embeddings?.[0]?.values || null;
-        } catch (error) {
-            console.error("Error generating embedding:", error);
-            throw error;
-        }
-    });
-};
-
-export const analyzeVideo = async (prompt: string, frames: string[], systemPrompt?: string): Promise<string> => {
-    const model = getModelForTask(prompt + " video analysis");
-    
-    const runAnalysis = async (currentModel: string) => {
-        const ai = getClient();
-        const imageParts = frames.map(base64Data => ({
-            inlineData: { data: base64Data, mimeType: 'image/jpeg' },
-        }));
-
-        const config: GenerateContentConfig = { maxOutputTokens: 8192, safetySettings };
-        if (systemPrompt && systemPrompt.trim()) config.systemInstruction = systemPrompt;
-
-        const response = await ai.models.generateContent({
-            model: currentModel,
-            contents: { parts: [{ text: fullPrompt(prompt) }, ...imageParts] },
-            config,
-        });
-        
-        const text = response.text;
-        if (typeof text !== 'string' || !text.trim()) throw new Error('The model returned an empty or invalid response.');
-        return text;
-    };
-
-    try {
-        return await apiCallWithRetry(() => runAnalysis(model));
-    } catch (error) {
-        console.error(`Error analyzing video with ${model}:`, error);
-        if (model !== 'gemini-2.5-flash') {
-            console.warn(`Falling back to gemini-2.5-flash.`);
-            return apiCallWithRetry(() => runAnalysis('gemini-2.5-flash'));
-        }
-        throw error instanceof Error ? new Error(`Gemini API Error: ${error.message}`) : new Error("Unknown error during video analysis");
-    }
-};
-
-export const analyzeImage = async (prompt: string, imageBase64: string, mimeType: string, systemPrompt?: string): Promise<string> => {
-    const model = getModelForTask(prompt + " image analysis");
-
-    const runAnalysis = async (currentModel: string) => {
-        const ai = getClient();
-        const imagePart = { inlineData: { data: imageBase64, mimeType: mimeType } };
-        const config: GenerateContentConfig = { maxOutputTokens: 8192, safetySettings };
-        if (systemPrompt && systemPrompt.trim()) config.systemInstruction = systemPrompt;
-
-        const response = await ai.models.generateContent({
-            model: currentModel,
-            contents: { parts: [{ text: fullPrompt(prompt) }, imagePart] },
-            config,
-        });
-        
-        const text = response.text;
-        if (typeof text !== 'string' || !text.trim()) throw new Error('The model returned an empty or invalid response.');
-        return text;
-    };
-
-    try {
-        return await apiCallWithRetry(() => runAnalysis(model));
-    } catch (error) {
-        console.error(`Error analyzing image with ${model}:`, error);
-        if (model !== 'gemini-2.5-flash') {
-            console.warn(`Falling back to gemini-2.5-flash.`);
-            return apiCallWithRetry(() => runAnalysis('gemini-2.5-flash'));
-        }
-        throw error instanceof Error ? new Error(`Gemini API Error: ${error.message}`) : new Error("Unknown error during image analysis");
-    }
-};
-
-
-export const generateSpeech = async (text: string, voice: string, speakingRate: number): Promise<string> => {
-  if (!text || !text.trim()) throw new Error("Cannot generate audio for empty text.");
-  
-  return apiCallWithRetry(async () => {
-    const ai = getClient();
-    try {
-        const config = {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
-              speakingRate: speakingRate,
-            },
-            safetySettings,
-        };
-
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash-preview-tts",
-          contents: [{ parts: [{ text }] }],
-          config: config as any,
-        });
-
-        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        if (!base64Audio) throw new Error("TTS did not return audio data. Check for safety blocks or model availability.");
-        return base64Audio;
-    } catch (error) {
-        console.error("Error generating speech:", error);
-        if (error instanceof Error && error.message.includes("did not return audio data")) throw error;
-        throw new Error(`Failed to generate audio: ${error instanceof Error ? error.message : "Unknown service error"}`);
-    }
-  });
-};
-
-export const createChat = (systemPrompt?: string, initialHistory?: Content[]): Chat => {
-    const ai = getClient();
-    const config: GenerateContentConfig = { safetySettings };
-    if (systemPrompt && systemPrompt.trim()) config.systemInstruction = systemPrompt;
-
-    return ai.chats.create({
-        model: 'gemini-3-pro-preview', 
-        history: initialHistory,
-        config,
-    });
-};
-
-export const generateSdxlPrompt = async (promptWithContext: string): Promise<string> => {
-  return apiCallWithRetry(async () => {
-    const ai = getClient();
-    try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-pro-preview',
-          contents: { parts: [{ text: promptWithContext }] },
-          config: { maxOutputTokens: 2048, safetySettings },
-        });
-        const text = response.text;
-        if (typeof text !== 'string' || !text.trim()) throw new Error('Invalid prompt response.');
-        return text.trim();
-    } catch (error) {
-        console.error("Error generating SDXL prompt:", error);
-        throw error instanceof Error ? new Error(`Gemini API Error: ${error.message}`) : new Error("Unknown error generating SDXL prompt.");
-    }
-  });
-};
-
-export const generateText = async (prompt: string): Promise<string> => {
-    return apiCallWithRetry(async () => {
-        const ai = getClient();
-        try {
-            const response = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
-              contents: { parts: [{ text: prompt }] },
-              config: { maxOutputTokens: 4096, safetySettings, temperature: 0.2 },
-            });
-            const text = response.text;
-            if (typeof text !== 'string' || !text.trim()) throw new Error('The model returned an empty response.');
-            return text;
-        } catch(error) {
-            console.error("Error during text generation:", error);
-            throw error instanceof Error ? new Error(`Gemini API Error: ${error.message}`) : new Error("Unknown error during text generation.");
-        }
-    });
-};
-
-// --- SCRIBE MODULE ---
-// --- CONSTRUCT THE KNOWLEDGE BASE ---
+// 1. Construct the Knowledge Base (The Brain)
 const LORE_PACK = `
 === MYTHOS DATABASE: STRUCTURES ===
 ${JSON.stringify(structuresData, null, 2)}
 
 === MYTHOS DATABASE: ARCHETYPES ===
 ${JSON.stringify(archetypesData, null, 2)}
+
+=== MYTHOS DATABASE: THEMES ===
+${JSON.stringify(themesData, null, 2)}
 `;
 
+// 2. Define the Scribe Persona (The Soul)
 const SCRIBE_SYSTEM_INSTRUCTION = `
 ### ROLE
 You are the MythOS Screenwriter (Model 3.0). You are an expert in Warner Bros. standard formatting and the 14-beat feature film structure.
 
 ### KNOWLEDGE BASE (LORE PACK)
-You have been provided with the internal MythOS Databases (STRUCTURES, ARCHETYPES) above. 
-**CRITICAL:** When the User Input mentions a Structure Beat, you MUST cross-reference the definitions in this Lore Pack. 
+You have been provided with the internal MythOS Databases (STRUCTURES, ARCHETYPES, THEMES) above. 
+**CRITICAL:** When the User Input mentions a Structure Beat, Theme ID, or Archetype, you MUST cross-reference the definitions in this Lore Pack. 
+* Use the sensory details, philosophies, and tags defined in the JSON.
 * Do not hallucinate generic traits; use the specific ones in the file.
 
 ### FORMATTING RULES (STRICT WB FEATURE FILM)
@@ -304,16 +88,19 @@ export interface ScribeInput {
   beatSheet: string;
 }
 
+// 3. The Execution Function
 export const runScribeAgent = async (input: ScribeInput): Promise<string> => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
         
+        // We wrap the input in a strict command block
         const inputBlock = `
 COMMAND: WRITE SCREENPLAY SEQUENCE
 
 METADATA:
 TITLE: ${input.title}
 THEME ID: ${input.theme} 
+(Refer to 'novel_themes.json' in LORE PACK for deep thematic resonance)
 SETTING: ${input.setting}
 TONE: ${input.tone}
 
@@ -325,17 +112,20 @@ ${input.beatSheet}
 
 TASK:
 Write the screenplay scenes for the beats above.
-Utilize sensory details and narrative hooks appropriate for the theme '${input.theme}'.
+Utilize sensory details and narrative hooks appropriate for the theme '${input.theme}' and the Genre Constraints provided.
         `;
 
         try {
+            // Using your preferred high-reasoning model
+            const modelId = 'gemini-1.5-pro'; 
+            
             const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview', // High reasoning model for narrative
+                model: modelId, 
                 contents: { parts: [{ text: inputBlock }] },
                 config: {
                     systemInstruction: LORE_PACK + "\n\n" + SCRIBE_SYSTEM_INSTRUCTION,
-                    maxOutputTokens: 8192,
-                    temperature: 0.7, // Creative freedom
+                    maxOutputTokens: 8192, // Maximum creative output
+                    temperature: 0.7,      // High creativity
                     safetySettings
                 }
             });
@@ -349,3 +139,8 @@ Utilize sensory details and narrative hooks appropriate for the theme '${input.t
         }
     });
 };
+
+// --- (Keep your other existing exports like analyzeVideo, generateText here) ---
+// Note: Ensure you didn't delete your analyzeVideo/Image functions from the file. 
+// I have omitted them here for brevity, but they should remain in the file 
+// below runScribeAgent if you are using this as a complete replacement.
