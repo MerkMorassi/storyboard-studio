@@ -5,6 +5,7 @@ export interface VectorRecord {
   vector: number[];
   source: string;
   timestamp: number;
+  agentId?: string; // New field for segregation
 }
 
 export interface ChatLogRecord {
@@ -21,7 +22,7 @@ export interface ChatLogRecord {
 }
 
 const DB_NAME = 'mythos_vault';
-const DB_VERSION = 3; // Incremented for source index
+const DB_VERSION = 4; // Incremented for agentId index
 const STORE_VECTORS = 'vectors';
 const STORE_AGENT_CHAT = 'agentChatLogs';
 
@@ -45,9 +46,14 @@ class VectorDbService {
           vectorStore = (e.target as IDBOpenDBRequest).transaction!.objectStore(STORE_VECTORS);
         }
 
-        // Create 'source' index if it doesn't exist (v3 upgrade)
+        // Create 'source' index if it doesn't exist
         if (!vectorStore.indexNames.contains('source')) {
             vectorStore.createIndex('source', 'source', { unique: false });
+        }
+
+        // Create 'agentId' index (v4 upgrade)
+        if (!vectorStore.indexNames.contains('agentId')) {
+            vectorStore.createIndex('agentId', 'agentId', { unique: false });
         }
 
         // Chat Logs Store
@@ -91,7 +97,31 @@ class VectorDbService {
     });
   }
 
-  async deleteVectorsBySource(source: string): Promise<void> {
+  async getVectorsByAgent(agentId: string): Promise<VectorRecord[]> {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_VECTORS, 'readonly');
+          const store = tx.objectStore(STORE_VECTORS);
+          
+          // Use index if available
+          if (store.indexNames.contains('agentId')) {
+              const index = store.index('agentId');
+              const request = index.getAll(agentId);
+              request.onsuccess = () => resolve(request.result);
+              request.onerror = () => reject(request.error);
+          } else {
+              // Fallback for older DB versions without index (shouldn't happen with version bump but safe)
+              const request = store.getAll();
+              request.onsuccess = () => {
+                  const all = request.result as VectorRecord[];
+                  resolve(all.filter(v => v.agentId === agentId));
+              };
+              request.onerror = () => reject(request.error);
+          }
+      });
+  }
+
+  async deleteVectorsBySource(source: string, agentId?: string): Promise<void> {
       const db = await this.open();
       return new Promise((resolve, reject) => {
           const tx = db.transaction(STORE_VECTORS, 'readwrite');
@@ -102,7 +132,10 @@ class VectorDbService {
           request.onsuccess = (event) => {
               const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
               if (cursor) {
-                  cursor.delete();
+                  // If agentId is provided, check if it matches before deleting
+                  if (!agentId || cursor.value.agentId === agentId) {
+                      cursor.delete();
+                  }
                   cursor.continue();
               }
           };
@@ -112,28 +145,47 @@ class VectorDbService {
       });
   }
 
-  async clearVectors(): Promise<void> {
+  async clearVectors(agentId?: string): Promise<void> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_VECTORS, 'readwrite');
       const store = tx.objectStore(STORE_VECTORS);
-      const request = store.clear();
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      
+      if (agentId) {
+          // Only clear for specific agent using index
+          if (store.indexNames.contains('agentId')) {
+              const index = store.index('agentId');
+              const request = index.openCursor(IDBKeyRange.only(agentId));
+              request.onsuccess = (event) => {
+                  const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+                  if (cursor) {
+                      cursor.delete();
+                      cursor.continue();
+                  }
+              };
+              tx.oncomplete = () => resolve();
+          } else {
+              // Fallback: iterate all
+              const request = store.openCursor();
+              request.onsuccess = (event) => {
+                  const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+                  if (cursor) {
+                      if (cursor.value.agentId === agentId) cursor.delete();
+                      cursor.continue();
+                  }
+              };
+              tx.oncomplete = () => resolve();
+          }
+      } else {
+          // Clear all
+          const request = store.clear();
+          request.onsuccess = () => resolve();
+      }
+      
+      tx.onerror = () => reject(tx.error);
     });
   }
   
-  async getVectorCount(): Promise<number> {
-      const db = await this.open();
-      return new Promise((resolve, reject) => {
-          const tx = db.transaction(STORE_VECTORS, 'readonly');
-          const store = tx.objectStore(STORE_VECTORS);
-          const request = store.count();
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-      });
-  }
-
   // --- Agent Chat Log Methods ---
 
   async saveAgentChatLogs(logs: ChatLogRecord[]): Promise<void> {
@@ -141,7 +193,6 @@ class VectorDbService {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_AGENT_CHAT, 'readwrite');
       const store = tx.objectStore(STORE_AGENT_CHAT);
-      // Clear old logs and save new ones to keep it simple.
       store.clear(); 
       logs.forEach(log => store.put(log));
       tx.oncomplete = () => resolve();

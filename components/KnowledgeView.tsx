@@ -1,19 +1,18 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { vectorDb, VectorRecord } from '../services/vectorDbService';
 import { chunkText, generateEmbeddingsForChunks } from '../services/embeddingService';
-import { TELEPORTER } from '../utils/numMarkX';
 import { fetchModels, generateText } from '../services/geminiService';
 import { Agent } from '../services/agentService';
 import { UploadIcon } from './icons/UploadIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { WandIcon } from './icons/WandIcon';
-import { getApiKey, saveApiKey } from '../services/apiKeyService';
 import { WarningIcon } from './icons/WarningIcon';
 import { CloseIcon } from './icons.tsx';
 
 interface KnowledgeViewProps {
-    agent: Agent;
-    onSaveSettings: (settings: Partial<Agent>) => void;
+    agents: Agent[];
+    onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
     onApiKeyUpdate: () => void;
     hasApiKey: boolean;
 }
@@ -23,8 +22,8 @@ type SaveStatus = 'idle' | 'saving' | 'saved';
 const CollapsibleSection: React.FC<{ title: string; number: string; children: React.ReactNode, startOpen?: boolean }> = ({ title, number, children, startOpen = false }) => {
     const [isOpen, setIsOpen] = useState(startOpen);
     return (
-        <div className="bg-secondary/30 border border-accent rounded-xl">
-            <div className="flex justify-between items-center cursor-pointer p-4" onClick={() => setIsOpen(!isOpen)}>
+        <div className="bg-secondary/30 border border-accent rounded-xl flex-shrink-0">
+            <div className="flex justify-between items-center cursor-pointer p-4 hover:bg-white/5 transition-colors rounded-t-xl" onClick={() => setIsOpen(!isOpen)}>
                 <h3 className="text-sm uppercase tracking-wider font-bold text-text-secondary">{number} / {title}</h3>
                 <span className="text-text-secondary text-lg">{isOpen ? '−' : '+'}</span>
             </div>
@@ -37,7 +36,11 @@ const CollapsibleSection: React.FC<{ title: string; number: string; children: Re
     );
 };
 
-export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSettings, onApiKeyUpdate, hasApiKey }) => {
+export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAgent, onApiKeyUpdate, hasApiKey }) => {
+    // Agent Selection State
+    const [selectedAgentId, setSelectedAgentId] = useState<string>(agents.length > 0 ? agents[0].id : '');
+    const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
+
     const [vectorCount, setVectorCount] = useState<number>(0);
     const [isIngesting, setIsIngesting] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -56,37 +59,33 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
     // Abort Controller
     const abortControllerRef = useRef<AbortController | null>(null);
     
-    // Initialize with props, but update via useEffect to handle tab switching/prop updates
-    const [systemPrompt, setSystemPrompt] = useState(agent.systemPrompt);
-    const [protectedWords, setProtectedWords] = useState(agent.protectedWords || '');
-    
-    const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
-    const [apiKeyInput, setApiKeyInput] = useState(getApiKey() || '');
-    
-    const [keySaveStatus, setKeySaveStatus] = useState<SaveStatus>('idle');
+    // Local state for editing persona (system prompt)
+    const [systemPrompt, setSystemPrompt] = useState('');
     const [personaSavaStatus, setPersonaSaveStatus] = useState<SaveStatus>('idle');
-    const [glossarySaveStatus, setGlossarySaveStatus] = useState<SaveStatus>('idle');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const restoreInputRef = useRef<HTMLInputElement>(null);
-    const glossaryInputRef = useRef<HTMLInputElement>(null);
 
-    // Sync state with props when agent changes (e.g. switching tabs back and forth)
+    // Sync local state when selected agent changes
     useEffect(() => {
-        setSystemPrompt(agent.systemPrompt);
-        setProtectedWords(agent.protectedWords || '');
-    }, [agent.systemPrompt, agent.protectedWords]);
+        if (selectedAgent) {
+            setSystemPrompt(selectedAgent.systemPrompt || '');
+            refreshStats(selectedAgent.id);
+        }
+    }, [selectedAgent]);
 
-    const refreshStats = async () => {
-        const allVectors = await vectorDb.getAllVectors();
-        setVectorCount(allVectors.length);
-        const uniqueSources = Array.from(new Set(allVectors.map(v => v.source)));
-        setSources(uniqueSources);
-        TELEPORTER.rebuildIndex(allVectors);
+    const refreshStats = async (agentId: string) => {
+        try {
+            const agentVectors = await vectorDb.getVectorsByAgent(agentId);
+            setVectorCount(agentVectors.length);
+            const uniqueSources = Array.from(new Set(agentVectors.map(v => v.source)));
+            setSources(uniqueSources);
+        } catch (e) {
+            console.error("Failed to load vector stats", e);
+        }
     };
 
     useEffect(() => {
-        refreshStats();
         if (hasApiKey) handleFetchModels();
     }, [hasApiKey]);
 
@@ -108,12 +107,12 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
         }, 500);
     };
 
-    const handleSaveKey = () => {
-        if (!apiKeyInput.trim()) return;
-        handleSaveWithFeedback(() => {
-            saveApiKey(apiKeyInput);
-            onApiKeyUpdate();
-        }, setKeySaveStatus);
+    const handleSavePersona = () => {
+        if (selectedAgentId) {
+            handleSaveWithFeedback(() => {
+                onUpdateAgent(selectedAgentId, { systemPrompt });
+            }, setPersonaSaveStatus);
+        }
     };
 
     const processJsonContent = (json: any): string => {
@@ -131,12 +130,12 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
             abortControllerRef.current.abort();
             setIsIngesting(false);
             setStatusMessage('Ingestion Aborted.');
-            refreshStats();
+            if (selectedAgentId) refreshStats(selectedAgentId);
         }
     };
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
+        if (!e.target.files || e.target.files.length === 0 || !selectedAgentId) return;
         
         abortControllerRef.current = new AbortController();
         const signal = abortControllerRef.current.signal;
@@ -144,7 +143,7 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
         const files: File[] = Array.from(e.target.files);
         setIsIngesting(true);
         setProgress(0);
-        setStatusMessage('Initializing CorePack...');
+        setStatusMessage(`Initializing CorePack for ${selectedAgent.name}...`);
         
         try {
             let totalChunks = 0;
@@ -156,7 +155,12 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
                      const jsonData = JSON.parse(text);
                       if (Array.isArray(jsonData) && jsonData.length > 0 && jsonData[0]?.vector) {
                          setStatusMessage(`Restoring backup: ${file.name}`);
-                         await vectorDb.addVectors(jsonData as VectorRecord[]);
+                         // When restoring, we map these to the current agent
+                         const mappedVectors = (jsonData as VectorRecord[]).map(v => ({
+                             ...v,
+                             agentId: selectedAgentId // Override agentId
+                         }));
+                         await vectorDb.addVectors(mappedVectors);
                          return null; 
                       }
                       text = processJsonContent(jsonData);
@@ -165,7 +169,7 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
 
                 if (smartIngest) {
                     setStatusMessage(`AI Cleaning ${file.name}...`);
-                    const prompt = `TASK: Clean and structure this text. Fix typos, improve grammar. DO NOT CHANGE THESE WORDS: ${agent.protectedWords || 'None'}. Text: ${text.substring(0, 30000)}`;
+                    const prompt = `TASK: Clean and structure this text. Fix typos, improve grammar. DO NOT CHANGE PROPER NOUNS. Text: ${text.substring(0, 30000)}`;
                     text = await generateText(prompt);
                 }
                 const chunks = chunkText(text);
@@ -191,11 +195,12 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
                     const embeddedResult = await generateEmbeddingsForChunks([chunks[i]]);
                     if (embeddedResult.length > 0) {
                         newVectors.push({
-                            id: Date.now() + Math.random(),
+                            id: crypto.randomUUID(),
                             text: embeddedResult[0].text,
                             vector: embeddedResult[0].vector,
                             source: file.name,
-                            timestamp: Date.now()
+                            timestamp: Date.now(),
+                            agentId: selectedAgentId // Bind to specific agent
                         });
                     }
                     processedChunks++;
@@ -205,7 +210,7 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
             }
             
             if (!signal.aborted) {
-                await refreshStats();
+                await refreshStats(selectedAgentId);
                 setStatusMessage('CorePack Ingestion complete!');
             }
         } catch (error) {
@@ -221,47 +226,19 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
             if (e.target) e.target.value = '';
         }
     };
-    
-    const handleRestoreGlossary = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        try {
-            const text = await file.text();
-            let newWords: string[] = [];
-            if(file.name.endsWith('.json')) {
-                const data = JSON.parse(text);
-                const extractStrings = (obj: any): string[] => {
-                   if (typeof obj === 'string') return [obj];
-                   if (Array.isArray(obj)) return obj.flatMap(extractStrings);
-                   if (typeof obj === 'object' && obj !== null) return Object.values(obj).flatMap(extractStrings);
-                   return [];
-                }
-                newWords = extractStrings(data);
-            } else {
-                newWords = text.split(/[\n,;]/).map(w => w.trim()).filter(Boolean);
-            }
-            const currentWords = protectedWords.split(/[\n,;]/).map(w => w.trim()).filter(Boolean);
-            const merged = Array.from(new Set([...currentWords, ...newWords]));
-            setProtectedWords(merged.join(', '));
-        } catch (err) {
-            console.error("Failed to import glossary", err);
-        } finally {
-            if (e.target) e.target.value = '';
-        }
-    };
 
     const handlePurge = async () => {
-        if (window.confirm("Purge Knowledge Base? This will delete all ingested CorePack vectors.")) {
-            await vectorDb.clearVectors();
-            await refreshStats();
+        if (window.confirm(`Purge Knowledge Base for ${selectedAgent.name}? This will delete all ingested CorePack vectors for this agent.`)) {
+            await vectorDb.clearVectors(selectedAgentId);
+            await refreshStats(selectedAgentId);
         }
     };
 
     const handleDeleteSource = async () => {
-        if (!sourceToDelete) return;
+        if (!sourceToDelete || !selectedAgentId) return;
         try {
-            await vectorDb.deleteVectorsBySource(sourceToDelete);
-            await refreshStats();
+            await vectorDb.deleteVectorsBySource(sourceToDelete, selectedAgentId);
+            await refreshStats(selectedAgentId);
             setSourceToDelete(null);
         } catch (error) {
             console.error("Failed to delete source:", error);
@@ -270,59 +247,27 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
     };
     
     const handleExport = async () => {
-        const vectors = await vectorDb.getAllVectors();
-        if (vectors.length === 0) return alert("Knowledge Base is empty.");
+        const vectors = await vectorDb.getVectorsByAgent(selectedAgentId);
+        if (vectors.length === 0) return alert("Knowledge Base is empty for this agent.");
 
-        const safeAgentName = agent.name.replace(/[^a-z0-9]/gi, '_');
+        const safeAgentName = selectedAgent.name.replace(/[^a-z0-9]/gi, '_');
         const backupFileName = `${safeAgentName}_CorePack_${Date.now()}.json`;
 
-        const downloadLegacy = () => {
-            const blob = new Blob([JSON.stringify(vectors, null, 2)], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = backupFileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-        };
-
-        try {
-            // @ts-ignore
-            if (window.showSaveFilePicker) {
-                try {
-                    // @ts-ignore
-                    const handle = await window.showSaveFilePicker({
-                        suggestedName: backupFileName,
-                        types: [{ description: 'JSON Archive', accept: { 'application/json': ['.json'] } }],
-                    });
-                    const writable = await handle.createWritable();
-                    await writable.write('[\n');
-                    for (let i = 0; i < vectors.length; i++) {
-                        await writable.write(JSON.stringify(vectors[i]));
-                        if (i < vectors.length - 1) await writable.write(',\n');
-                    }
-                    await writable.write('\n]');
-                    await writable.close();
-                } catch (pickerErr) {
-                    if ((pickerErr as Error).name === 'AbortError') return;
-                    console.warn("File System Access API failed, falling back.", pickerErr);
-                    downloadLegacy();
-                }
-            } else {
-                downloadLegacy();
-            }
-        } catch (err) {
-            console.error("Export failed:", err);
-            downloadLegacy();
-        }
+        const blob = new Blob([JSON.stringify(vectors, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = backupFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
     };
 
     const runAnalytics = async (type: 'SUMMARY' | 'QUESTIONS' | 'ENTITIES' | 'GAPS') => {
         setIsAnalyzing(true);
         setAnalyticsResult(null);
         try {
-            const vectors = await vectorDb.getAllVectors();
+            const vectors = await vectorDb.getVectorsByAgent(selectedAgentId);
             if (vectors.length === 0) {
                 setAnalyticsResult("CorePack is empty. Please ingest documents first.");
                 setIsAnalyzing(false);
@@ -338,16 +283,16 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
             let prompt = "";
             switch (type) {
                 case 'SUMMARY':
-                    prompt = `Analyze the following knowledge base content and provide a comprehensive executive summary. Highlight the main themes, key facts, and overall purpose of the data.\n\nContent:\n${fullText}`;
+                    prompt = `Analyze the following knowledge base content for the agent ${selectedAgent.name} and provide a comprehensive executive summary. Highlight the main themes, key facts, and overall purpose of the data.\n\nContent:\n${fullText}`;
                     break;
                 case 'QUESTIONS':
-                    prompt = `Based on the following knowledge base content, generate 5-10 critical questions that this data answers. Also suggest 3 deeper questions that might require more information.\n\nContent:\n${fullText}`;
+                    prompt = `Based on the following knowledge base content for ${selectedAgent.name}, generate 5-10 critical questions that this data answers. Also suggest 3 deeper questions that might require more information.\n\nContent:\n${fullText}`;
                     break;
                 case 'ENTITIES':
-                    prompt = `Extract and list the key entities from the following content. Group them by category (e.g., People, Locations, Concepts, Technologies). Provide a brief 1-sentence description for each.\n\nContent:\n${fullText}`;
+                    prompt = `Extract and list the key entities from the following content for ${selectedAgent.name}. Group them by category (e.g., People, Locations, Concepts, Technologies). Provide a brief 1-sentence description for each.\n\nContent:\n${fullText}`;
                     break;
                 case 'GAPS':
-                    prompt = `Critically analyze the following content for logical gaps, missing information, or inconsistencies. What related topics are mentioned but not explained? What would make this knowledge base more complete?\n\nContent:\n${fullText}`;
+                    prompt = `Critically analyze the following content for ${selectedAgent.name} for logical gaps, missing information, or inconsistencies. What related topics are mentioned but not explained? What would make this knowledge base more complete?\n\nContent:\n${fullText}`;
                     break;
             }
 
@@ -363,156 +308,158 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
     };
 
     return (
-        <div className="space-y-6 animate-fade-in relative">
-             <div className="text-center space-y-2">
-                <h1 className="text-3xl font-bold tracking-widest text-text-secondary">MYTHOS VAULT</h1>
-                <p className="text-xs text-text-secondary/70">NOETIC SOVEREIGNTY ENGINE</p>
+        <div className="flex flex-col h-full overflow-hidden">
+            {/* Header Area - Fixed */}
+            <div className="flex-shrink-0 p-6 pb-2">
+                <div className="text-center space-y-2 mb-6">
+                    <h1 className="text-3xl font-bold tracking-widest text-text-secondary">MYTHOS VAULT</h1>
+                    <p className="text-xs text-text-secondary/70">NOETIC SOVEREIGNTY ENGINE</p>
+                </div>
+                {!hasApiKey && <WarningBanner />}
+                
+                {/* Agent Selector */}
+                <div className="bg-secondary/50 border border-accent p-4 rounded-xl flex items-center justify-between gap-4 mb-4">
+                    <div className="flex flex-col flex-grow">
+                        <label className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">Active Agent Knowledge Base</label>
+                        <select 
+                            value={selectedAgentId} 
+                            onChange={(e) => setSelectedAgentId(e.target.value)}
+                            className="bg-primary text-text-primary font-bold text-lg border border-accent rounded p-2 focus:ring-1 focus:ring-brand cursor-pointer appearance-none outline-none"
+                        >
+                            {agents.map(a => (
+                                <option key={a.id} value={a.id}>{a.name} ({a.narrativeRole || 'General'})</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                        <p className="text-2xl font-black text-white">{vectorCount.toLocaleString()}</p>
+                        <p className="text-[10px] uppercase text-text-secondary font-bold">Vectors Indexed</p>
+                    </div>
+                </div>
             </div>
-            {!hasApiKey && <WarningBanner />}
 
-            <CollapsibleSection number="01" title="Configuration" startOpen={true}>
-                <div className="space-y-4">
-                     {/* API KEY, MODELS, PERSONA, GLOSSARY */}
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Content Area - Scrollable */}
+            <div className="flex-grow overflow-y-auto px-6 pb-6 space-y-6 custom-scrollbar">
+                
+                <CollapsibleSection number="01" title="Configuration" startOpen={true}>
+                    <div className="space-y-4">
                         <div className="space-y-2">
-                           <label className="text-xs text-text-secondary mb-1 block">Gemini API Key</label>
-                           <input type="password" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="Paste Key & Save" className="w-full bg-primary border border-accent p-2 rounded-xl text-xs" />
-                           <button onClick={handleSaveKey} disabled={!apiKeyInput.trim() || keySaveStatus !== 'idle'} className="w-full bg-secondary border border-accent text-text-secondary hover:text-white p-1.5 rounded-xl text-xs uppercase font-bold disabled:opacity-50">
-                                {keySaveStatus === 'idle' ? 'Save Key' : (keySaveStatus === 'saving' ? '...' : '✓ Saved!')}
-                           </button>
+                            <label className="text-xs text-text-secondary mb-1 block">Persona Configuration (System Prompt)</label>
+                            <textarea 
+                                value={systemPrompt} 
+                                onChange={e => setSystemPrompt(e.target.value)} 
+                                rows={6} 
+                                placeholder={`Define the core personality and rules for ${selectedAgent.name}...`}
+                                className="w-full bg-primary border border-accent p-3 rounded-xl text-xs resize-y text-text-primary focus:border-brand outline-none"
+                            ></textarea>
+                            <button onClick={handleSavePersona} disabled={personaSavaStatus !== 'idle'} className="w-full mt-1 bg-secondary border border-accent text-text-secondary hover:text-white p-2 rounded-xl text-xs uppercase font-bold disabled:opacity-50 transition-colors hover:bg-brand/20 hover:border-brand">
+                                {personaSavaStatus === 'idle' ? `Save Persona for ${selectedAgent.name}` : (personaSavaStatus === 'saving' ? 'Saving...' : '✓ Saved!')}
+                            </button>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-xs text-text-secondary mb-1 block">Model Selection</label>
-                            <div className="flex gap-2">
-                                <button onClick={handleFetchModels} disabled={!hasApiKey} className="flex-1 text-xs uppercase font-bold bg-secondary border border-accent text-text-secondary hover:text-white p-2 rounded-xl disabled:opacity-50">Fetch Models</button>
-                                <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} disabled={!hasApiKey} className="flex-[2] bg-primary border border-accent text-text-primary p-2 rounded-xl text-xs disabled:opacity-50">
-                                    {availableModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                                </select>
+
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-accent">
+                            <input type="file" ref={restoreInputRef} accept=".json" className="hidden" onChange={handleFileSelect} />
+                            <button onClick={() => restoreInputRef.current?.click()} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-2 rounded-xl text-xs uppercase font-bold hover:bg-neutral-700 transition-colors"><UploadIcon className="w-3 h-3"/> Import DB</button>
+                            <button onClick={handleExport} className="bg-secondary border border-accent text-text-secondary hover:text-white p-2 rounded-xl text-xs uppercase font-bold hover:bg-neutral-700 transition-colors">Export DB</button>
+                            <button onClick={handlePurge} className="flex items-center justify-center gap-2 bg-red-900/20 border border-red-900/50 text-red-400 hover:bg-red-900/40 p-2 rounded-xl text-xs uppercase font-bold transition-colors"><TrashIcon className="w-3 h-3"/> Purge DB</button>
+                        </div>
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection number="02" title="CorePack Ingestion (Forge)">
+                    <div className="space-y-4">
+                        <input type="file" ref={fileInputRef} multiple accept=".txt,.json,.md,.csv" className="hidden" onChange={handleFileSelect} />
+                        <button onClick={() => !isIngesting && fileInputRef.current?.click()} disabled={isIngesting || !hasApiKey} className="w-full border-2 border-dashed border-accent p-6 rounded-xl text-text-secondary hover:border-brand hover:text-brand transition-all text-center disabled:cursor-wait disabled:opacity-50 group bg-secondary/20 hover:bg-secondary/40">
+                            <span className="group-hover:scale-105 transition-transform block">Click to upload knowledge files (.txt, .md, .json)</span>
+                            <span className="text-xs text-text-secondary/50 mt-2 block">Selected files will be embedded into {selectedAgent.name}'s memory.</span>
+                        </button>
+                        
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2 p-2 border border-accent rounded-xl bg-primary/30 flex-grow">
+                                <input 
+                                    type="checkbox" 
+                                    id="smartIngest" 
+                                    className="accent-brand cursor-pointer w-4 h-4" 
+                                    disabled={!hasApiKey}
+                                    checked={smartIngest}
+                                    onChange={(e) => setSmartIngest(e.target.checked)}
+                                />
+                                <label htmlFor="smartIngest" className={`text-xs cursor-pointer select-none ${!hasApiKey ? 'text-text-secondary/50' : 'text-text-secondary'}`}>Smart Ingest (AI Clean & Structure Data)</label>
+                            </div>
+                            {isIngesting && (
+                                <button 
+                                    onClick={handleAbort} 
+                                    className="px-4 py-2 bg-red-900/20 text-red-300 border border-red-500/30 rounded-xl text-xs font-bold hover:bg-red-900/40 transition-colors"
+                                >
+                                    ABORT
+                                </button>
+                            )}
+                        </div>
+                        
+                        {isIngesting && (
+                            <div className="w-full bg-primary border border-accent h-6 rounded-lg relative overflow-hidden">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 transition-all duration-300 shadow-[0_0_10px_rgba(59,130,246,0.5)]" 
+                                    style={{ width: `${progress}%` }}
+                                ></div>
+                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white tracking-wider drop-shadow-md">{statusMessage}</div>
+                            </div>
+                        )}
+                        
+                        <div>
+                            <h4 className="text-xs text-text-secondary mb-2">Active Sources for {selectedAgent.name}:</h4>
+                            <div className="flex flex-wrap gap-2 min-h-[24px]">
+                                {sources.length > 0 ? sources.map(s => (
+                                    <div key={s} className="bg-secondary border border-accent text-text-secondary text-[10px] pl-2 pr-1 py-1 rounded-md flex items-center gap-1 group hover:border-red-500/50 hover:bg-red-900/10 transition-colors">
+                                        <span>{s}</span>
+                                        <button 
+                                            onClick={() => setSourceToDelete(s)}
+                                            className="p-0.5 rounded-full hover:bg-red-500/20 text-text-secondary hover:text-red-400"
+                                            title="Remove Source"
+                                        >
+                                            <CloseIcon className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                )) : <span className="text-xs text-text-secondary/50 italic">No sources loaded for this agent</span>}
                             </div>
                         </div>
-                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs text-text-secondary mb-1 block">System Instructions (Persona)</label>
-                            <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} rows={4} className="w-full bg-primary border border-accent p-2 rounded-xl text-xs resize-y"></textarea>
-                            <button onClick={() => handleSaveWithFeedback(() => onSaveSettings({ systemPrompt }), setPersonaSaveStatus)} disabled={personaSavaStatus !== 'idle'} className="w-full mt-1 bg-secondary border border-accent text-text-secondary hover:text-white p-1.5 rounded-xl text-xs uppercase font-bold disabled:opacity-50">
-                                {personaSavaStatus === 'idle' ? 'Save Persona' : (personaSavaStatus === 'saving' ? '...' : '✓ Saved!')}
-                            </button>
-                        </div>
-                         <div>
-                            <label className="text-xs text-text-secondary mb-1 block">Protected Words (Glossary)</label>
-                            <textarea value={protectedWords} onChange={e => setProtectedWords(e.target.value)} rows={4} className="w-full bg-primary border border-accent p-2 rounded-xl text-xs resize-y"></textarea>
-                             <div className="flex gap-2 mt-1">
-                                <button onClick={() => handleSaveWithFeedback(() => onSaveSettings({ protectedWords }), setGlossarySaveStatus)} disabled={glossarySaveStatus !== 'idle'} className="flex-1 bg-secondary border border-accent text-text-secondary hover:text-white p-1.5 rounded-xl text-xs uppercase font-bold disabled:opacity-50">
-                                     {glossarySaveStatus === 'idle' ? 'Save Glossary' : (glossarySaveStatus === 'saving' ? '...' : '✓ Saved!')}
-                                </button>
-                                <input type="file" ref={glossaryInputRef} accept=".txt,.json" className="hidden" onChange={handleRestoreGlossary} />
-                                <button onClick={() => glossaryInputRef.current?.click()} className="flex-1 bg-secondary border border-accent text-text-secondary hover:text-white p-1.5 rounded-xl text-xs uppercase font-bold">Import Glossary</button>
-                             </div>
-                        </div>
-                     </div>
-                     <div className="flex justify-between items-center text-xs text-text-secondary pt-2 border-t border-accent">
-                        <span>DB: {vectorCount.toLocaleString()} vectors</span>
-                        <span>{hasApiKey ? 'API Key: Loaded' : 'API Key: Not Set'}</span>
                     </div>
-                     <div className="grid grid-cols-3 gap-2">
-                        <input type="file" ref={restoreInputRef} accept=".json" className="hidden" onChange={handleFileSelect} />
-                        <button onClick={() => restoreInputRef.current?.click()} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-2 rounded-xl text-xs uppercase font-bold"><UploadIcon className="w-3 h-3"/> Import DB</button>
-                        <button onClick={handleExport} className="bg-secondary border border-accent text-text-secondary hover:text-white p-2 rounded-xl text-xs uppercase font-bold">Export DB</button>
-                        <button onClick={handlePurge} className="flex items-center justify-center gap-2 bg-red-900/20 border border-red-900/50 text-red-400 hover:bg-red-900/40 p-2 rounded-xl text-xs uppercase font-bold"><TrashIcon className="w-3 h-3"/> Purge DB</button>
-                    </div>
-                </div>
-            </CollapsibleSection>
+                </CollapsibleSection>
 
-            <CollapsibleSection number="02" title="CorePack Ingestion (Forge)">
-                 <div className="space-y-4">
-                    <input type="file" ref={fileInputRef} multiple accept=".txt,.json,.md,.csv" className="hidden" onChange={handleFileSelect} />
-                     <button onClick={() => !isIngesting && fileInputRef.current?.click()} disabled={isIngesting || !hasApiKey} className="w-full border-2 border-dashed border-accent p-6 rounded-xl text-text-secondary hover:border-brand hover:text-brand transition-all text-center disabled:cursor-wait disabled:opacity-50">
-                        <span>Click to select files (.txt, .json, .md)</span>
-                    </button>
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2 p-2 border border-accent rounded-xl bg-primary/30 flex-grow">
-                            <input 
-                                type="checkbox" 
-                                id="smartIngest" 
-                                className="accent-brand cursor-pointer w-4 h-4" 
-                                disabled={!hasApiKey}
-                                checked={smartIngest}
-                                onChange={(e) => setSmartIngest(e.target.checked)}
-                            />
-                            <label htmlFor="smartIngest" className={`text-xs cursor-pointer select-none ${!hasApiKey ? 'text-text-secondary/50' : 'text-text-secondary'}`}>Smart Ingest (AI Clean & Structure Data)</label>
-                        </div>
-                        {isIngesting && (
-                            <button 
-                                onClick={handleAbort} 
-                                className="px-4 py-2 bg-red-900/20 text-red-300 border border-red-500/30 rounded-xl text-xs font-bold hover:bg-red-900/40 transition-colors"
-                            >
-                                ABORT
-                            </button>
-                        )}
+                <CollapsibleSection number="03" title="AI Analytics">
+                    <p className="text-xs text-text-secondary mb-4">Run analysis on {selectedAgent.name}'s knowledge base to get insights.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button onClick={() => runAnalytics('SUMMARY')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Summarize</button>
+                        <button onClick={() => runAnalytics('QUESTIONS')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Suggest Q's</button>
+                        <button onClick={() => runAnalytics('ENTITIES')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Extract Entities</button>
+                        <button onClick={() => runAnalytics('GAPS')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Find Gaps</button>
                     </div>
-                    {isIngesting && (
-                        <div className="w-full bg-primary border border-accent h-6 rounded-lg relative overflow-hidden">
-                            <div 
-                                className="h-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 transition-all duration-300 shadow-[0_0_10px_rgba(59,130,246,0.5)]" 
-                                style={{ width: `${progress}%` }}
-                            ></div>
-                            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white tracking-wider drop-shadow-md">{statusMessage}</div>
+                    
+                    {isAnalyzing && (
+                        <div className="mt-4 p-4 bg-secondary/50 rounded-xl flex items-center justify-center gap-3">
+                            <div className="animate-spin h-5 w-5 border-2 border-brand border-t-transparent rounded-full"></div>
+                            <span className="text-sm font-semibold text-text-primary">Analyzing CorePack...</span>
                         </div>
                     )}
-                    <div>
-                        <h4 className="text-xs text-text-secondary mb-2">Active Sources (CorePacks):</h4>
-                        <div className="flex flex-wrap gap-2 min-h-[24px]">
-                            {sources.length > 0 ? sources.map(s => (
-                                <div key={s} className="bg-secondary border border-accent text-text-secondary text-[10px] pl-2 pr-1 py-1 rounded-md flex items-center gap-1 group hover:border-red-500/50 hover:bg-red-900/10 transition-colors">
-                                    <span>{s}</span>
-                                    <button 
-                                        onClick={() => setSourceToDelete(s)}
-                                        className="p-0.5 rounded-full hover:bg-red-500/20 text-text-secondary hover:text-red-400"
-                                        title="Remove Source"
-                                    >
-                                        <CloseIcon className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            )) : <span className="text-xs text-text-secondary/50 italic">No sources loaded</span>}
+
+                    {analyticsResult && (
+                        <div className="mt-4 p-4 bg-primary border border-accent rounded-xl animate-fade-in relative group">
+                            <button 
+                                onClick={() => setAnalyticsResult(null)} 
+                                className="absolute top-2 right-2 p-1 hover:bg-secondary rounded-lg text-text-secondary hover:text-white transition-colors"
+                                title="Clear"
+                            >
+                                <CloseIcon className="w-4 h-4" />
+                            </button>
+                            <h4 className="text-sm font-bold text-brand-hover mb-2 uppercase tracking-wide">Analysis Report</h4>
+                            <div 
+                                className="prose prose-invert prose-sm max-w-none text-text-secondary"
+                                dangerouslySetInnerHTML={{ __html: analyticsResult.replace(/\n/g, '<br/>') }}
+                            />
                         </div>
-                    </div>
-                </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection number="04" title="AI Analytics">
-                 <p className="text-xs text-text-secondary mb-4">Run analysis on a sample of the entire knowledge base to get insights.</p>
-                <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => runAnalytics('SUMMARY')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50"><WandIcon className="w-4 h-4"/> Summarize</button>
-                    <button onClick={() => runAnalytics('QUESTIONS')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50"><WandIcon className="w-4 h-4"/> Suggest Q's</button>
-                    <button onClick={() => runAnalytics('ENTITIES')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50"><WandIcon className="w-4 h-4"/> Extract Entities</button>
-                    <button onClick={() => runAnalytics('GAPS')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50"><WandIcon className="w-4 h-4"/> Find Gaps</button>
-                </div>
-                
-                {isAnalyzing && (
-                    <div className="mt-4 p-4 bg-secondary/50 rounded-xl flex items-center justify-center gap-3">
-                        <div className="animate-spin h-5 w-5 border-2 border-brand border-t-transparent rounded-full"></div>
-                        <span className="text-sm font-semibold text-text-primary">Analyzing CorePack...</span>
-                    </div>
-                )}
-
-                {analyticsResult && (
-                    <div className="mt-4 p-4 bg-primary border border-accent rounded-xl animate-fade-in relative group">
-                        <button 
-                            onClick={() => setAnalyticsResult(null)} 
-                            className="absolute top-2 right-2 p-1 hover:bg-secondary rounded-lg text-text-secondary hover:text-white transition-colors"
-                            title="Clear"
-                        >
-                            <CloseIcon className="w-4 h-4" />
-                        </button>
-                        <h4 className="text-sm font-bold text-brand-hover mb-2 uppercase tracking-wide">Analysis Report</h4>
-                        <div 
-                            className="prose prose-invert prose-sm max-w-none text-text-secondary"
-                            dangerouslySetInnerHTML={{ __html: analyticsResult.replace(/\n/g, '<br/>') }}
-                        />
-                    </div>
-                )}
-            </CollapsibleSection>
+                    )}
+                </CollapsibleSection>
+            </div>
 
             {/* Source Deletion Confirmation Modal */}
             {sourceToDelete && (
@@ -520,8 +467,8 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
                     <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 max-w-md w-full shadow-2xl">
                         <h3 className="text-lg font-bold text-white mb-2">Remove CorePack Source?</h3>
                         <p className="text-neutral-400 text-sm mb-4">
-                            Are you sure you want to delete <span className="text-white font-mono bg-neutral-800 px-1 rounded">{sourceToDelete}</span>? 
-                            This will remove all associated vectors from the knowledge base. This action cannot be undone.
+                            Are you sure you want to delete <span className="text-white font-mono bg-neutral-800 px-1 rounded">{sourceToDelete}</span> from <strong>{selectedAgent.name}</strong>? 
+                            This will remove all associated vectors from their knowledge base.
                         </p>
                         <div className="flex justify-end gap-3">
                             <button 
@@ -545,10 +492,10 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agent, onSaveSetti
 };
 
 const WarningBanner = () => (
-     <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-xl flex items-start gap-3 text-yellow-200 animate-fade-in">
+     <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-xl flex items-start gap-3 text-yellow-200 animate-fade-in mb-4">
         <WarningIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
         <p className="text-sm">
-            <span className="font-bold">Action Required:</span> Most features are disabled. Please set your Gemini API Key in the Configuration panel below to proceed.
+            <span className="font-bold">Action Required:</span> Most features are disabled. Please set your Gemini API Key in the main Settings (bottom left of sidebar) to proceed.
         </p>
     </div>
 );

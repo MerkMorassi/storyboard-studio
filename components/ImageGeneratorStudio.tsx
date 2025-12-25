@@ -288,6 +288,17 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
         setPrompt(p => `${p} [${listName}]`);
     };
 
+    const handleApplyNegativeTemplate = (templateId: string) => {
+        const template = promptTemplates.find(t => t.id === templateId);
+        if (template && template.negativePrompt) {
+            setNegativePrompt(n => n ? `${n}, ${template.negativePrompt}` : template.negativePrompt);
+        }
+    };
+
+    const handleInsertDynamicNegative = (listName: string) => {
+        setNegativePrompt(n => n ? `${n} [${listName}]` : `[${listName}]`);
+    };
+
     const handleGenerate = async () => {
         if (!hfToken) {
             console.warn("No HF Token provided. Generation might fail if the space is private or throttled.");
@@ -522,6 +533,16 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                                 className="w-full h-16 bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none resize-y" 
                             />
                         </FormField>
+                        <div className="flex gap-2 mb-4">
+                            <select onChange={(e) => handleApplyNegativeTemplate(e.target.value)} value="" className="flex-1 bg-neutral-900 border border-neutral-600 rounded p-1.5 text-xs text-neutral-300 outline-none">
+                                <option value="" disabled>Apply Negative Style Template...</option>
+                                {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                            <select onChange={(e) => handleInsertDynamicNegative(e.target.value)} value="" className="flex-1 bg-neutral-900 border border-neutral-600 rounded p-1.5 text-xs text-neutral-300 outline-none">
+                                <option value="" disabled>Insert List...</option>
+                                {dynamicPromptLists.map(l => <option key={l.id} value={l.name}>[{l.name}]</option>)}
+                            </select>
+                        </div>
                         <FormField label="Aspect Ratio">
                             <div className="grid grid-cols-4 gap-1">
                                 {['16:9', '9:16', '1:1', '2.39:1'].map(r => (
@@ -570,16 +591,16 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                                     </div>
                                 </div>
                             </FormField>
-                            <FormField label={`Count: ${numImages}`}>
-                                <div className="flex gap-2 items-center">
-                                    <input 
-                                        type="range" 
-                                        min="1" max="4" 
-                                        value={numImages} 
-                                        onChange={e => setNumImages(parseInt(e.target.value))} 
-                                        className="w-full accent-blue-500" 
-                                    />
-                                </div>
+                            <FormField label="Variations">
+                                <select 
+                                    value={numImages} 
+                                    onChange={e => setNumImages(parseInt(e.target.value))} 
+                                    className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                >
+                                    {[1, 2, 3, 4, 6, 12].map(n => (
+                                        <option key={n} value={n}>{n} {n === 1 ? 'Image' : 'Images'}</option>
+                                    ))}
+                                </select>
                             </FormField>
                         </div>
                         
@@ -611,7 +632,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                         <div className="font-mono text-xs text-neutral-300 leading-relaxed whitespace-pre-wrap pt-4">
                             <span className="font-bold text-white">{sceneType}. {location.toUpperCase() || 'LOCATION'} - {timeOfDay}</span>
                             <br/><br/>
-                            {prompt.replace(`${sceneType}. ${location.toUpperCase() || 'LOCATION'} - ${timeOfDay}`, '').trim()}
+                            {prompt.replace(`${sceneType}. ${location.toUpperCase() || 'LOCATION'} - {timeOfDay}`, '').trim()}
                         </div>
                     </div>
 

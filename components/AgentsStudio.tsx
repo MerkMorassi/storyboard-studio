@@ -10,7 +10,7 @@ interface AgentsStudioProps {
     images: ImageState[];
     onCreateAgent: (name: string) => Agent;
     onViewImage: (image: ImageState) => void;
-    onUpdateAgent: (agentId: string, newName: string) => void;
+    onUpdateAgent: (agentId: string, updates: Partial<Agent>) => void;
     onDeleteAgent: (agentId: string) => void;
     onImageUpload: (agentId: string, file: File) => void;
     onCallAgent: (agent: Agent) => void;
@@ -482,7 +482,7 @@ export const AgentsStudio: React.FC<AgentsStudioProps> = ({ agents, images, onCr
                     assignedImages={images.filter(img => img.agentId === selectedAgent.id)}
                     onClose={() => setSelectedAgent(null)}
                     onSave={(updated) => {
-                        onUpdateAgent(selectedAgent.id, updated as any); 
+                        onUpdateAgent(selectedAgent.id, updated); 
                     }}
                     onImageUpload={onImageUpload}
                     onViewImage={onViewImage}

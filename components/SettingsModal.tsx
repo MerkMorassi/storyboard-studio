@@ -4,32 +4,26 @@ import React, { useState, useEffect } from 'react';
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (geminiApiKey: string, topazApiKey: string, hfApiKey: string) => void;
-  currentApiKey: string;
+  onSave: (topazApiKey: string, hfApiKey: string) => void;
   currentTopazApiKey: string;
   currentHfApiKey: string;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave, currentApiKey, currentTopazApiKey, currentHfApiKey }) => {
-  const [apiKeyInput, setApiKeyInput] = useState(currentApiKey);
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave, currentTopazApiKey, currentHfApiKey }) => {
   const [topazApiKeyInput, setTopazApiKeyInput] = useState(currentTopazApiKey);
   const [hfApiKeyInput, setHfApiKeyInput] = useState(currentHfApiKey);
 
   // Lock states to protect keys
-  const [isGeminiLocked, setIsGeminiLocked] = useState(!!currentApiKey);
   const [isTopazLocked, setIsTopazLocked] = useState(!!currentTopazApiKey);
   const [isHfLocked, setIsHfLocked] = useState(!!currentHfApiKey);
 
   useEffect(() => {
-    setApiKeyInput(currentApiKey);
-    setIsGeminiLocked(!!currentApiKey);
-
     setTopazApiKeyInput(currentTopazApiKey);
     setIsTopazLocked(!!currentTopazApiKey);
 
     setHfApiKeyInput(currentHfApiKey);
     setIsHfLocked(!!currentHfApiKey);
-  }, [currentApiKey, currentTopazApiKey, currentHfApiKey, isOpen]);
+  }, [currentTopazApiKey, currentHfApiKey, isOpen]);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -48,16 +42,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   }
 
   const handleSave = () => {
-    // Defensive Saving: If the input is locked, use the original 'current' key prop.
-    // This prevents saving empty strings if the input state accidentally got desynced while locked.
-    const finalGemini = isGeminiLocked ? currentApiKey : apiKeyInput.trim();
     const finalTopaz = isTopazLocked ? currentTopazApiKey : topazApiKeyInput.trim();
     const finalHf = isHfLocked ? currentHfApiKey : hfApiKeyInput.trim();
 
-    onSave(finalGemini, finalTopaz, finalHf);
+    onSave(finalTopaz, finalHf);
   };
 
-  const LockedInput: React.FC<{ label: string, onUnlock: () => void }> = ({ label, onUnlock }) => (
+  const LockedInput: React.FC<{ label: string; onUnlock: () => void }> = ({ label, onUnlock }) => (
       <div>
           <label className="block text-sm font-medium text-neutral-300 mb-2">{label}</label>
           <div className="flex gap-2">
@@ -107,25 +98,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         </div>
         
         <div className="space-y-6">
+            <div className="bg-neutral-900/50 p-4 border border-neutral-700 text-sm text-neutral-400 space-y-3 rounded-md">
+                <h3 className="font-bold text-neutral-200">Google Gemini API Key</h3>
+                <p>
+                Your Gemini API key is managed automatically by the environment. There is no need to enter it here.
+                </p>
+                <p>
+                If you encounter "Quota Exceeded" errors, ensure you are using a key from a <strong>Google Cloud Platform (GCP)</strong> project with billing enabled.
+                </p>
+            </div>
           
-          {isGeminiLocked ? (
-              <LockedInput label="Google API Key (Gemini)" onUnlock={() => setIsGeminiLocked(false)} />
-          ) : (
-              <div>
-                <label htmlFor="api-key" className="block text-sm font-medium text-neutral-300 mb-2">
-                  Google API Key (Gemini)
-                </label>
-                <input
-                  type="password"
-                  id="api-key"
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  placeholder="Enter your Google Cloud API Key"
-                  className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-neutral-200 focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-          )}
-
           {isTopazLocked ? (
               <LockedInput label="Topaz Labs API Key" onUnlock={() => setIsTopazLocked(false)} />
           ) : (
@@ -161,25 +143,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                   className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-neutral-200 focus:border-blue-500 focus:outline-none"
                 />
                  <p className="text-xs text-neutral-500 mt-1">
-                    Required for Generative Video. <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">Get Token</a>
+                    Required for Generative Video and other external tools. <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">Get Token</a>
                  </p>
               </div>
           )}
-
-          <div className="bg-neutral-900/50 p-4 border border-neutral-700 text-sm text-neutral-400 space-y-3 rounded-md">
-            <h3 className="font-bold text-neutral-200">Resolving "Quota Exceeded" Errors</h3>
-            <p>
-              If you see a "free_tier" quota error, it means you are using a key from Google AI Studio. As a paid customer, you must use an API key from a <strong className="text-neutral-200">Google Cloud Platform (GCP)</strong> project that has billing enabled.
-            </p>
-            <a 
-              href="https://console.cloud.google.com/apis/credentials" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="font-bold text-sky-400 hover:text-sky-300 transition-colors"
-            >
-              Go to Google Cloud Credentials &rarr;
-            </a>
-          </div>
         </div>
 
         <div className="mt-8 flex justify-end gap-3">

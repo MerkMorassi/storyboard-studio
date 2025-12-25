@@ -1,5 +1,10 @@
+
 import { GoogleGenAI, Modality, GenerateContentConfig, HarmCategory, HarmBlockThreshold, Chat, Content } from "@google/genai";
 import { getApiKey } from './apiKeyService';
+
+// IMPORT THE TRUTH (Your JSON Files) - Using relative paths to ensure resolution
+import structuresData from '../data/writer/structures.json';
+import archetypesData from '../data/writer/archetypes.json';
 
 const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -16,7 +21,7 @@ const getClient = () => {
     return new GoogleGenAI({ apiKey });
 }
 
-// --- API Call with Exponential Backoff (from Mythos Vault reference) ---
+// --- API Call with Exponential Backoff ---
 const apiCallWithRetry = async <T>(apiFunction: () => Promise<T>, maxRetries = 3): Promise<T> => {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
@@ -53,7 +58,7 @@ export const getModelForTask = (queryText: string): string => {
     return 'gemini-2.5-flash';
 };
 
-// --- Model Fetching (from Mythos Vault reference) ---
+// --- Model Fetching ---
 export const fetchModels = async (): Promise<{ id: string, name: string }[]> => {
     const apiKey = getApiKey();
     if (!apiKey) {
@@ -94,7 +99,6 @@ export const getEmbeddings = async (text: string): Promise<number[] | null> => {
     return apiCallWithRetry(async () => {
         try {
             const ai = getClient();
-            // Validating text input
             if (!text || typeof text !== 'string') return null;
             
             const response = await ai.models.embedContent({
@@ -102,7 +106,6 @@ export const getEmbeddings = async (text: string): Promise<number[] | null> => {
                 contents: { parts: [{ text }] }
             });
             
-            // Correctly access the 'embeddings' property from the response (SDK usually returns an array for multiple parts, but here we sent one)
             return response.embeddings?.[0]?.values || null;
         } catch (error) {
             console.error("Error generating embedding:", error);
@@ -257,6 +260,92 @@ export const generateText = async (prompt: string): Promise<string> => {
         } catch(error) {
             console.error("Error during text generation:", error);
             throw error instanceof Error ? new Error(`Gemini API Error: ${error.message}`) : new Error("Unknown error during text generation.");
+        }
+    });
+};
+
+// --- SCRIBE MODULE ---
+// --- CONSTRUCT THE KNOWLEDGE BASE ---
+const LORE_PACK = `
+=== MYTHOS DATABASE: STRUCTURES ===
+${JSON.stringify(structuresData, null, 2)}
+
+=== MYTHOS DATABASE: ARCHETYPES ===
+${JSON.stringify(archetypesData, null, 2)}
+`;
+
+const SCRIBE_SYSTEM_INSTRUCTION = `
+### ROLE
+You are the MythOS Screenwriter (Model 3.0). You are an expert in Warner Bros. standard formatting and the 14-beat feature film structure.
+
+### KNOWLEDGE BASE (LORE PACK)
+You have been provided with the internal MythOS Databases (STRUCTURES, ARCHETYPES) above. 
+**CRITICAL:** When the User Input mentions a Structure Beat, you MUST cross-reference the definitions in this Lore Pack. 
+* Do not hallucinate generic traits; use the specific ones in the file.
+
+### FORMATTING RULES (STRICT WB FEATURE FILM)
+1. FONT: Courier 12-point style (simulated in text output).
+2. SLUGLINES: INT./EXT. LOCATION - TIME (ALL CAPS).
+3. ACTION: Present tense, visual, concise. Focus on important details.
+4. CHARACTERS: Names in ALL CAPS when first introduced or speaking.
+5. DIALOGUE: Center names. Parentheticals for specific action/emotion only. Use dialogue to reveal character traits and advance the plot.
+6. NOVELIZATION: STRICTLY PROHIBITED. Do not write prose paragraphs. Keep descriptions visual.
+
+### OUTPUT
+Generate raw, industry-standard screenplay text.
+`;
+
+export interface ScribeInput {
+  title: string;
+  theme: string;
+  setting: string;
+  tone: string;
+  cast: string;
+  beatSheet: string;
+}
+
+export const runScribeAgent = async (input: ScribeInput): Promise<string> => {
+    return apiCallWithRetry(async () => {
+        const ai = getClient();
+        
+        const inputBlock = `
+COMMAND: WRITE SCREENPLAY SEQUENCE
+
+METADATA:
+TITLE: ${input.title}
+THEME ID: ${input.theme} 
+SETTING: ${input.setting}
+TONE: ${input.tone}
+
+=== CAST ===
+${input.cast}
+
+=== SEQUENCE BEATS ===
+${input.beatSheet}
+
+TASK:
+Write the screenplay scenes for the beats above.
+Utilize sensory details and narrative hooks appropriate for the theme '${input.theme}'.
+        `;
+
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-pro-preview', // High reasoning model for narrative
+                contents: { parts: [{ text: inputBlock }] },
+                config: {
+                    systemInstruction: LORE_PACK + "\n\n" + SCRIBE_SYSTEM_INSTRUCTION,
+                    maxOutputTokens: 8192,
+                    temperature: 0.7, // Creative freedom
+                    safetySettings
+                }
+            });
+            
+            const text = response.text;
+            if (!text || !text.trim()) throw new Error("Scribe returned empty prose.");
+            return text;
+        } catch (error) {
+            console.error("Scribe Agent Error:", error);
+            throw error instanceof Error ? new Error(`Scribe Error: ${error.message}`) : new Error("Scribe execution failed.");
         }
     });
 };

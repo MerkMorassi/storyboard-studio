@@ -1,47 +1,23 @@
 
-// Updated keys to v2 to ensure freshness and persistence
-const API_KEY_STORAGE_KEY = 'mythos_gemini_api_key_v2';
+// Gemini API Key is handled by process.env now.
 const TOPAZ_API_KEY_STORAGE_KEY = 'mythos_topaz_api_key_v2';
 const HF_API_KEY_STORAGE_KEY = 'mythos_hf_api_key_v2';
 
-export const saveApiKey = (key: string): void => {
-  try {
-    if (key) {
-        localStorage.setItem(API_KEY_STORAGE_KEY, key);
-    }
-  } catch (error) {
-    console.error("Failed to save API key to localStorage:", error);
-  }
-};
-
 export const getApiKey = (): string | null => {
   try {
-    // 1. Check Local Storage (User Override)
-    const storedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-    if (storedKey) return storedKey;
-
-    // 2. Check Environment Variable (Vite Injection)
     // @ts-ignore
     if (typeof process !== 'undefined' && process.env.API_KEY) {
         // @ts-ignore
         return process.env.API_KEY;
     }
-
     return null;
   } catch (error) {
-    console.error("Failed to get API key:", error);
+    console.error("Failed to get API key from process.env:", error);
     return null;
   }
 };
 
-export const clearApiKey = (): void => {
-  try {
-    localStorage.removeItem(API_KEY_STORAGE_KEY);
-  } catch (error) {
-    console.error("Failed to clear API key from localStorage:", error);
-  }
-};
-
+// Topaz and HF keys are still managed via localStorage.
 export const saveTopazApiKey = (key: string): void => {
     try {
         if (key) localStorage.setItem(TOPAZ_API_KEY_STORAGE_KEY, key);

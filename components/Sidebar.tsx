@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { ActiveView } from '../types';
 import { 
@@ -5,7 +6,7 @@ import {
     PencilIcon, ImageIcon, AnalyzerIcon, CameraLensIcon, ClapperboardIcon, 
     BlenderIcon, LayersIcon, PuzzleIcon, SwapIcon, FaceSparkleIcon, PhotoRealismIcon, 
     ExpandIcon, ScissorsIcon, GridIcon, StoryboardIcon, PinIcon, LoreIcon, 
-    LibraryIcon, ShuffleIcon, SettingsIcon, WritersRoomIcon
+    LibraryIcon, ShuffleIcon, SettingsIcon, WritersRoomIcon, EditIcon
 } from './icons';
 
 interface SidebarProps {
@@ -47,6 +48,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'director', type: 'link', label: 'Visual (Kine)', view: 'director', icon: AnalyzerIcon },
 
     { id: 'header-tools', type: 'header', label: 'Creation Tools' },
+    { id: 'script-writer', type: 'link', label: 'Script Writer', view: 'script-writer', icon: EditIcon },
     { id: 'mythos-engine', type: 'link', label: 'MythOS Cinematic', view: 'mythos-cinematic-engine', icon: CameraLensIcon },
     { id: 'image-generator', type: 'link', label: 'Image Studio', view: 'image-generator', icon: ImageIcon },
     { id: 'generative-video', type: 'link', label: 'Video Creator', view: 'generative-video', icon: ClapperboardIcon },

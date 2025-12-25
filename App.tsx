@@ -10,8 +10,8 @@ import { ScriptingStudio } from './components/ScriptingStudio';
 import { DesignStudio } from './components/DesignStudio';
 import { ArtStudio } from './components/ArtStudio';
 import { DirectorStudio } from './modules/director/DirectorStudio';
-import { MythosCinematicStudio } from './components/MythosCinematicStudio';
 import { ImageGeneratorStudio } from './components/ImageGeneratorStudio';
+import { MythosCinematicStudio } from './components/MythosCinematicStudio';
 import { GenerativeVideoStudio } from './components/GenerativeVideoStudio';
 import { BlenderStudio } from './components/BlenderStudio';
 import { SceneCompositorStudio } from './components/SceneCompositorStudio';
@@ -36,9 +36,10 @@ import { AutomationStudio } from './components/AutomationStudio';
 import { SettingsModal } from './components/SettingsModal';
 import { ImageModal } from './components/ImageModal';
 import { StudioHeader } from './components/StudioHeader';
+import { ScriptWriterStudio } from './components/ScriptWriterStudio';
 
 import { Project, Agent, ImageState, ActiveView } from './types';
-import { getApiKey, getTopazApiKey, getHfApiKey, saveApiKey, saveTopazApiKey, saveHfApiKey } from './services/apiKeyService';
+import { getApiKey, getTopazApiKey, getHfApiKey, saveTopazApiKey, saveHfApiKey } from './services/apiKeyService';
 import { getAnimAgentsTeam } from './services/agentService';
 import { getPromptTemplates, savePromptTemplate, deletePromptTemplate } from './services/promptTemplateService';
 
@@ -86,7 +87,7 @@ export const App: React.FC = () => {
     });
     
     // Global Settings
-    const [geminiApiKey, setGeminiApiKey] = useState(getApiKey() || '');
+    const [hasGeminiApiKey, setHasGeminiApiKey] = useState(false);
     const [topazApiKey, setTopazApiKey] = useState(getTopazApiKey() || '');
     const [hfApiKey, setHfApiKey] = useState(getHfApiKey() || '');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -95,6 +96,10 @@ export const App: React.FC = () => {
     const [selectedImage, setSelectedImage] = useState<ImageState | null>(null);
     const [gridOverlay, setGridOverlay] = useState<'none' | 'basic' | 'triadic' | 'golden-basic' | 'golden-triadic'>('none');
     const [agentFilter, setAgentFilter] = useState('');
+
+    useEffect(() => {
+        setHasGeminiApiKey(!!getApiKey());
+    }, []);
 
     // Persist Project
     useEffect(() => {
@@ -126,6 +131,16 @@ export const App: React.FC = () => {
     const coreAgents = getAnimAgentsTeam();
     const allAgents = [...coreAgents, ...project.data.agents];
     const directorAgent = allAgents.find(a => a.id === 'agent-dop') || coreAgents[5];
+
+    const handleAgentUpdate = (id: string, updates: Partial<Agent>) => {
+        if (id.startsWith('agent-')) {
+            // Core agents are currently static in this demo context, or handle overriding if needed
+            console.warn("Updating core agents not fully persisted in this demo version.");
+            return;
+        }
+        const updatedAgents = project.data.agents.map(a => a.id === id ? { ...a, ...updates } : a);
+        updateProjectData({ agents: updatedAgents });
+    };
 
     // Navigation Handler
     const handleNavigate = (view: ActiveView, agentId?: string) => {
@@ -164,11 +179,7 @@ export const App: React.FC = () => {
             case 'team':
                 return <TeamStudio 
                     team={allAgents} 
-                    onUpdateAgent={(id, updates) => {
-                        if (id.startsWith('agent-')) return;
-                        const updatedAgents = project.data.agents.map(a => a.id === id ? { ...a, ...updates } : a);
-                        updateProjectData({ agents: updatedAgents });
-                    }} 
+                    onUpdateAgent={handleAgentUpdate} 
                     onNavigate={handleNavigate} 
                     onCallAgent={(agent) => { setActiveAgentId(agent.id); setActiveView('agent-chat'); }} 
                 />;
@@ -226,9 +237,11 @@ export const App: React.FC = () => {
                     onAddToStoryboard={(base64) => updateProjectData({ storyboard: [...project.data.storyboard, { id: generateId(), base64Image: base64, notes: '', prompt: '' }] })}
                     onAddToInspiration={(base64) => updateProjectData({ inspirationImages: [...project.data.inspirationImages, { id: generateId(), base64Image: base64 }] })}
                 />;
+            case 'script-writer':
+                return <ScriptWriterStudio />;
             case 'generative-video':
                 return <GenerativeVideoStudio 
-                    apiKey={geminiApiKey} 
+                    apiKey={getApiKey() || ''} 
                     hfToken={hfApiKey}
                     videoState={project.data.generativeVideoState}
                     onStateUpdate={(s) => updateProjectData({ generativeVideoState: s })}
@@ -427,7 +440,7 @@ export const App: React.FC = () => {
                         return newAgent;
                     }}
                     onViewImage={setSelectedImage}
-                    onUpdateAgent={(id, updates) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...updates } : a) })}
+                    onUpdateAgent={handleAgentUpdate}
                     onDeleteAgent={(id) => updateProjectData({ agents: project.data.agents.filter(a => a.id !== id) })}
                     onImageUpload={(agentId, file) => {
                         const reader = new FileReader();
@@ -496,15 +509,15 @@ export const App: React.FC = () => {
                         onCallAgent={() => {}}
                     />
                     <div className="flex-grow overflow-hidden">
-                        <AgentChatView agent={chatAgent} hasApiKey={!!geminiApiKey} />
+                        <AgentChatView agent={chatAgent} hasApiKey={hasGeminiApiKey} />
                     </div>
                 </div>;
             case 'knowledge':
                 return <KnowledgeView 
-                    agent={allAgents[0]} 
-                    onSaveSettings={() => {}} 
-                    onApiKeyUpdate={() => setGeminiApiKey(getApiKey() || '')} 
-                    hasApiKey={!!geminiApiKey} 
+                    agents={allAgents} 
+                    onUpdateAgent={handleAgentUpdate} 
+                    onApiKeyUpdate={() => setHasGeminiApiKey(!!getApiKey())} 
+                    hasApiKey={hasGeminiApiKey} 
                 />;
             case 'automation':
                 return <AutomationStudio 
@@ -544,13 +557,11 @@ export const App: React.FC = () => {
             <SettingsModal 
                 isOpen={isSettingsOpen} 
                 onClose={() => setIsSettingsOpen(false)} 
-                onSave={(gemini, topaz, hf) => {
-                    saveApiKey(gemini); setGeminiApiKey(gemini);
+                onSave={(topaz, hf) => {
                     saveTopazApiKey(topaz); setTopazApiKey(topaz);
                     saveHfApiKey(hf); setHfApiKey(hf);
                     setIsSettingsOpen(false);
                 }}
-                currentApiKey={geminiApiKey}
                 currentTopazApiKey={topazApiKey}
                 currentHfApiKey={hfApiKey}
             />
