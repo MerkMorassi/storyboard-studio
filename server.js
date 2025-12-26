@@ -3,11 +3,14 @@ const path = require('path');
 const app = express();
 const PORT = 3000;
 
-// Middleware to set the correct content type for .tsx AND .ts files
+// Middleware to set the correct content type for .tsx, .ts, and .json files
 // Browsers will often block .ts files as "video/mp2t" if this is not set explicitly.
+// JSON files MUST be served as "application/json" for 'import ... with { type: "json" }' to work.
 app.use((req, res, next) => {
   if (req.path.endsWith('.tsx') || req.path.endsWith('.ts')) {
     res.setHeader('Content-Type', 'application/javascript');
+  } else if (req.path.endsWith('.json')) {
+    res.setHeader('Content-Type', 'application/json');
   }
   next();
 });

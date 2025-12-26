@@ -88,7 +88,7 @@ export const App: React.FC = () => {
     });
     
     // Global Settings
-    const [hasGeminiApiKey, setHasGeminiApiKey] = useState(false);
+    // Fix: Remove hasGeminiApiKey state as the key is managed by the environment.
     const [topazApiKey, setTopazApiKey] = useState(getTopazApiKey() || '');
     const [hfApiKey, setHfApiKey] = useState(getHfApiKey() || '');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -97,10 +97,6 @@ export const App: React.FC = () => {
     const [selectedImage, setSelectedImage] = useState<ImageState | null>(null);
     const [gridOverlay, setGridOverlay] = useState<'none' | 'basic' | 'triadic' | 'golden-basic' | 'golden-triadic'>('none');
     const [agentFilter, setAgentFilter] = useState('');
-
-    useEffect(() => {
-        setHasGeminiApiKey(!!getApiKey());
-    }, []);
 
     // Persist Project
     useEffect(() => {
@@ -537,15 +533,13 @@ export const App: React.FC = () => {
                         onCallAgent={() => {}}
                     />
                     <div className="flex-grow overflow-hidden">
-                        <AgentChatView agent={chatAgent} hasApiKey={hasGeminiApiKey} />
+                        <AgentChatView agent={chatAgent} />
                     </div>
                 </div>;
             case 'knowledge':
                 return <KnowledgeView 
                     agents={allAgents} 
                     onUpdateAgent={handleAgentUpdate} 
-                    onApiKeyUpdate={() => setHasGeminiApiKey(!!getApiKey())} 
-                    hasApiKey={hasGeminiApiKey} 
                 />;
             case 'automation':
                 return <AutomationStudio 

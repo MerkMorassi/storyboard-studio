@@ -16,7 +16,6 @@ import { PhoneIcon } from './icons.tsx';
 
 interface AgentChatViewProps {
   agent: Agent;
-  hasApiKey: boolean;
   initialMode?: 'chat' | 'call';
   onClose?: () => void;
 }
@@ -39,7 +38,7 @@ interface ChatMessagePart {
 }
 
 
-export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey, initialMode = 'chat', onClose }) => {
+export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode = 'chat', onClose }) => {
   const [chatSession, setChatSession] = useState<Chat | null>(null);
   const [chatHistory, setChatHistory] = useState<{ id: string; role: 'user' | 'model'; parts: ChatMessagePart[] }[]>([]);
   const [chatMessage, setChatMessage] = useState<string>('');
@@ -83,7 +82,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey, 
 
 
    useEffect(() => {
-    if (!hasApiKey || isLive) return;
+    if (isLive) return;
     const loadChat = async () => {
         const logs = await vectorDb.getAgentChatLogs();
         setChatHistory(logs);
@@ -106,7 +105,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey, 
         setChatSession(newChat);
     };
     loadChat();
-  }, [agent.systemPrompt, hasApiKey, isLive]);
+  }, [agent.systemPrompt, isLive]);
   
   const saveHistory = useCallback((history: { id: string; role: 'user' | 'model'; parts: ChatMessagePart[] }[]) => {
       vectorDb.saveAgentChatLogs(history);
@@ -297,18 +296,6 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, hasApiKey, 
             default: return 'Voice';
         }
     };
-
-  if (!hasApiKey) {
-    return (
-        <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <WarningIcon className="w-12 h-12 text-yellow-500/50 mb-4" />
-            <h2 className="text-xl font-bold text-text-primary">API Key Required</h2>
-            <p className="text-text-secondary mt-2">
-                The Agent Chat is disabled. Please go to the <span className="font-bold text-text-primary">Knowledge</span> tab to configure your Gemini API Key.
-            </p>
-        </div>
-    );
-  }
 
   // --- CALL MODE UI ---
   if (viewMode === 'call') {

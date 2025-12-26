@@ -3,7 +3,6 @@ import React from 'react';
 import { Agent, ActiveView } from '../types.ts';
 import { AgentChatView } from './AgentChatView.tsx';
 import { StudioHeader } from './StudioHeader.tsx';
-import { getApiKey } from '../services/apiKeyService.ts';
 import { AutomationIcon } from './icons.tsx';
 
 interface CoreStudioProps {
@@ -13,8 +12,6 @@ interface CoreStudioProps {
 }
 
 export const CoreStudio: React.FC<CoreStudioProps> = ({ agent, onNavigate, onCallAgent }) => {
-    const hasApiKey = !!getApiKey();
-
     return (
         <div className="flex flex-col h-full w-full bg-primary">
             <StudioHeader 
@@ -50,7 +47,7 @@ export const CoreStudio: React.FC<CoreStudioProps> = ({ agent, onNavigate, onCal
 
                 {/* Main Workspace - Currently Chat Focused */}
                 <div className="flex-grow overflow-hidden">
-                    <AgentChatView agent={agent} hasApiKey={hasApiKey} />
+                    <AgentChatView agent={agent} />
                 </div>
             </main>
         </div>

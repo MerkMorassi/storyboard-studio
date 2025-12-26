@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        fs: {
+            // Allow serving files from one level up to the project root
+            allow: ['..']
+        }
       },
       plugins: [react()],
       define: {
@@ -21,8 +25,13 @@ export default defineConfig(({ mode }) => {
       },
       resolve: {
         alias: {
+          // Absolute path alias for project root
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+          target: 'esnext',
+          modulePreload: true
       }
     };
 });

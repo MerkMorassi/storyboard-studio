@@ -17,9 +17,17 @@ When analyzing an image, focus on:
 Always be concise, professional, and focus on visual descriptors.
 `;
 
-export const analyzeImage = async (apiKey: string, base64Image: string, mimeType: string, userDirectives?: string): Promise<any> => {
-    if (!apiKey) throw new Error("API Key is missing.");
-    const ai = new GoogleGenAI({ apiKey });
+/**
+ * Initializes the Gemini API client.
+ * API key is obtained exclusively from process.env.API_KEY.
+ */
+const getClient = () => {
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+}
+
+// Fix: Remove apiKey parameter and use process.env.API_KEY via getClient()
+export const analyzeImage = async (base64Image: string, mimeType: string, userDirectives?: string): Promise<any> => {
+    const ai = getClient();
 
     const prompt = `Analyze this image as a Director of Photography. 
     ${userDirectives ? `PAY SPECIAL ATTENTION TO THE USER'S REQUEST: "${userDirectives}"` : ''}
@@ -64,9 +72,9 @@ export const analyzeImage = async (apiKey: string, base64Image: string, mimeType
     throw new Error("Failed to analyze image.");
 };
 
-export const analyzeVideo = async (apiKey: string, videoUrl: string, userDirectives?: string): Promise<any> => {
-    if (!apiKey) throw new Error("API Key is missing.");
-    const ai = new GoogleGenAI({ apiKey });
+// Fix: Remove apiKey parameter and use process.env.API_KEY via getClient()
+export const analyzeVideo = async (videoUrl: string, userDirectives?: string): Promise<any> => {
+    const ai = getClient();
 
     // Extract frames (e.g., 5 frames for analysis to get a sense of motion and consistent style)
     // This allows analyzing local video files without uploading heavy binaries
@@ -115,16 +123,15 @@ export const analyzeVideo = async (apiKey: string, videoUrl: string, userDirecti
     throw new Error("Failed to analyze video.");
 };
 
+// Fix: Remove apiKey parameter and use process.env.API_KEY via getClient()
 export const chatWithDirector = async (
-    apiKey: string,
     history: ChatMessage[],
     userMessage: string,
     currentPrompt: string,
     ragConfig?: AutomationConfig,
     projectId?: string
 ): Promise<string> => {
-    if (!apiKey) throw new Error("API Key is missing.");
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getClient();
 
     const systemWithContext = `${DIRECTOR_SYSTEM_INSTRUCTION}
     

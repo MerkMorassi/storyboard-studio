@@ -13,8 +13,6 @@ import { CloseIcon } from './icons.tsx';
 interface KnowledgeViewProps {
     agents: Agent[];
     onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
-    onApiKeyUpdate: () => void;
-    hasApiKey: boolean;
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved';
@@ -36,7 +34,7 @@ const CollapsibleSection: React.FC<{ title: string; number: string; children: Re
     );
 };
 
-export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAgent, onApiKeyUpdate, hasApiKey }) => {
+export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAgent }) => {
     // Agent Selection State
     const [selectedAgentId, setSelectedAgentId] = useState<string>(agents.length > 0 ? agents[0].id : '');
     const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
@@ -86,8 +84,8 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
     };
 
     useEffect(() => {
-        if (hasApiKey) handleFetchModels();
-    }, [hasApiKey]);
+        handleFetchModels();
+    }, []);
 
     const handleFetchModels = async () => {
         try {
@@ -301,7 +299,7 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
 
         } catch (error) {
             console.error("Analytics failed:", error);
-            setAnalyticsResult("Analysis failed. Please check your API key and try again.");
+            setAnalyticsResult("Analysis failed. Please try again.");
         } finally {
             setIsAnalyzing(false);
         }
@@ -315,7 +313,6 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
                     <h1 className="text-3xl font-bold tracking-widest text-text-secondary">MYTHOS VAULT</h1>
                     <p className="text-xs text-text-secondary/70">NOETIC SOVEREIGNTY ENGINE</p>
                 </div>
-                {!hasApiKey && <WarningBanner />}
                 
                 {/* Agent Selector */}
                 <div className="bg-secondary/50 border border-accent p-4 rounded-xl flex items-center justify-between gap-4 mb-4">
@@ -369,7 +366,7 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
                 <CollapsibleSection number="02" title="CorePack Ingestion (Forge)">
                     <div className="space-y-4">
                         <input type="file" ref={fileInputRef} multiple accept=".txt,.json,.md,.csv" className="hidden" onChange={handleFileSelect} />
-                        <button onClick={() => !isIngesting && fileInputRef.current?.click()} disabled={isIngesting || !hasApiKey} className="w-full border-2 border-dashed border-accent p-6 rounded-xl text-text-secondary hover:border-brand hover:text-brand transition-all text-center disabled:cursor-wait disabled:opacity-50 group bg-secondary/20 hover:bg-secondary/40">
+                        <button onClick={() => !isIngesting && fileInputRef.current?.click()} disabled={isIngesting} className="w-full border-2 border-dashed border-accent p-6 rounded-xl text-text-secondary hover:border-brand hover:text-brand transition-all text-center disabled:cursor-wait disabled:opacity-50 group bg-secondary/20 hover:bg-secondary/40">
                             <span className="group-hover:scale-105 transition-transform block">Click to upload knowledge files (.txt, .md, .json)</span>
                             <span className="text-xs text-text-secondary/50 mt-2 block">Selected files will be embedded into {selectedAgent.name}'s memory.</span>
                         </button>
@@ -380,11 +377,10 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
                                     type="checkbox" 
                                     id="smartIngest" 
                                     className="accent-brand cursor-pointer w-4 h-4" 
-                                    disabled={!hasApiKey}
                                     checked={smartIngest}
                                     onChange={(e) => setSmartIngest(e.target.checked)}
                                 />
-                                <label htmlFor="smartIngest" className={`text-xs cursor-pointer select-none ${!hasApiKey ? 'text-text-secondary/50' : 'text-text-secondary'}`}>Smart Ingest (AI Clean & Structure Data)</label>
+                                <label htmlFor="smartIngest" className="text-xs cursor-pointer select-none text-text-secondary">Smart Ingest (AI Clean & Structure Data)</label>
                             </div>
                             {isIngesting && (
                                 <button 
@@ -429,10 +425,10 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
                 <CollapsibleSection number="03" title="AI Analytics">
                     <p className="text-xs text-text-secondary mb-4">Run analysis on {selectedAgent.name}'s knowledge base to get insights.</p>
                     <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => runAnalytics('SUMMARY')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Summarize</button>
-                        <button onClick={() => runAnalytics('QUESTIONS')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Suggest Q's</button>
-                        <button onClick={() => runAnalytics('ENTITIES')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Extract Entities</button>
-                        <button onClick={() => runAnalytics('GAPS')} disabled={!hasApiKey || vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Find Gaps</button>
+                        <button onClick={() => runAnalytics('SUMMARY')} disabled={vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Summarize</button>
+                        <button onClick={() => runAnalytics('QUESTIONS')} disabled={vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Suggest Q's</button>
+                        <button onClick={() => runAnalytics('ENTITIES')} disabled={vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Extract Entities</button>
+                        <button onClick={() => runAnalytics('GAPS')} disabled={vectorCount === 0 || isAnalyzing} className="flex items-center justify-center gap-2 bg-secondary border border-accent text-text-secondary hover:text-white p-3 rounded-xl text-xs uppercase font-bold disabled:opacity-50 hover:bg-neutral-700 transition-colors"><WandIcon className="w-4 h-4"/> Find Gaps</button>
                     </div>
                     
                     {isAnalyzing && (
@@ -490,12 +486,3 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
         </div>
     );
 };
-
-const WarningBanner = () => (
-     <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-xl flex items-start gap-3 text-yellow-200 animate-fade-in mb-4">
-        <WarningIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-        <p className="text-sm">
-            <span className="font-bold">Action Required:</span> Most features are disabled. Please set your Gemini API Key in the main Settings (bottom left of sidebar) to proceed.
-        </p>
-    </div>
-);

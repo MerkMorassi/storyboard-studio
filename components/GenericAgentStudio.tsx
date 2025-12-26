@@ -3,7 +3,6 @@ import React from 'react';
 import { Agent, ActiveView } from '../types.ts';
 import { AgentChatView } from './AgentChatView.tsx';
 import { StudioHeader } from './StudioHeader.tsx';
-import { getApiKey } from '../services/apiKeyService.ts';
 
 interface GenericAgentStudioProps {
     agent: Agent;
@@ -12,8 +11,6 @@ interface GenericAgentStudioProps {
 }
 
 export const GenericAgentStudio: React.FC<GenericAgentStudioProps> = ({ agent, onNavigate, onCallAgent }) => {
-    const hasApiKey = !!getApiKey();
-
     return (
         <div className="flex flex-col h-full w-full bg-primary">
             <StudioHeader 
@@ -48,7 +45,7 @@ export const GenericAgentStudio: React.FC<GenericAgentStudioProps> = ({ agent, o
 
                     {/* Chat View is the main workspace for text-based agents */}
                     <div className="flex-grow overflow-hidden">
-                        <AgentChatView agent={agent} hasApiKey={hasApiKey} />
+                        <AgentChatView agent={agent} />
                     </div>
                 </div>
             </main>

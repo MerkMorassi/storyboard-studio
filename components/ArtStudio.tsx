@@ -3,7 +3,6 @@ import React from 'react';
 import { Agent, ActiveView } from '../types.ts';
 import { AgentChatView } from './AgentChatView.tsx';
 import { StudioHeader } from './StudioHeader.tsx';
-import { getApiKey } from '../services/apiKeyService.ts';
 import { ImageIcon } from './icons.tsx';
 
 interface ArtStudioProps {
@@ -13,8 +12,6 @@ interface ArtStudioProps {
 }
 
 export const ArtStudio: React.FC<ArtStudioProps> = ({ agent, onNavigate, onCallAgent }) => {
-    const hasApiKey = !!getApiKey();
-
     return (
         <div className="flex-col h-full w-full bg-primary flex">
             <StudioHeader 
@@ -48,7 +45,7 @@ export const ArtStudio: React.FC<ArtStudioProps> = ({ agent, onNavigate, onCallA
                 </div>
 
                 <div className="flex-grow overflow-hidden">
-                    <AgentChatView agent={agent} hasApiKey={hasApiKey} />
+                    <AgentChatView agent={agent} />
                 </div>
             </main>
         </div>

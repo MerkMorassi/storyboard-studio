@@ -3,7 +3,6 @@ import React from 'react';
 import { Agent, ActiveView } from '../types.ts';
 import { AgentChatView } from './AgentChatView.tsx';
 import { StudioHeader } from './StudioHeader.tsx';
-import { getApiKey } from '../services/apiKeyService.ts';
 import { MagicIcon } from './icons.tsx';
 
 interface IdeationStudioProps {
@@ -13,8 +12,6 @@ interface IdeationStudioProps {
 }
 
 export const IdeationStudio: React.FC<IdeationStudioProps> = ({ agent, onNavigate, onCallAgent }) => {
-    const hasApiKey = !!getApiKey();
-
     return (
         <div className="flex flex-col h-full w-full bg-primary">
             <StudioHeader 
@@ -48,7 +45,7 @@ export const IdeationStudio: React.FC<IdeationStudioProps> = ({ agent, onNavigat
                 </div>
 
                 <div className="flex-grow overflow-hidden">
-                    <AgentChatView agent={agent} hasApiKey={hasApiKey} />
+                    <AgentChatView agent={agent} />
                 </div>
             </main>
         </div>

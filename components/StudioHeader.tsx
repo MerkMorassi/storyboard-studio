@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { HomeIcon, PhoneIcon, ChatIcon, ChevronRightIcon, CloseIcon } from './icons.tsx';
 import { Agent } from '../types.ts';
 import { AgentChatView } from './AgentChatView.tsx';
-import { getApiKey } from '../services/apiKeyService.ts';
 
 interface StudioHeaderProps {
     breadcrumbs: { label: string; onClick?: () => void }[];
@@ -14,7 +13,6 @@ interface StudioHeaderProps {
 export const StudioHeader: React.FC<StudioHeaderProps> = ({ breadcrumbs, agent, onCallAgent }) => {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [initialMode, setInitialMode] = useState<'chat' | 'call'>('chat');
-    const hasApiKey = !!getApiKey();
 
     const handleOpenChat = (mode: 'chat' | 'call') => {
         setInitialMode(mode);
@@ -98,7 +96,6 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({ breadcrumbs, agent, 
                         <div className="flex-grow overflow-hidden">
                             <AgentChatView 
                                 agent={agent} 
-                                hasApiKey={hasApiKey} 
                                 initialMode={initialMode}
                                 onClose={() => setIsChatOpen(false)}
                             />

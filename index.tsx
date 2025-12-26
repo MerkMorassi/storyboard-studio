@@ -1,19 +1,43 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
-import { ErrorBoundary } from './ErrorBoundary'; // Import the new ErrorBoundary
+import { ErrorBoundary } from './ErrorBoundary';
+import { loadMythosData } from './services/mythosData';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+async function bootstrap() {
+  try {
+    // 1. Load critical narrative data first
+    await loadMythosData();
+
+    // 2. Locate mount point
+    const rootElement = document.getElementById('root');
+    if (!rootElement) {
+      throw new Error("Could not find root element to mount to");
+    }
+
+    // 3. Initialize React
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(
+      <React.StrictMode>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </React.StrictMode>
+    );
+
+    // 4. Remove boot-time loader
+    const loader = document.getElementById('init-loader');
+    if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(() => loader.remove(), 500);
+    }
+
+  } catch (error) {
+    console.error("Bootstrap Failure:", error);
+    // window.onerror will handle the UI display for this error
+    throw error;
+  }
 }
 
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <ErrorBoundary> {/* Wrap App with ErrorBoundary */}
-      <App />
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+// Start sequence
+bootstrap();

@@ -98,16 +98,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         </div>
         
         <div className="space-y-6">
-            <div className="bg-neutral-900/50 p-4 border border-neutral-700 text-sm text-neutral-400 space-y-3 rounded-md">
-                <h3 className="font-bold text-neutral-200">Google Gemini API Key</h3>
-                <p>
-                Your Gemini API key is managed automatically by the environment. There is no need to enter it here.
-                </p>
-                <p>
-                If you encounter "Quota Exceeded" errors, ensure you are using a key from a <strong>Google Cloud Platform (GCP)</strong> project with billing enabled.
-                </p>
-            </div>
-          
           {isTopazLocked ? (
               <LockedInput label="Topaz Labs API Key" onUnlock={() => setIsTopazLocked(false)} />
           ) : (

@@ -12,7 +12,6 @@ import { analyzeImage, analyzeVideo } from './service';
 import { AnalysisResult } from '../../components/AnalysisResult';
 import { AgentChatView } from '../../components/AgentChatView';
 import { getAgent } from '../../services/agentService';
-import { getApiKey } from '../../services/apiKeyService';
 
 interface DirectorStudioProps {
     onNavigate?: (view: ActiveView) => void;
@@ -63,7 +62,6 @@ export const DirectorStudio: React.FC<DirectorStudioProps> = ({ onNavigate }) =>
     const [userDirectives, setUserDirectives] = useState('');
 
     const kineAgent = getAgent(); // Or specifically find Kine from team
-    const hasApiKey = !!getApiKey();
 
     const handleMediaChange = (media: { type: 'video' | 'image'; source: File | string | null }) => {
         setSelectedMedia(media);
@@ -87,9 +85,7 @@ export const DirectorStudio: React.FC<DirectorStudioProps> = ({ onNavigate }) =>
         setAnalysis(null);
         
         try {
-            const apiKey = getApiKey() || '';
-            if (!apiKey) throw new Error("API Key is missing. Check your settings.");
-
+            // Fix: No need to retrieve apiKey manually, it's handled in the service/SDK.
             let result;
 
             if (selectedMedia.type === 'image') {
@@ -111,7 +107,8 @@ export const DirectorStudio: React.FC<DirectorStudioProps> = ({ onNavigate }) =>
                     });
                 }
                 
-                result = await analyzeImage(apiKey, base64, mimeType, userDirectives);
+                // Fix: Remove apiKey argument
+                result = await analyzeImage(base64, mimeType, userDirectives);
 
             } else if (selectedMedia.type === 'video') {
                 let videoUrl = '';
@@ -121,7 +118,8 @@ export const DirectorStudio: React.FC<DirectorStudioProps> = ({ onNavigate }) =>
                     videoUrl = URL.createObjectURL(selectedMedia.source);
                 }
                 
-                result = await analyzeVideo(apiKey, videoUrl, userDirectives);
+                // Fix: Remove apiKey argument
+                result = await analyzeVideo(videoUrl, userDirectives);
             }
 
             if (result) {
@@ -421,7 +419,7 @@ ${result.composition}
                 )}
 
                 {activeTab === 'chat' && (
-                    <AgentChatView agent={kineAgent} hasApiKey={hasApiKey} />
+                    <AgentChatView agent={kineAgent} />
                 )}
             </div>
         </div>

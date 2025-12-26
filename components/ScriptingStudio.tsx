@@ -3,8 +3,6 @@ import React, { useState } from 'react';
 import { Agent, ActiveView, ScriptFile } from '../types.ts';
 import { AgentChatView } from './AgentChatView.tsx';
 import { StudioHeader } from './StudioHeader.tsx';
-import { getApiKey } from '../services/apiKeyService.ts';
-// Fixed: Add CloseIcon to the imports from ./icons.tsx
 import { ScriptIcon, ChatIcon, LibraryIcon, DownloadIcon, CloseIcon } from './icons.tsx';
 import { TrashIcon } from './icons/TrashIcon';
 import { ScriptViewer } from './ScriptViewer.tsx';
@@ -23,7 +21,6 @@ interface ScriptingStudioProps {
 export const ScriptingStudio: React.FC<ScriptingStudioProps> = ({ 
     agent, onNavigate, onCallAgent, scriptText, scriptsBin, onDeleteScript, onScriptUpload, defaultTab = 'chat' 
 }) => {
-    const hasApiKey = !!getApiKey();
     const [activeTab, setActiveTab] = useState<'chat' | 'viewer' | 'bin'>(defaultTab);
     const [selectedScript, setSelectedScript] = useState<ScriptFile | null>(null);
 
@@ -85,7 +82,7 @@ export const ScriptingStudio: React.FC<ScriptingStudioProps> = ({
                             </div>
                         </div>
                         <div className="flex-grow overflow-hidden">
-                            <AgentChatView agent={agent} hasApiKey={hasApiKey} />
+                            <AgentChatView agent={agent} />
                         </div>
                     </div>
                 )}
