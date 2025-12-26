@@ -38,7 +38,7 @@ import { ImageModal } from './components/ImageModal';
 import { StudioHeader } from './components/StudioHeader';
 import { ScriptWriterStudio } from './components/ScriptWriterStudio';
 
-import { Project, Agent, ImageState, ActiveView } from './types';
+import { Project, Agent, ImageState, ActiveView, ScriptFile } from './types';
 import { getApiKey, getTopazApiKey, getHfApiKey, saveTopazApiKey, saveHfApiKey } from './services/apiKeyService';
 import { getAnimAgentsTeam } from './services/agentService';
 import { getPromptTemplates, savePromptTemplate, deletePromptTemplate } from './services/promptTemplateService';
@@ -51,6 +51,7 @@ const DEFAULT_PROJECT: Project = {
         images: [],
         storyboard: [],
         scriptText: '',
+        scriptsBin: [],
         inspirationImages: [],
         blenderImages: [],
         blenderResult: null,
@@ -61,7 +62,6 @@ const DEFAULT_PROJECT: Project = {
         photorealismState: { source: null, result: null, prompt: '', negativePrompt: '' },
         resizeState: { source: null, result: null, width: 1024, height: 1024, prompt: '', alignment: 'Middle', overlap: 10, steps: 20, directions: { left: false, right: false, top: false, bottom: false } },
         greenScreenState: { source: null, resultUrl: null },
-        // Fixed: Ensure 'seed' and 'randomizeSeed' are included in GenerativeVideoState initial object
         generativeVideoState: { prompt: '', negativePrompt: '', image: null, lastImage: null, resultUrl: null, engine: 'external', externalUrl: '', steps: 25, duration: 4, guidanceScale: 7.5, guidanceScale2: 1.0, scheduler: 'default', seed: 0, randomizeSeed: true, fps: 24 },
         topazState: { activeMediaType: 'image', source: null, result: null, operation: 'enhance', parameters: { scale: 2, strength: 50 }, faceRecovery: true },
         directorState: { referenceImage: null, analysis: null, chatHistory: [], generatedPreview: null },
@@ -129,14 +129,25 @@ export const App: React.FC = () => {
         updateProjectData({ images: [newImage, ...project.data.images] });
     };
 
+    const handleAddScriptToBin = (script: Omit<ScriptFile, 'id' | 'date'>) => {
+        const newScript: ScriptFile = {
+            ...script,
+            id: generateId(),
+            date: new Date().toLocaleString()
+        };
+        updateProjectData({ scriptsBin: [newScript, ...project.data.scriptsBin] });
+    };
+
+    const handleDeleteScript = (id: string) => {
+        updateProjectData({ scriptsBin: project.data.scriptsBin.filter(s => s.id !== id) });
+    };
+
     const coreAgents = getAnimAgentsTeam();
     const allAgents = [...coreAgents, ...project.data.agents];
     const directorAgent = allAgents.find(a => a.id === 'agent-dop') || coreAgents[5];
 
     const handleAgentUpdate = (id: string, updates: Partial<Agent>) => {
         if (id.startsWith('agent-')) {
-            // Core agents are currently static in this demo context, or handle overriding if needed
-            console.warn("Updating core agents not fully persisted in this demo version.");
             return;
         }
         const updatedAgents = project.data.agents.map(a => a.id === id ? { ...a, ...updates } : a);
@@ -192,6 +203,8 @@ export const App: React.FC = () => {
                     onNavigate={handleNavigate} 
                     onCallAgent={(a) => { setActiveAgentId(a.id); setActiveView('agent-chat'); }}
                     scriptText={project.data.scriptText}
+                    scriptsBin={project.data.scriptsBin}
+                    onDeleteScript={handleDeleteScript}
                     onScriptUpload={(file) => {
                         const reader = new FileReader();
                         reader.onload = (e) => {
@@ -239,7 +252,25 @@ export const App: React.FC = () => {
                     onAddToInspiration={(base64) => updateProjectData({ inspirationImages: [...project.data.inspirationImages, { id: generateId(), base64Image: base64 }] })}
                 />;
             case 'script-writer':
-                return <ScriptWriterStudio />;
+                return <ScriptWriterStudio onSendToScriptsBin={handleAddScriptToBin} onNavigate={handleNavigate} />;
+            case 'scripts-bin':
+                return <ScriptingStudio 
+                    agent={allAgents.find(a => a.id === 'agent-scripting')!} 
+                    onNavigate={handleNavigate} 
+                    onCallAgent={(a) => { setActiveAgentId(a.id); setActiveView('agent-chat'); }}
+                    scriptText={project.data.scriptText}
+                    scriptsBin={project.data.scriptsBin}
+                    onDeleteScript={handleDeleteScript}
+                    onScriptUpload={(file) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const text = e.target?.result as string;
+                            updateProjectData({ scriptText: text });
+                        };
+                        reader.readAsText(file);
+                    }}
+                    defaultTab="bin"
+                />;
             case 'generative-video':
                 return <GenerativeVideoStudio 
                     apiKey={getApiKey() || ''} 
@@ -387,7 +418,7 @@ export const App: React.FC = () => {
                     onViewImage={setSelectedImage}
                     gridOverlay={gridOverlay}
                     onGridOverlayChange={setGridOverlay}
-                    onEditImage={(base64) => { /* Handle edit */ }}
+                    onEditImage={(base64) => { }}
                     onAddToStoryboard={(base64) => updateProjectData({ storyboard: [...project.data.storyboard, { id: generateId(), base64Image: base64, notes: '', prompt: '' }] })}
                     onAddToInspiration={(base64) => updateProjectData({ inspirationImages: [...project.data.inspirationImages, { id: generateId(), base64Image: base64 }] })}
                     onUpscaleImage={() => {}}
@@ -448,7 +479,6 @@ export const App: React.FC = () => {
                         reader.onload = (e) => {
                             const resultStr = e.target?.result as string;
                             const base64 = resultStr.split(',')[1];
-                            
                             const newImage: ImageState = {
                                 id: generateId(),
                                 type: 'image',
@@ -457,15 +487,12 @@ export const App: React.FC = () => {
                                 isUpscaling: false,
                                 agentId: agentId
                             };
-
                             setProject(prev => {
-                                // Check if agent needs avatar update (if missing)
                                 const agent = prev.data.agents.find(a => a.id === agentId);
                                 let updatedAgents = prev.data.agents;
                                 if (agent && !agent.avatar) {
                                     updatedAgents = prev.data.agents.map(a => a.id === agentId ? { ...a, avatar: resultStr } : a);
                                 }
-                                
                                 return {
                                     ...prev,
                                     data: {
@@ -526,7 +553,6 @@ export const App: React.FC = () => {
                     onSave={(cfg) => updateProjectData({ automationConfig: cfg })} 
                     onTestWebhook={async () => true} 
                 />;
-            
             default:
                 return <div className="p-10 text-center text-neutral-500">View not implemented: {activeView}</div>;
         }

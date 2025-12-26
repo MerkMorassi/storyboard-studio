@@ -1,5 +1,5 @@
 
-import React, { Component, ErrorInfo } from 'react';
+import React, { ErrorInfo } from 'react';
 import { CrashReport } from './components/CrashReport';
 
 interface ErrorBoundaryProps {
@@ -12,8 +12,8 @@ interface ErrorBoundaryState {
   errorInfo: ErrorInfo | null;
 }
 
-// Fixed: Extended `Component` directly and ensured `ErrorInfo` is explicitly used.
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fixed: Explicitly using React.Component to ensure TypeScript correctly identifies the base class properties like setState and props.
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null,
@@ -28,6 +28,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // You can also log the error to an error reporting service
     console.error("Uncaught error in ErrorBoundary:", error, errorInfo);
+    // Fixed: setState is now correctly identified via React.Component inheritance
     this.setState({
       error: error,
       errorInfo: errorInfo,
@@ -45,6 +46,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
+    // Fixed: props is now correctly identified via React.Component inheritance
     return this.props.children;
   }
 }

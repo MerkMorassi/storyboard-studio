@@ -68,6 +68,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'grid', type: 'link', label: 'Gallery', view: 'grid', icon: GridIcon },
     { id: 'story', type: 'link', label: 'Storyboard', view: 'story', icon: StoryboardIcon },
     { id: 'inspiration', type: 'link', label: 'Inspiration', view: 'inspiration', icon: PinIcon },
+    { id: 'scripts-bin', type: 'link', label: 'Scripts Bin', view: 'scripts-bin', icon: LibraryIcon },
     
     { id: 'header-data', type: 'header', label: 'Knowledge' },
     { id: 'agents', type: 'link', label: 'Studio Players', view: 'agents', icon: AgentsIcon },
@@ -80,18 +81,14 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isCollapsed, onToggleCollapse, onOpenSettings, isOnline, stats }) => {
-    // State for reorderable menu items
     const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
         try {
-            const savedOrder = localStorage.getItem('mythos_sidebar_order_v2');
+            const savedOrder = localStorage.getItem('mythos_sidebar_order_v3');
             if (savedOrder) {
                 const orderedIds = JSON.parse(savedOrder) as string[];
-                // Map saved IDs back to full item objects
                 const rehydrated = orderedIds
                     .map(id => DEFAULT_MENU_ITEMS.find(item => item.id === id))
                     .filter((item): item is MenuItem => !!item);
-                
-                // Append any new items that might have been added since last save
                 const newItems = DEFAULT_MENU_ITEMS.filter(item => !orderedIds.includes(item.id));
                 return [...rehydrated, ...newItems];
             }
@@ -107,7 +104,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isColl
     const onDragStart = (e: React.DragEvent, index: number) => {
         dragItem.current = index;
         e.dataTransfer.effectAllowed = "move";
-        // Firefox compatibility
         e.dataTransfer.setData("text/plain", index.toString());
     };
 
@@ -115,7 +111,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isColl
         dragOverItem.current = index;
     };
 
-    // Explicitly handle DragOver to allow dropping and update reference
     const onDragOver = (e: React.DragEvent, index: number) => {
         e.preventDefault(); 
         dragOverItem.current = index;
@@ -130,17 +125,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isColl
             const [removed] = newItems.splice(startIndex, 1);
             newItems.splice(endIndex, 0, removed);
             setMenuItems(newItems);
-            // Persist
-            localStorage.setItem('mythos_sidebar_order_v2', JSON.stringify(newItems.map(i => i.id)));
+            localStorage.setItem('mythos_sidebar_order_v3', JSON.stringify(newItems.map(i => i.id)));
         }
-        
         dragItem.current = null;
         dragOverItem.current = null;
     };
 
     return (
         <aside className={`bg-neutral-900 border-r border-neutral-800 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} h-full shrink-0 z-20`}>
-            {/* Header / Brand */}
             <div className="h-16 flex items-center justify-between px-4 border-b border-neutral-800 shrink-0">
                 {!isCollapsed && (
                     <h1 className="text-xl font-black tracking-tighter text-white">MYTHOS</h1>
@@ -155,10 +147,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isColl
                 </button>
             </div>
 
-            {/* Scrollable Menu */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 custom-scrollbar">
                 {menuItems.map((item, index) => {
-                    // Header Item
                     if (item.type === 'header') {
                         if (isCollapsed) return <div key={item.id} className="h-px bg-neutral-800 mx-4 my-2"></div>;
                         return (
@@ -176,7 +166,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isColl
                         );
                     }
 
-                    // Link Item
                     const Icon = item.icon;
                     const isActive = activeView === item.view;
                     const count = item.view === 'story' ? stats.storyboard 
@@ -222,7 +211,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, isColl
                 })}
             </div>
 
-            {/* Footer / Status */}
             <div className="p-4 border-t border-neutral-800 shrink-0 bg-neutral-900">
                 <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} mb-4`}>
                     {!isCollapsed && (

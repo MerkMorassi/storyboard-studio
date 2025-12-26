@@ -1,11 +1,19 @@
 
+export type RAGProvider = 'cloud' | 'localhost' | 'browser';
 
-export type RAGProvider = 'cloud' | 'localhost' | 'browser'; // Added 'browser'
+export interface ScriptFile {
+  id: string;
+  title: string;
+  content: string;
+  type: 'outline' | 'screenplay' | 'blueprint';
+  date: string;
+}
 
 export interface ProjectData {
   images: ImageState[];
   storyboard: StoryboardFrame[];
   scriptText: string;
+  scriptsBin: ScriptFile[]; // Added scripts bin for storing generated drafts
   inspirationImages: InspirationImage[];
   blenderImages: BlenderImage[];
   blenderResult: string | null;
@@ -19,7 +27,7 @@ export interface ProjectData {
   generativeVideoState: GenerativeVideoState;
   topazState: TopazState;
   directorState: DirectorState;
-  agents: Agent[]; // This now refers to CAST (Characters)
+  agents: Agent[];
   lore: LoreEntry[];
   dynamicPromptLists: DynamicPromptList[];
   promptTemplates: PromptTemplate[];
@@ -31,8 +39,8 @@ export interface Project {
   name: string;
   tagline?: string;
   thumbnail?: string;
-  brief?: string; // Full page editable project brief
-  progress?: number; // 0-100 percentage
+  brief?: string;
+  progress?: number;
   data: ProjectData;
 }
 
@@ -75,7 +83,7 @@ export interface StoryboardFrame {
   prompt: string;
 }
 
-export type ActiveView = 'projects' | 'dashboard' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'image-generator' | 'grid' | 'story' | 'inspiration' | 'video' | 'generative-video' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'topaz' | 'agents' | 'lore' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'prompt-library' | 'agent-workspace' | 'script-writer';
+export type ActiveView = 'projects' | 'dashboard' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'image-generator' | 'grid' | 'story' | 'inspiration' | 'video' | 'generative-video' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'topaz' | 'agents' | 'lore' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'prompt-library' | 'agent-workspace' | 'script-writer' | 'scripts-bin';
 
 export interface InspirationImage {
   id: string;
@@ -117,7 +125,6 @@ export interface Agent {
   knowledgeBaseUrl?: string;
   enableLocalRag?: boolean;
   protectedWords?: string;
-  // New Character Sheet Fields
   bio?: string;
   narrativeRole?: string;
   actorName?: string;
@@ -126,8 +133,8 @@ export interface Agent {
 
 export interface LoreEntry {
   id: string;
-  projectId?: string; // Added to support local RAG deletion/filtering by project
-  ragDocumentId?: string; // Only for external RAG to track external ID
+  projectId?: string;
+  ragDocumentId?: string;
   title: string;
   content: string;
 }
@@ -140,13 +147,13 @@ export interface DynamicPromptList {
 
 export interface ImageState {
   id: string;
-  type: 'image' | 'video'; // Supports both media types
-  url?: string; // For videos or remote assets
-  base64?: string; // For local images
-  mimeType?: string; // e.g. 'image/jpeg' or 'video/mp4'
+  type: 'image' | 'video';
+  url?: string;
+  base64?: string;
+  mimeType?: string;
   isUpscaling: boolean;
   agentId?: string;
-  metadata?: any; // Stores generation parameters (seed, prompt, etc.)
+  metadata?: any;
 }
 
 export interface BlenderImage {
@@ -219,11 +226,11 @@ export interface TopazState {
     activeMediaType: 'image' | 'video';
     source: { base64: string; mimeType: string } | null;
     result: { base64: string; mimeType: string } | null;
-    resultUrl?: string | null; // For video results
+    resultUrl?: string | null;
     operation: 'enhance' | 'sharpen' | 'denoise' | 'restore' | 'lighting';
     parameters: {
-        scale: number; // 1, 2, 4
-        strength: number; // 0-100
+        scale: number;
+        strength: number;
     };
     faceRecovery: boolean;
 }
@@ -251,14 +258,12 @@ export interface GenerativeVideoState {
     engine: 'external';
     externalUrl: string;
     externalApiKey?: string;
-    // Wan parameters
     steps: number;
     duration: number;
-    guidanceScale: number; // High noise stage
-    guidanceScale2: number; // Low noise stage
+    guidanceScale: number;
+    guidanceScale2: number;
     scheduler: string; 
-    fps: number; // Video Fluidity
-    // Fixed: Uncommented 'seed' and 'randomizeSeed'
+    fps: number;
     seed: number;
     randomizeSeed: boolean;
 }

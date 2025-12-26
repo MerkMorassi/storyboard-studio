@@ -15,10 +15,11 @@ interface MythosCinematicStudioProps {
 }
 
 const RATIOS = [
-    { label: '2.39:1 (Cinema)', w: 2304, h: 960 },
-    { label: '16:9 (Wide)', w: 1344, h: 768 },
+    { label: '2.39:1 (Cinema)', w: 1536, h: 640 }, // Adjusted for standard SDXL wide
+    { label: '16:9 (Wide)', w: 1024, h: 576 },
     { label: '1:1 (Square)', w: 1024, h: 1024 },
-    { label: '9:16 (Vertical)', w: 768, h: 1344 },
+    { label: '9:16 (Vertical)', w: 576, h: 1024 },
+    { label: '3:2 (Classic)', w: 1024, h: 683 }
 ];
 
 // --- Cinematic Tiers Definition ---
@@ -75,8 +76,8 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
 }) => {
     const [prompt, setPrompt] = useState('');
     const [negativePrompt, setNegativePrompt] = useState('blurry, low quality, text, watermark, bad anatomy, deformed, sketch, cartoon, 3d render, illustration');
-    const [width, setWidth] = useState(2304);
-    const [height, setHeight] = useState(960);
+    const [width, setWidth] = useState(RATIOS[0].w); // Default to Cinema
+    const [height, setHeight] = useState(RATIOS[0].h); // Default to Cinema
     const [seed, setSeed] = useState<number | undefined>(undefined);
     
     // Tier States
@@ -140,10 +141,10 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
                 width: width,
                 height: height,
                 seed: usedSeed,
-                model_name: 'v15', // Specific to MythOS Engine
-                num_inference_steps: 35, // Increased steps for higher fidelity
-                guidance_scale: 6.5
-            }, hfToken, true);
+                // model_name: 'v15', // Removed: Specific to old custom engine
+                num_inference_steps: 35, // Recommended steps for SDXL
+                guidance_scale: 6.5 // Recommended guidance for SDXL
+            }, hfToken); // Removed useCustomEngine: true
 
             const reader = new FileReader();
             reader.onloadend = () => {
@@ -203,7 +204,7 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
         <div className="p-6 max-w-7xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
             <div className="flex-shrink-0 flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold text-neutral-200 mb-2">Engine: MythOS Cinematic <span className="text-lg font-normal text-neutral-500">v1.5</span></h2>
+                    <h2 className="text-3xl font-bold text-neutral-200 mb-2">Engine: MythOS Cinematic <span className="text-lg font-normal text-neutral-500">v1.0 (Public SDXL)</span></h2>
                     <p className="text-neutral-400">Next-generation photography engine based on Illustrious SDXL. Designed for high-fidelity cinematic stills.</p>
                 </div>
                 <div className="px-3 py-1 bg-purple-900/30 border border-purple-500/30 rounded-full text-xs font-bold text-purple-300">
