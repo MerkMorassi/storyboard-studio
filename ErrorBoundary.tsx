@@ -1,4 +1,5 @@
-import React, { Component } from 'react'; // Fix: Changed import to directly get Component
+
+import React, { Component } from 'react';
 import { CrashReport } from './components/CrashReport';
 
 interface ErrorBoundaryProps {
@@ -12,7 +13,7 @@ interface ErrorBoundaryState {
 }
 
 // Fix: Explicitly use React.Component to ensure correct typing of `this.setState` and `this.props`
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> { // Fix: Used Component directly
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null,

@@ -255,11 +255,7 @@ export interface GenerativeVideoState {
     duration: number;
     guidanceScale: number; // High noise stage
     guidanceScale2: number; // Low noise stage
-    scheduler: string;
-    quality: number;
-    flowShift: number;
-    seed: number;
-    randomizeSeed: boolean;
+    scheduler: string; 
     fps: number; // Video Fluidity
 }
 
