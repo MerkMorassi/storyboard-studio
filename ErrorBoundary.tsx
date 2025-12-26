@@ -1,5 +1,5 @@
 
-import React, { Component } from 'react';
+import React, { Component, ErrorInfo } from 'react';
 import { CrashReport } from './components/CrashReport';
 
 interface ErrorBoundaryProps {
@@ -9,11 +9,11 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
-  errorInfo: React.ErrorInfo | null;
+  errorInfo: ErrorInfo | null;
 }
 
-// Fix: Explicitly use React.Component to ensure correct typing of `this.setState` and `this.props`
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fixed: Extended `Component` directly and ensured `ErrorInfo` is explicitly used.
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null,
@@ -25,11 +25,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return { hasError: true, error, errorInfo: null };
   }
 
-  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // You can also log the error to an error reporting service
     console.error("Uncaught error in ErrorBoundary:", error, errorInfo);
-    // Fix: `setState` property should exist when extending `React.Component`.
-    // If this error persists, it indicates a deeper TypeScript configuration or environment issue.
     this.setState({
       error: error,
       errorInfo: errorInfo,
@@ -47,8 +45,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    // Fix: `props` property should exist when extending `React.Component`.
-    // If this error persists, it indicates a deeper TypeScript configuration or environment issue.
     return this.props.children;
   }
 }

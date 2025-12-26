@@ -8,31 +8,58 @@ let _archetypesData: any;
 const _loadRandomizerJsonData = async () => {
     if (_genresData && _themesData && _structuresData && _archetypesData) return; // Already loaded
 
-    const [genresRes, themesRes, structuresRes, archetypesRes] = await Promise.all([
-        fetch('/data/writer/genres.json'),
-        fetch('/data/writer/novel_themes.json'),
-        fetch('/data/writer/structures.json'),
-        fetch('/data/writer/archetypes.json')
-    ]);
+    const files = [
+        { name: 'genres.json', url: '/data/writer/genres.json', target: '_genresData' },
+        { name: 'novel_themes.json', url: '/data/writer/novel_themes.json', target: '_themesData' },
+        { name: 'structures.json', url: '/data/writer/structures.json', target: '_structuresData' },
+        { name: 'archetypes.json', url: '/data/writer/archetypes.json', target: '_archetypesData' }
+    ];
 
-    if (!genresRes.ok || !themesRes.ok || !structuresRes.ok || !archetypesRes.ok) {
-        throw new Error("Failed to fetch Scribe randomizer data.");
+    for (const file of files) {
+        try {
+            const res = await fetch(file.url);
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            const rawText = await res.text();
+            if (!rawText.trim()) {
+                throw new Error("Response was empty.");
+            }
+            // Dynamically assign to the correct state variable
+            if (file.target === '_genresData') _genresData = JSON.parse(rawText);
+            else if (file.target === '_themesData') _themesData = JSON.parse(rawText);
+            else if (file.target === '_structuresData') _structuresData = JSON.parse(rawText);
+            else if (file.target === '_archetypesData') _archetypesData = JSON.parse(rawText);
+
+        } catch (error) {
+            console.error(`Error loading Randomizer JSON data from ${file.name}:`, error);
+            throw new Error(`Failed to load Randomizer data from ${file.name}. Ensure the file exists and contains valid JSON. Details: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
-
-    _genresData = await genresRes.json();
-    _themesData = await themesRes.json();
-    _structuresData = await structuresRes.json();
-    _archetypesData = await archetypesRes.json();
 };
 
 // --- TYPE DEFINITIONS ---
 export interface ScribeConfig {
-    title: string;
+    title: string; // Original title input for blueprint, will become workingTitle
+    genre: string; // New field for genre
     theme: string;
     setting: string;
     tone: string;
     cast: string;
     beatSheet: string;
+    // New fields for the comprehensive template outline
+    workingTitle: string; // New field for the AI-generated/refined title
+    logline: string;
+    treatment: string;
+    fundamentalStoryQuestions: string;
+    archetypalCharacters: string;
+    sceneGenerationQuestions: string;
+}
+
+// Added interface for archetype data to ensure type safety when accessing 'name'
+interface ArchetypeData {
+    name: string;
+    // Add other properties if they exist in the JSON and are used, e.g., description?: string;
 }
 
 // --- CONTEXT MAPPING ---
@@ -65,10 +92,10 @@ export const generateRandomConfig = async (): Promise<ScribeConfig> => {
     const genres = _genresData as any;
     const themes = _themesData as any;
     const structures = _structuresData as any;
-    
+    const archetypes = _archetypesData as any; // Access archetypes
+
     // 1. ROLL GENRE & SUBGENRE
     const mainGenreKey = pickKey(genres); // e.g., "sci_fi"
-    // Handle structure where 'subgenres' might be nested or direct
     const subGenreData = genres[mainGenreKey].subgenres || genres[mainGenreKey]; 
     const subGenreKey = pickKey(subGenreData); 
     const genreInfo = subGenreData[subGenreKey];
@@ -85,12 +112,16 @@ export const generateRandomConfig = async (): Promise<ScribeConfig> => {
     // 4. ROLL STRUCTURE & BEAT
     const structureKey = pickKey(structures);
     const structure = structures[structureKey];
-    // Find a beat that looks like an opening (usually index 0 or 1)
     const openingBeat = structure.beats.find((b: any) => b.label.toLowerCase().includes("opening") || b.label.toLowerCase().includes("ordinary")) || structure.beats[0];
 
     // 5. CONSTRUCT THE ARTIFACTS
     const tone = `${mainGenreKey.toUpperCase()} // ${subGenreKey.replace(/_/g, ' ').toUpperCase()}`;
     const titleStub = `UNTITLED ${subGenreKey.toUpperCase()} PROJECT`;
+
+    // Fixed: Explicitly cast `Object.values` results to `ArchetypeData[]`
+    // Pick some archetypes for initial suggestion
+    const randomJungian = pick(Object.values(archetypes.jungian_core) as ArchetypeData[]).name;
+    const randomPearson = pick(Object.values(archetypes.pearson_12) as ArchetypeData[]).name;
 
     const cast = `
     ROLE: PROTAGONIST
@@ -115,12 +146,62 @@ export const generateRandomConfig = async (): Promise<ScribeConfig> => {
     CONTEXT: The scene must take place in ${selectedSetting} and establish the tone of ${subGenreKey}.
     `;
 
+    // --- NEW: Populate placeholder/default for outline fields ---
+    const logline = `A [protagonist_type] named [character_name], battling [internal_struggle] in a [setting_type] world, must confront [antagonist_type] to ${coreQuestion.toLowerCase().replace('?', '.')}.`;
+    
+    const treatment = `
+[Protagonist Name], a [description] living in a ${selectedSetting}, is deeply affected by the philosophical question: "${coreQuestion}". An inciting incident (drawing from "${openingBeat.label}") forces them to embark on a journey. They encounter various challenges, reflecting the themes of ${themeKey} and the genre of ${subGenreKey}. The midpoint brings a major twist, leading to a dark night where they confront their flaws. Ultimately, they face the antagonist, (which could be the abstract concept of "${coreQuestion}" or a concrete character), leading to a resolution where they find ${pick(['acceptance', 'redemption', 'a new truth'])}.
+    `.trim();
+
+    const fundamentalStoryQuestions = `
+1. What is the protagonist's main goal? (e.g., to find purpose, to survive, to learn the truth)
+2. What is the antagonist's main goal? (e.g., to maintain control, to spread chaos, to suppress truth)
+3. What is the central conflict between the protagonist and antagonist?
+4. What is at stake for the protagonist if they fail to achieve their goal?
+5. What is the protagonist's character flaw or weakness?
+6. What event/incident sets the story in motion?
+7. What is the midpoint twist that raises the stakes?
+8. What is the climax of the story?
+9. What is the resolution of the story?
+    `.trim();
+
+    const archetypalCharacters = `
+- Protagonist: The Hero (e.g., The ${randomPearson})
+- Antagonist: The Shadow (e.g., The ${pick(Object.values(archetypes.masculine_moore) as ArchetypeData[]).name})
+- Mentor: The Sage
+- Love Interest: The Lover
+- Sidekick: The Orphan
+- Threshold Guardian: The Gatekeeper (e.g., The ${randomJungian})
+- Shapeshifter: The Trickster
+- Trickster: The Jester
+    `.trim();
+
+    const sceneGenerationQuestions = `
+1. What is the specific 'ordinary world' event that grounds the protagonist?
+2. How does the 'call to adventure' manifest visually and emotionally?
+3. What specific interaction introduces the main conflict or antagonist?
+4. Describe a moment where the protagonist is confronted by their weakness.
+5. What is the 'new world' like, and how does the protagonist first navigate it?
+6. Detail a 'fun and games' scene where the protagonist experiences initial success or failure.
+7. What is the exact 'midpoint' event that changes everything?
+8. How do 'bad guys close in', making the situation feel hopeless?
+    `.trim();
+
+
     return {
-        title: titleStub,
+        title: titleStub, // Initial title input
+        genre: mainGenreKey, // Randomly selected genre
         theme: subGenreKey, 
         setting: selectedSetting,
         tone: tone,
         cast: cast.trim().replace(/^\s+/gm, ''), 
-        beatSheet: beatSheet.trim().replace(/^\s+/gm, '')
+        beatSheet: beatSheet.trim().replace(/^\s+/gm, ''),
+        // New outline fields
+        workingTitle: titleStub, // Initial working title
+        logline: logline.trim(),
+        treatment: treatment.trim(),
+        fundamentalStoryQuestions: fundamentalStoryQuestions,
+        archetypalCharacters: archetypalCharacters,
+        sceneGenerationQuestions: sceneGenerationQuestions,
     };
 };

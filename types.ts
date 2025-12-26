@@ -1,4 +1,5 @@
 
+
 export type RAGProvider = 'cloud' | 'localhost' | 'browser'; // Added 'browser'
 
 export interface ProjectData {
@@ -257,6 +258,9 @@ export interface GenerativeVideoState {
     guidanceScale2: number; // Low noise stage
     scheduler: string; 
     fps: number; // Video Fluidity
+    // Fixed: Uncommented 'seed' and 'randomizeSeed'
+    seed: number;
+    randomizeSeed: boolean;
 }
 
 export interface WebhookPayload {

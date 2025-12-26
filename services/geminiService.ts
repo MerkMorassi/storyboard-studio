@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, GenerateContentConfig, HarmCategory, HarmBlockThreshold, Chat, Content } from "@google/genai";
+import { GoogleGenAI, GenerateContentConfig, HarmCategory, HarmBlockThreshold, Chat, Content, Type } from "@google/genai";
 import { getApiKey } from './apiKeyService';
 
 // --- DATA INGESTION (THE BRAIN) ---
@@ -11,19 +11,32 @@ let _themesData: any;
 const _loadScribeJsonData = async () => {
     if (_structuresData && _archetypesData && _themesData) return; // Already loaded
 
-    const [structuresRes, archetypesRes, themesRes] = await Promise.all([
-        fetch('/data/writer/structures.json'),
-        fetch('/data/writer/archetypes.json'),
-        fetch('/data/writer/novel_themes.json')
-    ]);
+    const files = [
+        { name: 'structures.json', url: '/data/writer/structures.json', target: '_structuresData' },
+        { name: 'archetypes.json', url: '/data/writer/archetypes.json', target: '_archetypesData' },
+        { name: 'novel_themes.json', url: '/data/writer/novel_themes.json', target: '_themesData' }
+    ];
 
-    if (!structuresRes.ok || !archetypesRes.ok || !themesRes.ok) {
-        throw new Error("Failed to fetch Scribe lore data.");
+    for (const file of files) {
+        try {
+            const res = await fetch(file.url);
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            const rawText = await res.text();
+            if (!rawText.trim()) {
+                throw new Error("Response was empty.");
+            }
+            // Dynamically assign to the correct state variable
+            if (file.target === '_structuresData') _structuresData = JSON.parse(rawText);
+            else if (file.target === '_archetypesData') _archetypesData = JSON.parse(rawText);
+            else if (file.target === '_themesData') _themesData = JSON.parse(rawText);
+
+        } catch (error) {
+            console.error(`Error loading Scribe JSON data from ${file.name}:`, error);
+            throw new Error(`Failed to load Scribe lore data from ${file.name}. Ensure the file exists and contains valid JSON. Details: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
-
-    _structuresData = await structuresRes.json();
-    _archetypesData = await archetypesRes.json();
-    _themesData = await themesRes.json();
 };
 
 const safetySettings = [
@@ -58,6 +71,101 @@ const apiCallWithRetry = async <T>(apiFunction: () => Promise<T>, maxRetries = 3
     throw new Error("API call failed after multiple retries.");
 };
 
+// --- COMPREHENSIVE SCREENPLAY TEMPLATE (From User's Prompt) ---
+const COMPREHENSIVE_SCREENPLAY_TEMPLATE = `
+Title: [Insert Title Here]
+
+Logline: [Insert logline that captures the essence of the story in one sentence.]
+
+Treatment: [Insert 1-2 page summary of the story that includes the characters, setting, and major plot points.]
+
+Fundamental Story Development Questions:
+
+1. What is the protagonist's main goal?
+2. What is the antagonist's main goal?
+3. What is the central conflict between the protagonist and antagonist?
+4. What is at stake for the protagonist if they fail to achieve their goal?
+5. What is the protagonist's character flaw or weakness?
+6. What event/incident sets the story in motion?
+7. What is the midpoint twist that raises the stakes?
+8. What is the climax of the story?
+9. What is the resolution of the story?
+
+List of Archetypal Characters:
+
+1. Protagonist
+2. Antagonist
+3. Mentor
+4. Love Interest
+5. Sidekick
+6. Threshold Guardian
+7. Shapeshifter
+8. Trickster
+
+Act I:
+
+Scene 1: Opening Image - Introduce the protagonist and their ordinary world.
+Scene 2: Theme Stated - Establish the theme of the story.
+Scene 3: Catalyst - The event or incident that sets the story in motion.
+Scene 4: Debate - The protagonist considers the situation and decides whether to act.
+Scene 5: Break into Two - The protagonist commits to their goal and enters a new world.
+
+Act II:
+
+Scene 6: B Story - Introduce the secondary plotline or love interest.
+Scene 7: Fun and Games - The protagonist enjoys some initial success in pursuit of their goal.
+Scene 8: Midpoint - A twist or revelation raises the stakes and changes the direction of the story.
+Scene 9: Bad Guys Close In - The antagonist gains the upper hand and puts pressure on the protagonist.
+Scene 10: All is Lost - The protagonist suffers a major setback and their goal seems out of reach.
+
+Act III:
+
+Scene 11: Dark Night of the Soul - The protagonist confronts their character flaw and questions their ability to succeed.
+Scene 12: Break into Three - The protagonist regains their focus and commits to a new plan.
+Scene 13: Finale - The protagonist faces the antagonist in a final showdown.
+Scene 14: Final Image - The story concludes with a final image that mirrors the opening image.
+
+Screenplay Style Guide:
+
+* Use Courier 12pt font
+* Scene headings are in ALL CAPS and indicate the location of the scene
+* Action lines are in present tense and describe the action of the scene
+* Dialogue is indented 1.5 inches from the left margin and includes the character name in ALL CAPS followed by their dialogue
+* Parentheticals can be used to indicate tone or actions while speaking
+* Transitions such as CUT TO:, FADE OUT:, and DISSOLVE TO: should be used sparingly.
+
+Example Scene:
+
+INT. COFFEE SHOP - DAY
+
+JANE sits at a table, sipping coffee and scrolling through her phone. Across the room, she spots TOM, her ex-boyfriend.
+
+JANE
+(to herself)
+What is he doing here?
+
+Tom approaches, a hesitant look on his face.
+
+TOM
+Hey, Jane. Can we talk?
+
+JANE
+(skeptical)
+I don't think there's anything left to say.
+
+TOM
+(pleading)
+Please, just hear me out.
+
+Jane takes a deep breath and prepares herself for the conversation.
+
+Questions for Generating 40 Scenes:
+
+1. What is the opening image that introduces the protagonist and their ordinary world?
+2. How does the protagonist discover their goal?
+3. Who is the antagonist and what is their motive
+`;
+
 // --- SCRIBE MODULE CONFIGURATION (Static part of the instruction) ---
 const SCRIBE_SYSTEM_INSTRUCTION_STATIC = `
 ### ROLE
@@ -82,7 +190,24 @@ Generate raw, industry-standard screenplay text.
 `;
 
 export interface ScribeInput {
-  title: string;
+  workingTitle: string; // Renamed from title for clarity
+  genre: string; // New field
+  theme: string;
+  setting: string;
+  tone: string;
+  cast: string;
+  beatSheet: string;
+  // New fields for comprehensive screenplay generation
+  logline: string;
+  treatment: string;
+  fundamentalStoryQuestions: string; // Markdown text or bullet list
+  archetypalCharacters: string;     // Markdown text or bullet list
+  sceneGenerationQuestions: string; // Markdown text or bullet list
+}
+
+export interface ScribeOutlineInput {
+  title: string; // Original input title
+  genre: string; // New field
   theme: string;
   setting: string;
   tone: string;
@@ -90,7 +215,17 @@ export interface ScribeInput {
   beatSheet: string;
 }
 
-// --- MAIN SCRIBE AGENT ---
+export interface ScribeOutlineOutput {
+  workingTitle: string; // New field
+  logline: string;
+  treatment: string;
+  fundamentalStoryQuestions: string[];
+  archetypalCharacters: string[];
+  sceneGenerationQuestions: string[];
+}
+
+
+// --- MAIN SCRIBE AGENT (For generating full screenplay) ---
 export const runScribeAgent = async (input: ScribeInput): Promise<string> => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
@@ -111,25 +246,44 @@ ${JSON.stringify(_themesData, null, 2)}
         const systemInstructionFinal = LORE_PACK_DYNAMIC + "\n\n" + SCRIBE_SYSTEM_INSTRUCTION_STATIC;
 
         const inputBlock = `
-COMMAND: WRITE SCREENPLAY SEQUENCE
+COMMAND: WRITE 40-SCENE SCREENPLAY
+
+Utilize all provided information to generate a 40-scene feature-length screenplay.
+Each scene should be approximately 3 pages long (simulated in text output).
+Adhere strictly to Warner Bros. feature film screenplay formatting.
 
 METADATA:
-TITLE: ${input.title}
+WORKING TITLE: ${input.workingTitle}
+GENRE: ${input.genre}
+LOGLINE: ${input.logline}
 THEME ID: ${input.theme} 
 (Refer to 'novel_themes.json' in LORE PACK for thematic resonance)
 SETTING: ${input.setting}
 TONE: ${input.tone}
 
+=== TREATMENT ===
+${input.treatment}
+
+=== FUNDAMENTAL STORY QUESTIONS ===
+${input.fundamentalStoryQuestions}
+
+=== ARHETYPAL CHARACTERS ===
+${input.archetypalCharacters}
+
 === CAST ===
 ${input.cast}
 
-=== SEQUENCE BEATS ===
+=== CORE SCENE BEATS (for story progression) ===
 ${input.beatSheet}
 
+=== QUESTIONS FOR SCENE GENERATION (Address these throughout the 40 scenes) ===
+${input.sceneGenerationQuestions}
+
 TASK:
-Write the screenplay scenes for the beats above.
+Write the complete 40-scene screenplay. Ensure continuous narrative flow, character development, and rising stakes across the three-act structure (approx. 13-14 scenes per act).
 Utilize sensory details and narrative hooks appropriate for the theme '${input.theme}' and Genre constraints.
-        `;
+Expand on the provided beats and questions to create detailed scenes with action and dialogue.
+`;
 
         try {
             const response = await ai.models.generateContent({
@@ -152,6 +306,100 @@ Utilize sensory details and narrative hooks appropriate for the theme '${input.t
         }
     });
 };
+
+// --- SCRIBE OUTLINE AGENT (For generating initial outline details) ---
+export const runScribeOutlineAgent = async (input: ScribeOutlineInput): Promise<ScribeOutlineOutput> => {
+    return apiCallWithRetry(async () => {
+        const ai = getClient();
+        await _loadScribeJsonData();
+
+        const LORE_PACK_DYNAMIC = `
+=== MYTHOS DATABASE: STRUCTURES ===
+${JSON.stringify(_structuresData, null, 2)}
+
+=== MYTHOS DATABASE: ARCHETYPES ===
+${JSON.stringify(_archetypesData, null, 2)}
+
+=== MYTHOS DATABASE: THEMES ===
+${JSON.stringify(_themesData, null, 2)}
+`;
+        // Combine Lore Pack with the static system instruction, then add the template
+        const systemInstructionFinal = LORE_PACK_DYNAMIC + "\n\n" + SCRIBE_SYSTEM_INSTRUCTION_STATIC + "\n\n" + COMPREHENSIVE_SCREENPLAY_TEMPLATE;
+
+        const inputBlock = `
+COMMAND: GENERATE SCREENPLAY OUTLINE
+
+Utilize the provided story details and cross-reference the Comprehensive Screenplay Template and Lore Pack to fill the following JSON structure.
+Focus ONLY on the narrative blueprint details.
+
+STORY DETAILS:
+TITLE: ${input.title}
+GENRE: ${input.genre}
+THEME ID: ${input.theme}
+SETTING: ${input.setting}
+TONE: ${input.tone}
+CAST:
+${input.cast}
+CORE SCENE BEATS:
+${input.beatSheet}
+
+TASK:
+Generate a concise Working Title (derived from the original Title and theme/genre), a concise Logline, a 1-2 page Treatment, fill in the Fundamental Story Development Questions, identify 8 Archetypal Characters, and propose 8 Questions for Generating 40 Scenes based on the above story details and the provided Comprehensive Screenplay Template.
+
+OUTPUT FORMAT:
+Return a JSON object matching the ScribeOutlineOutput interface.
+
+`;
+
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-pro-preview',
+                contents: { parts: [{ text: inputBlock }] },
+                config: {
+                    maxOutputTokens: 4096, // Increased for longer JSON output
+                    thinkingConfig: { thinkingBudget: 512 }, // Added as per guidelines for Gemini 3 with maxOutputTokens
+                    systemInstruction: systemInstructionFinal,
+                    temperature: 0.5,
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            workingTitle: { type: Type.STRING }, // New property in schema
+                            logline: { type: Type.STRING },
+                            treatment: { type: Type.STRING },
+                            fundamentalStoryQuestions: { 
+                                type: Type.ARRAY, 
+                                items: { type: Type.STRING } 
+                            },
+                            archetypalCharacters: { 
+                                type: Type.ARRAY, 
+                                items: { type: Type.STRING } 
+                            },
+                            sceneGenerationQuestions: { 
+                                type: Type.ARRAY, 
+                                items: { type: Type.STRING } 
+                            },
+                        },
+                        required: ["workingTitle", "logline", "treatment", "fundamentalStoryQuestions", "archetypalCharacters", "sceneGenerationQuestions"]
+                    },
+                    safetySettings
+                }
+            });
+            
+            const jsonText = response.text;
+            if (!jsonText || !jsonText.trim()) throw new Error("Scribe Outline Agent returned empty JSON.");
+            
+            // Attempt to parse the JSON string.
+            const parsedOutput: ScribeOutlineOutput = JSON.parse(jsonText.trim());
+            return parsedOutput;
+
+        } catch (error) {
+            console.error("Scribe Outline Agent Error:", error);
+            throw error instanceof Error ? new Error(`Scribe Outline Error: ${error.message}`) : new Error("Scribe outline execution failed.");
+        }
+    });
+};
+
 
 // --- (PRESERVE YOUR EXISTING FUNCTIONS BELOW) ---
 // Keep getModelForTask, fetchModels, getEmbeddings, analyzeVideo, analyzeImage, etc. 

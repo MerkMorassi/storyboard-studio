@@ -61,7 +61,7 @@ const DEFAULT_PROJECT: Project = {
         photorealismState: { source: null, result: null, prompt: '', negativePrompt: '' },
         resizeState: { source: null, result: null, width: 1024, height: 1024, prompt: '', alignment: 'Middle', overlap: 10, steps: 20, directions: { left: false, right: false, top: false, bottom: false } },
         greenScreenState: { source: null, resultUrl: null },
-        // Removed 'quality' and 'flowShift' as they are not defined in GenerativeVideoState
+        // Fixed: Ensure 'seed' and 'randomizeSeed' are included in GenerativeVideoState initial object
         generativeVideoState: { prompt: '', negativePrompt: '', image: null, lastImage: null, resultUrl: null, engine: 'external', externalUrl: '', steps: 25, duration: 4, guidanceScale: 7.5, guidanceScale2: 1.0, scheduler: 'default', seed: 0, randomizeSeed: true, fps: 24 },
         topazState: { activeMediaType: 'image', source: null, result: null, operation: 'enhance', parameters: { scale: 2, strength: 50 }, faceRecovery: true },
         directorState: { referenceImage: null, analysis: null, chatHistory: [], generatedPreview: null },
