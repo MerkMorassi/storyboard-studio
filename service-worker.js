@@ -1,6 +1,5 @@
 
-
-const CACHE_NAME = 'storyboard-studio-v1';
+const CACHE_NAME = 'storyboard-studio-v7';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -10,7 +9,15 @@ const urlsToCache = [
   '/services/geminiService.ts',
   '/services/ragService.ts',
   '/services/localRagService.ts', 
-  '/services/topazService.ts', // Added Topaz service
+  '/services/topazService.ts',
+  '/services/scribeRandomizer.ts',
+  '/services/agentService.ts',
+  '/services/apiKeyService.ts',
+  '/services/promptTemplateService.ts',
+  '/services/vectorDbService.ts',
+  '/services/embeddingService.ts',
+  '/services/huggingFaceService.ts',
+  '/services/gradioService.ts',
   '/components/InputPanel.tsx',
   '/components/ImageGrid.tsx',
   '/components/icons.tsx',
@@ -21,7 +28,7 @@ const urlsToCache = [
   '/components/VideoGenerator.tsx',
   '/components/FaceRepairStudio.tsx',
   '/components/PhotorealismStudio.tsx',
-  '/components/TopazStudio.tsx', // Added Topaz component
+  '/components/TopazStudio.tsx',
   '/components/BeforeAfterModal.tsx',
   '/components/AgentsStudio.tsx',
   '/components/LoreStudio.tsx',
@@ -32,6 +39,50 @@ const urlsToCache = [
   '/components/AutomationStudio.tsx',
   '/components/ProjectsStudio.tsx',
   '/components/Sidebar.tsx',
+  '/components/ScriptWriterStudio.tsx',
+  '/components/ImageGeneratorStudio.tsx',
+  '/components/MythosCinematicStudio.tsx',
+  '/components/GenerativeVideoStudio.tsx',
+  '/components/BlenderStudio.tsx',
+  '/components/SceneCompositorStudio.tsx',
+  '/components/CompositeStudio.tsx',
+  '/components/FaceSwapStudio.tsx',
+  '/components/ResizeStudio.tsx',
+  '/components/GreenScreenStudio.tsx',
+  '/components/AgentChatView.tsx',
+  '/components/ChatInterface.tsx',
+  '/components/ChatMessage.tsx',
+  '/components/StudioHeader.tsx',
+  '/components/GenericAgentStudio.tsx',
+  '/components/CoreStudio.tsx',
+  '/components/IdeationStudio.tsx',
+  '/components/ScriptingStudio.tsx',
+  '/components/DesignStudio.tsx',
+  '/components/ArtStudio.tsx',
+  '/components/KnowledgeView.tsx',
+  '/components/KnowledgeBaseContext.tsx',
+  '/components/PromptTemplateForm.tsx',
+  '/components/PromptTemplatesView.tsx',
+  '/components/AssetActions.tsx',
+  '/components/Dataframe.tsx',
+  '/components/MediaInput.tsx',
+  '/components/AnalysisResult.tsx',
+  '/components/Loader.tsx',
+  '/components/FramePreview.tsx',
+  '/components/AgentForm.tsx',
+  '/components/ReEngineeredPrompt.tsx',
+  '/modules/director/DirectorStudio.tsx',
+  '/modules/director/service.ts',
+  '/hooks/useLiveChat.ts',
+  '/utils/audio.ts',
+  '/utils/htmlToMarkdown.ts',
+  '/utils/textFormatting.ts',
+  '/utils/video.ts',
+  '/utils/numMarkX.ts',
+  '/data/writer/structures.json',
+  '/data/writer/archetypes.json',
+  '/data/writer/novel_themes.json',
+  '/data/writer/genres.json',
   '/vite.svg',
   '/manifest.json',
   'https://cdn.tailwindcss.com',
@@ -51,6 +102,7 @@ self.addEventListener('install', event => {
         });
         return Promise.all(promises);
       })
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -94,10 +146,11 @@ self.addEventListener('activate', event => {
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheWhitelist.indexOf(cacheName) === -1) {
+                        console.log('Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
             );
-        })
+        }).then(() => self.clients.claim())
     );
 });

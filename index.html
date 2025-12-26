@@ -8,6 +8,60 @@
     <title>Media Analysis Agent</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+      // Global error handler to catch any script loading or early runtime errors
+      // that might prevent React from rendering its ErrorBoundary.
+      window.onerror = function (message, source, lineno, colno, error) {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+          background: #2a0000; color: #ffcccc; padding: 20px;
+          font-family: monospace; font-size: 14px; z-index: 99999;
+          overflow: auto; border: 5px solid #ff0000; box-sizing: border-box;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+        `;
+        errorDiv.innerHTML = `
+          <h1 style="color: #ff6666; font-size: 24px; margin-bottom: 15px;">Critical Application Error</h1>
+          <p style="margin-bottom: 10px;">Please take a screenshot and report this issue.</p>
+          <pre style="background: #000000; padding: 15px; border-radius: 5px; width: 80%; max-width: 600px; white-space: pre-wrap; word-break: break-word;">
+            <strong>Message:</strong> ${message}<br>
+            <strong>Source:</strong> ${source} (Line: ${lineno}, Col: ${colno})<br>
+            <strong>Error:</strong> ${error ? error.stack : 'No stack trace available'}
+          </pre>
+          <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #ff6666; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
+            Reload Page
+          </button>
+        `;
+        document.body.appendChild(errorDiv);
+        return true; // Prevent default browser error reporting
+      };
+
+      window.onunhandledrejection = function (event) {
+        const error = event.reason;
+        const message = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : 'No stack trace available';
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+          background: #2a0000; color: #ffcccc; padding: 20px;
+          font-family: monospace; font-size: 14px; z-index: 99999;
+          overflow: auto; border: 5px solid #ff0000; box-sizing: border-box;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+        `;
+        errorDiv.innerHTML = `
+          <h1 style="color: #ff6666; font-size: 24px; margin-bottom: 15px;">Unhandled Promise Rejection</h1>
+          <p style="margin-bottom: 10px;">An asynchronous operation failed. Please take a screenshot and report this issue.</p>
+          <pre style="background: #000000; padding: 15px; border-radius: 5px; width: 80%; max-width: 600px; white-space: pre-wrap; word-break: break-word;">
+            <strong>Reason:</strong> ${message}<br>
+            <strong>Stack:</strong> ${stack}
+          </pre>
+          <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #ff6666; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
+            Reload Page
+          </button>
+        `;
+        document.body.appendChild(errorDiv);
+        event.preventDefault(); // Prevent default browser error reporting
+      };
+
       // This config object defines the entire color palette and theme.
       tailwind.config = {
         theme: {
@@ -60,10 +114,11 @@
     <script type="importmap">
 {
   "imports": {
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.26.0",
+    "@/": "/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
     "vite": "https://esm.sh/vite@^7.3.0",
     "path": "https://esm.sh/path@^0.12.7",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",

@@ -1,11 +1,30 @@
+
 import { GoogleGenAI, GenerateContentConfig, HarmCategory, HarmBlockThreshold, Chat, Content } from "@google/genai";
 import { getApiKey } from './apiKeyService';
 
 // --- DATA INGESTION (THE BRAIN) ---
-// These files MUST exist in src/data/writer/ for the build to succeed.
-import structuresData from '../data/writer/structures.json';
-import archetypesData from '../data/writer/archetypes.json';
-import themesData from '../data/writer/novel_themes.json'; 
+// JSON files will be fetched dynamically, not directly imported.
+let _structuresData: any;
+let _archetypesData: any;
+let _themesData: any;
+
+const _loadScribeJsonData = async () => {
+    if (_structuresData && _archetypesData && _themesData) return; // Already loaded
+
+    const [structuresRes, archetypesRes, themesRes] = await Promise.all([
+        fetch('/data/writer/structures.json'),
+        fetch('/data/writer/archetypes.json'),
+        fetch('/data/writer/novel_themes.json')
+    ]);
+
+    if (!structuresRes.ok || !archetypesRes.ok || !themesRes.ok) {
+        throw new Error("Failed to fetch Scribe lore data.");
+    }
+
+    _structuresData = await structuresRes.json();
+    _archetypesData = await archetypesRes.json();
+    _themesData = await themesRes.json();
+};
 
 const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -39,19 +58,8 @@ const apiCallWithRetry = async <T>(apiFunction: () => Promise<T>, maxRetries = 3
     throw new Error("API call failed after multiple retries.");
 };
 
-// --- SCRIBE MODULE CONFIGURATION ---
-const LORE_PACK = `
-=== MYTHOS DATABASE: STRUCTURES ===
-${JSON.stringify(structuresData, null, 2)}
-
-=== MYTHOS DATABASE: ARCHETYPES ===
-${JSON.stringify(archetypesData, null, 2)}
-
-=== MYTHOS DATABASE: THEMES ===
-${JSON.stringify(themesData, null, 2)}
-`;
-
-const SCRIBE_SYSTEM_INSTRUCTION = `
+// --- SCRIBE MODULE CONFIGURATION (Static part of the instruction) ---
+const SCRIBE_SYSTEM_INSTRUCTION_STATIC = `
 ### ROLE
 You are the MythOS Screenwriter (Model 3.0). You are an expert in Warner Bros. standard formatting and feature film structure.
 
@@ -87,6 +95,21 @@ export const runScribeAgent = async (input: ScribeInput): Promise<string> => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
         
+        // Ensure JSON data is loaded before constructing the system instruction
+        await _loadScribeJsonData();
+
+        const LORE_PACK_DYNAMIC = `
+=== MYTHOS DATABASE: STRUCTURES ===
+${JSON.stringify(_structuresData, null, 2)}
+
+=== MYTHOS DATABASE: ARCHETYPES ===
+${JSON.stringify(_archetypesData, null, 2)}
+
+=== MYTHOS DATABASE: THEMES ===
+${JSON.stringify(_themesData, null, 2)}
+`;
+        const systemInstructionFinal = LORE_PACK_DYNAMIC + "\n\n" + SCRIBE_SYSTEM_INSTRUCTION_STATIC;
+
         const inputBlock = `
 COMMAND: WRITE SCREENPLAY SEQUENCE
 
@@ -110,10 +133,10 @@ Utilize sensory details and narrative hooks appropriate for the theme '${input.t
 
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-1.5-pro', // Using 1.5 Pro or 3.0 Pro for complex reasoning
+                model: 'gemini-3-pro-preview', 
                 contents: { parts: [{ text: inputBlock }] },
                 config: {
-                    systemInstruction: LORE_PACK + "\n\n" + SCRIBE_SYSTEM_INSTRUCTION,
+                    systemInstruction: systemInstructionFinal,
                     maxOutputTokens: 8192,
                     temperature: 0.7,
                     safetySettings
@@ -147,10 +170,125 @@ export const getModelForTask = (queryText: string): string => {
     const isHighReasoning = HIGH_REASONING_TRIGGERS.some(word => lowQuery.includes(word));
     
     if (isHighReasoning) {
-        return 'gemini-1.5-pro'; // Fallback to 1.5 Pro if 3.0 is unstable
+        return 'gemini-3-pro-preview'; 
     }
     return 'gemini-2.5-flash';
 };
 
-// ... (Paste the rest of your original file's functions: fetchModels, getEmbeddings, analyzeVideo, analyzeImage, generateSpeech, createChat, generateSdxlPrompt, generateText) ...
-// The exports must remain valid.
+export const fetchModels = async (): Promise<{ id: string; name: string }[]> => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        console.warn("API Key not set, using fallback models.");
+        return [
+            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Fallback)' },
+            { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro (Fallback)' },
+        ];
+    }
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error("API call failed to fetch models.");
+        }
+        const data = await response.json();
+        const compatibleModels = data.models
+            .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+            .map((m: any) => ({
+                id: m.name.replace('models/', ''),
+                name: m.displayName
+            }));
+        
+        if (compatibleModels.length > 0) return compatibleModels;
+        throw new Error("No compatible models found.");
+
+    } catch (e) {
+        console.warn("Model fetch failed, using fallback list:", e);
+        return [
+            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Fallback)' },
+            { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro (Fallback)' },
+        ];
+    }
+}
+
+export const getEmbeddings = async (text: string): Promise<number[] | null> => {
+    return apiCallWithRetry(async () => {
+        try {
+            const ai = getClient();
+            if (!text || typeof text !== 'string') return null;
+            
+            const response = await ai.models.embedContent({
+                model: 'text-embedding-004',
+                contents: { parts: [{ text }] }
+            });
+            
+            return response.embeddings?.[0]?.values || null;
+        } catch (error) {
+            console.error("Error generating embedding:", error);
+            throw error;
+        }
+    });
+};
+
+export const generateText = async (prompt: string): Promise<string> => {
+    return apiCallWithRetry(async () => {
+        const ai = getClient();
+        try {
+            const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: { parts: [{ text: prompt }] },
+              config: { maxOutputTokens: 4096, safetySettings, temperature: 0.2 },
+            });
+            const text = response.text;
+            if (typeof text !== 'string' || !text.trim()) throw new Error('The model returned an empty response.');
+            return text;
+        } catch(error) {
+            console.error("Error during text generation:", error);
+            throw error instanceof Error ? new Error(`Gemini API Error: ${error.message}`) : new Error("Unknown error during text generation.");
+        }
+    });
+};
+
+
+export const generateSpeech = async (text: string, voice: string, speakingRate: number): Promise<string> => {
+  if (!text || !text.trim()) throw new Error("Cannot generate audio for empty text.");
+  
+  return apiCallWithRetry(async () => {
+    const ai = getClient();
+    try {
+        const config = {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+              speakingRate: speakingRate,
+            },
+            safetySettings,
+        };
+
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash-preview-tts",
+          contents: [{ parts: [{ text }] }],
+          config: config as any,
+        });
+
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Audio) throw new Error("TTS did not return audio data. Check for safety blocks or model availability.");
+        return base64Audio;
+    } catch (error) {
+        console.error("Error generating speech:", error);
+        if (error instanceof Error && error.message.includes("did not return audio data")) throw error;
+        throw new Error(`Failed to generate audio: ${error instanceof Error ? error.message : "Unknown service error"}`);
+    }
+  });
+};
+
+export const createChat = (systemPrompt?: string, initialHistory?: Content[]): Chat => {
+    const ai = getClient();
+    const config: GenerateContentConfig = { safetySettings };
+    if (systemPrompt && systemPrompt.trim()) config.systemInstruction = systemPrompt;
+
+    return ai.chats.create({
+        model: 'gemini-3-pro-preview', 
+        history: initialHistory,
+        config,
+    });
+};

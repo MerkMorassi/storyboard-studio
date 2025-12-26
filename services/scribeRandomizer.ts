@@ -1,7 +1,29 @@
-import genresData from '../data/writer/genres.json';
-import themesData from '../data/writer/novel_themes.json';
-import structuresData from '../data/writer/structures.json';
-import archetypesData from '../data/writer/archetypes.json';
+
+// JSON files will be fetched dynamically, not directly imported.
+let _genresData: any;
+let _themesData: any;
+let _structuresData: any;
+let _archetypesData: any;
+
+const _loadRandomizerJsonData = async () => {
+    if (_genresData && _themesData && _structuresData && _archetypesData) return; // Already loaded
+
+    const [genresRes, themesRes, structuresRes, archetypesRes] = await Promise.all([
+        fetch('/data/writer/genres.json'),
+        fetch('/data/writer/novel_themes.json'),
+        fetch('/data/writer/structures.json'),
+        fetch('/data/writer/archetypes.json')
+    ]);
+
+    if (!genresRes.ok || !themesRes.ok || !structuresRes.ok || !archetypesRes.ok) {
+        throw new Error("Failed to fetch Scribe randomizer data.");
+    }
+
+    _genresData = await genresRes.json();
+    _themesData = await themesRes.json();
+    _structuresData = await structuresRes.json();
+    _archetypesData = await archetypesRes.json();
+};
 
 // --- TYPE DEFINITIONS ---
 export interface ScribeConfig {
@@ -36,11 +58,13 @@ const pickKey = (obj: any) => {
 };
 
 // --- THE RANDOMIZER ENGINE ---
-export const generateRandomConfig = (): ScribeConfig => {
+export const generateRandomConfig = async (): Promise<ScribeConfig> => {
+    await _loadRandomizerJsonData(); // Ensure data is loaded
+
     // Cast to 'any' to bypass strict JSON typing for dynamic access
-    const genres = genresData as any;
-    const themes = themesData as any;
-    const structures = structuresData as any;
+    const genres = _genresData as any;
+    const themes = _themesData as any;
+    const structures = _structuresData as any;
     
     // 1. ROLL GENRE & SUBGENRE
     const mainGenreKey = pickKey(genres); // e.g., "sci_fi"

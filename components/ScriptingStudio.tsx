@@ -1,183 +1,92 @@
+
 import React, { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import rehypeRaw from 'rehype-raw';
-import { generateRandomConfig, ScribeConfig } from '../services/scribeRandomizer';
-import { runScribeAgent } from '../services/geminiService';
-import { WandIcon, DuplicateIcon, VideoIcon } from './icons'; // Adjust icon imports as needed
+import { Agent, ActiveView } from '../types.ts';
+import { AgentChatView } from './AgentChatView.tsx';
+import { StudioHeader } from './StudioHeader.tsx';
+import { getApiKey } from '../services/apiKeyService.ts';
+import { ScriptIcon, ChatIcon } from './icons.tsx';
+import { ScriptViewer } from './ScriptViewer.tsx';
 
-const ScriptingStudio: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [output, setOutput] = useState<string>("");
-  
-  // State for the Writer's Blueprint
-  const [config, setConfig] = useState<ScribeConfig>({
-    title: "",
-    theme: "",
-    setting: "",
-    tone: "",
-    cast: "",
-    beatSheet: ""
-  });
+interface ScriptingStudioProps {
+    agent: Agent;
+    onNavigate: (view: ActiveView) => void;
+    onCallAgent: (agent: Agent) => void;
+    scriptText: string;
+    onScriptUpload: (file: File) => void;
+}
 
-  // 1. THE CHAOS ENGINE: Calls your new Randomizer
-  const handleRandomize = () => {
-    const newConfig = generateRandomConfig();
-    setConfig(newConfig);
-    setOutput(""); // Clear previous script to avoid confusion
-  };
+export const ScriptingStudio: React.FC<ScriptingStudioProps> = ({ agent, onNavigate, onCallAgent, scriptText, onScriptUpload }) => {
+    const hasApiKey = !!getApiKey();
+    const [activeTab, setActiveTab] = useState<'chat' | 'viewer'>('chat');
 
-  // 2. THE SCRIBE ENGINE: Calls Gemini with the Lore Pack
-  const handleGenerate = async () => {
-    if (!config.beatSheet) return;
-    
-    setLoading(true);
-    try {
-      const script = await runScribeAgent(config);
-      setOutput(script);
-    } catch (error) {
-      console.error("Script generation failed:", error);
-      setOutput("ERROR: The Scribe disconnected. Check API Key or Console logs.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col lg:flex-row h-screen bg-gray-900 text-white overflow-hidden">
-      
-      {/* LEFT PANEL: THE BLUEPRINT (Inputs) */}
-      <div className="w-full lg:w-1/3 p-6 flex flex-col gap-6 border-r border-gray-800 overflow-y-auto custom-scrollbar">
-        
-        {/* Header & Controls */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-green-400">MYTHOS SCRIBE</h2>
-            <p className="text-xs text-gray-500 font-mono mt-1">NARRATIVE ENGINE V3.0</p>
-          </div>
-          
-          <button 
-            onClick={handleRandomize}
-            className="flex items-center gap-2 bg-gray-800 hover:bg-green-900 text-green-400 border border-green-800 px-4 py-2 rounded text-xs uppercase tracking-widest transition-all hover:shadow-[0_0_15px_rgba(74,222,128,0.2)]"
-          >
-            <DuplicateIcon className="w-4 h-4" />
-            <span>Re-Roll Lattice</span>
-          </button>
-        </div>
-
-        {/* Input Fields */}
-        <div className="space-y-4">
-          
-          {/* Title */}
-          <div>
-            <label className="text-xs font-mono text-gray-500 uppercase">Working Title</label>
-            <input 
-              type="text" 
-              value={config.title}
-              onChange={(e) => setConfig({...config, title: e.target.value})}
-              className="w-full bg-black/50 border border-gray-700 text-white p-2 text-sm focus:border-green-500 outline-none rounded mt-1 font-mono"
+    return (
+        <div className="flex flex-col h-full w-full bg-primary">
+            <StudioHeader 
+                breadcrumbs={[
+                    { label: 'Production Team', onClick: () => onNavigate('team') }, 
+                    { label: "Writers' Room (Scribe)" }
+                ]}
+                agent={agent}
+                onCallAgent={() => onCallAgent(agent)}
             />
-          </div>
 
-          {/* Theme & Tone Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-mono text-gray-500 uppercase">Theme ID</label>
-              <input 
-                type="text" 
-                value={config.theme} 
-                onChange={(e) => setConfig({...config, theme: e.target.value})}
-                className="w-full bg-black/50 border border-gray-700 text-gray-300 p-2 text-xs focus:border-green-500 outline-none rounded mt-1"
-              />
+            {/* Sub-Navigation Tabs */}
+            <div className="flex items-center px-6 pt-2 bg-neutral-900 border-b border-neutral-800 gap-1 z-10">
+                <button
+                    onClick={() => setActiveTab('chat')}
+                    className={`flex items-center gap-2 px-6 py-3 text-sm font-bold border-b-2 transition-colors ${
+                        activeTab === 'chat' 
+                            ? 'border-emerald-500 text-white' 
+                            : 'border-transparent text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/50 rounded-t-lg'
+                    }`}
+                >
+                    <ChatIcon className="w-4 h-4" /> Scribe Chat
+                </button>
+                <button
+                    onClick={() => setActiveTab('viewer')}
+                    className={`flex items-center gap-2 px-6 py-3 text-sm font-bold border-b-2 transition-colors ${
+                        activeTab === 'viewer' 
+                            ? 'border-emerald-500 text-white' 
+                            : 'border-transparent text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/50 rounded-t-lg'
+                    }`}
+                >
+                    <ScriptIcon className="w-4 h-4" /> Script Viewer
+                </button>
             </div>
-            <div>
-              <label className="text-xs font-mono text-gray-500 uppercase">Tone</label>
-              <input 
-                type="text" 
-                value={config.tone} 
-                onChange={(e) => setConfig({...config, tone: e.target.value})}
-                className="w-full bg-black/50 border border-gray-700 text-gray-300 p-2 text-xs focus:border-green-500 outline-none rounded mt-1"
-              />
-            </div>
-          </div>
 
-          {/* Setting */}
-          <div>
-            <label className="text-xs font-mono text-gray-500 uppercase">Setting</label>
-            <input 
-              type="text" 
-              value={config.setting}
-              onChange={(e) => setConfig({...config, setting: e.target.value})}
-              className="w-full bg-black/50 border border-gray-700 text-gray-300 p-2 text-sm focus:border-green-500 outline-none rounded mt-1"
-            />
-          </div>
+            <main className="flex-grow overflow-hidden flex flex-col relative">
+                {activeTab === 'chat' ? (
+                    <>
+                        <div className="p-6 pb-0 max-w-6xl mx-auto w-full">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-900 to-teal-900 border border-emerald-500/30 flex items-center justify-center overflow-hidden shadow-lg shadow-emerald-900/20">
+                                    <ScriptIcon className="w-8 h-8 text-emerald-400" />
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-black text-white tracking-tight">Script Department</h1>
+                                    <p className="text-emerald-300 font-medium">Narrative Structure & Screenwriting</p>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-emerald-900/20 border border-emerald-500/20 p-4 rounded-xl mb-6">
+                                <p className="text-sm text-emerald-200">
+                                    <strong>Scribe Status:</strong> Typewriter loaded. Paste your rough notes for formatting, or ask me to outline Act 1.
+                                </p>
+                            </div>
 
-          {/* Cast Manifest */}
-          <div>
-            <label className="text-xs font-mono text-gray-500 uppercase">Cast Manifest</label>
-            <textarea 
-              rows={4}
-              value={config.cast}
-              onChange={(e) => setConfig({...config, cast: e.target.value})}
-              className="w-full bg-black/50 border border-gray-700 text-gray-300 p-2 text-xs font-mono focus:border-green-500 outline-none rounded mt-1 resize-none"
-            />
-          </div>
+                            <div className="h-px bg-neutral-800 w-full mb-2"></div>
+                        </div>
 
-          {/* Beat Sheet (The Prompt) */}
-          <div className="flex-grow">
-            <label className="text-xs font-mono text-gray-500 uppercase">Sequence Beat Sheet</label>
-            <textarea 
-              rows={8}
-              value={config.beatSheet}
-              onChange={(e) => setConfig({...config, beatSheet: e.target.value})}
-              className="w-full bg-black/50 border border-gray-700 text-gray-300 p-2 text-xs font-mono focus:border-green-500 outline-none rounded mt-1 resize-none h-48"
-            />
-          </div>
-
-          {/* EXECUTE BUTTON */}
-          <button 
-            onClick={handleGenerate}
-            disabled={loading}
-            className={`w-full py-4 text-sm uppercase tracking-[0.2em] font-bold border transition-all
-              ${loading 
-                ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed' 
-                : 'bg-green-900/20 border-green-600 text-green-400 hover:bg-green-900/40 hover:shadow-[0_0_20px_rgba(74,222,128,0.2)]'
-              }`}
-          >
-            {loading ? "/// TRANSMITTING TO SCRIBE..." : ">>> EXECUTE PROTOCOL"}
-          </button>
+                        <div className="flex-grow overflow-hidden">
+                            <AgentChatView agent={agent} hasApiKey={hasApiKey} />
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex-grow overflow-hidden h-full">
+                        <ScriptViewer scriptText={scriptText} onUpload={onScriptUpload} />
+                    </div>
+                )}
+            </main>
         </div>
-      </div>
-
-      {/* RIGHT PANEL: THE SCRIPT (Output) */}
-      <div className="w-full lg:w-2/3 bg-black relative flex flex-col">
-        {/* Top Bar */}
-        <div className="h-12 border-b border-gray-800 flex items-center justify-between px-6 bg-gray-900/50">
-          <span className="text-xs font-mono text-gray-500 uppercase">Output Log // Format: WB_Standard</span>
-          {output && (
-             <span className="text-xs text-green-500 font-mono animate-pulse">● LIVE CONNECTION</span>
-          )}
-        </div>
-
-        {/* Script Content */}
-        <div className="flex-grow overflow-y-auto p-8 lg:p-12 custom-scrollbar bg-black">
-          {output ? (
-            <div className="prose prose-invert max-w-3xl mx-auto font-mono text-sm leading-relaxed text-gray-300 whitespace-pre-wrap script-font">
-               {/* Use rehypeRaw to render <center> tags if the AI uses them */}
-               <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                 {output}
-               </ReactMarkdown>
-            </div>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-gray-700 opacity-50 select-none">
-              <VideoIcon className="w-16 h-16 mb-4 opacity-20" />
-              <p className="text-sm font-mono tracking-widest uppercase">Awaiting Narrative Input</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-    </div>
-  );
+    );
 };
-
-export default ScriptingStudio;

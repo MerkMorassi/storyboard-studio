@@ -46,16 +46,20 @@ export const ScriptWriterStudio: React.FC = () => {
         }
     };
 
-    const handleRandomize = () => {
-        const config = generateRandomConfig();
-        setTitle(config.title);
-        setTheme(config.theme);
-        setSetting(config.setting);
-        setTone(config.tone);
-        setCast(config.cast);
-        setBeatSheet(config.beatSheet);
-        setError(null);
-        setGeneratedScript(''); // Clear old output on new roll
+    const handleRandomize = async () => { // Make this async
+        try {
+            const config = await generateRandomConfig(); // Await the async function
+            setTitle(config.title);
+            setTheme(config.theme);
+            setSetting(config.setting);
+            setTone(config.tone);
+            setCast(config.cast);
+            setBeatSheet(config.beatSheet);
+            setError(null);
+            setGeneratedScript(''); // Clear old output on new roll
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to randomize configuration.");
+        }
     };
 
     const handleCopyToClipboard = () => {
