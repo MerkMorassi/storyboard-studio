@@ -55,21 +55,21 @@ const formatToWBStandard = (text: string): string => {
 
 /**
  * A specialized textarea that automatically adjusts its height 
- * to fit the content exactly, avoiding scrollbars and empty space.
+ * to fit the content exactly, ensuring the DIV grows with the text.
  */
 const AutoExpandingTextarea: React.FC<{
     value: string;
     onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
     placeholder?: string;
     className?: string;
-}> = ({ value, onChange, placeholder, className }) => {
+    readOnly?: boolean;
+}> = ({ value, onChange, placeholder, className, readOnly = false }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const adjustHeight = () => {
         const textarea = textareaRef.current;
         if (textarea) {
             textarea.style.height = 'auto';
-            // Set height to scrollHeight to fit content exactly
             textarea.style.height = `${textarea.scrollHeight}px`;
         }
     };
@@ -84,6 +84,7 @@ const AutoExpandingTextarea: React.FC<{
             value={value}
             onChange={onChange}
             placeholder={placeholder}
+            readOnly={readOnly}
             className={`resize-none overflow-hidden block w-full transition-all duration-200 ${className}`}
             rows={1}
         />
@@ -103,7 +104,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
     promptTemplates,
     dynamicPromptLists
 }) => {
-    // Collapsible states - All open by default
+    // Collapsible states
     const [isStep1Open, setIsStep1Open] = useState(true);
     const [isStep2Open, setIsStep2Open] = useState(true);
     const [isStep3Open, setIsStep3Open] = useState(true);
@@ -257,15 +258,38 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
         }
     };
 
-    const handleCopyContent = () => {
-        let content = '';
+    // --- Step-Specific Copy Handlers ---
+
+    const handleCopyStep1 = () => {
+        const text = `STUDIO PROTOCOLS:\n\nPOSITIVE DIRECTIVES:\n${positiveConstraints}\n\nNEGATIVE DIRECTIVES:\n${negativeConstraints}`;
+        navigator.clipboard.writeText(text);
+        showCopyFeedback("Step 1 Copied");
+    };
+
+    const handleCopyStep2 = () => {
+        const text = `PRODUCTION BLUEPRINT:\n\nTITLE: ${initialTitle}\nGENRE: ${genre}\nTHEME: ${theme}\nSETTING: ${setting}\n\nCAST:\n${cast}\n\nBEATS:\n${beatSheet}`;
+        navigator.clipboard.writeText(text);
+        showCopyFeedback("Step 2 Copied");
+    };
+
+    const handleCopyStep3 = () => {
+        if (!generatedOutline) return;
+        const text = `AI SYNTHESIZED OUTLINE:\n\nWORKING TITLE: ${workingTitle}\n\nLOGLINE:\n${logline}\n\nTREATMENT:\n${treatment}\n\nSTORY QUESTIONS:\n${fundamentalStoryQuestions.join('\n')}`;
+        navigator.clipboard.writeText(text);
+        showCopyFeedback("Step 3 Copied");
+    };
+
+    const handleCopyStep4 = () => {
+        let text = '';
         if (activeOutputTab === 'outline' && generatedOutline) {
-            content = `TITLE: ${generatedOutline.workingTitle}\nLOGLINE: ${generatedOutline.logline}\n\nTREATMENT:\n${generatedOutline.treatment}\n\nQUESTIONS:\n${generatedOutline.fundamentalStoryQuestions.join('\n')}`;
+            text = `OUTLINE ANALYSIS:\n\nTITLE: ${workingTitle}\n\nLOGLINE: ${logline}\n\nTREATMENT:\n${treatment}\n\nQUESTIONS:\n${fundamentalStoryQuestions.join('\n')}`;
         } else if (activeOutputTab === 'screenplay' && generatedScreenplay) {
-            content = formatToWBStandard(generatedScreenplay);
+            text = formatToWBStandard(generatedScreenplay);
         }
-        navigator.clipboard.writeText(cleanLiteralNewlines(content));
-        showCopyFeedback("Copied to Clipboard");
+        if (text) {
+            navigator.clipboard.writeText(cleanLiteralNewlines(text));
+            showCopyFeedback("Step 4 Copied");
+        }
     };
 
     const handleDownload = () => {
@@ -278,19 +302,15 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
             content = formatToWBStandard(generatedScreenplay);
             filename = `${workingTitle.replace(/ /g, '_')}_Draft.txt`;
         }
-        const blob = new Blob([cleanLiteralNewlines(content)], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
-
-    const handleCopyBlueprint = () => {
-        const content = `TITLE: ${initialTitle}\nGENRE: ${genre}\nTHEME: ${theme}\nSETTING: ${setting}\n\nCAST:\n${cast}\n\nBEAT SHEET:\n${beatSheet}`;
-        navigator.clipboard.writeText(content);
-        showCopyFeedback("Blueprint Copied");
+        if (content) {
+            const blob = new Blob([cleanLiteralNewlines(content)], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
     };
 
     const handleSendToBin = () => {
@@ -310,23 +330,34 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
         title: string; 
         isOpen: boolean; 
         onToggle: () => void;
+        onCopy: () => void;
         icon: React.ReactNode;
         extra?: React.ReactNode;
         themeColor?: string;
-    }> = ({ number, title, isOpen, onToggle, icon, extra, themeColor = "text-brand" }) => (
-        <button 
-            onClick={onToggle}
-            className="w-full flex items-center justify-between px-6 py-4 bg-neutral-800/30 hover:bg-neutral-800/50 transition-all group border-b border-neutral-700/50"
-        >
-            <div className="flex items-center gap-4">
-                <div className={`${themeColor} p-1`}>{icon}</div>
+        disabled?: boolean;
+    }> = ({ number, title, isOpen, onToggle, onCopy, icon, extra, themeColor = "text-brand", disabled = false }) => (
+        <div className={`w-full flex items-center justify-between px-6 py-4 bg-neutral-800/30 border-b border-neutral-700/50 ${disabled ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+            <button 
+                onClick={onToggle}
+                className="flex items-center gap-4 flex-grow text-left group"
+            >
+                <div className={`${themeColor} p-1 transition-transform group-hover:scale-110`}>{icon}</div>
                 <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">STEP {number}: {title}</h3>
-            </div>
-            <div className="flex items-center gap-4">
+            </button>
+            <div className="flex items-center gap-3">
                 {extra}
-                <ChevronDownIcon className={`w-6 h-6 ${themeColor} transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onCopy(); }}
+                    className="p-2 text-neutral-500 hover:text-white transition-colors"
+                    title="Copy this step to clipboard as .txt"
+                >
+                    <DuplicateIcon className="w-4 h-4" />
+                </button>
+                <button onClick={onToggle} className="p-1">
+                    <ChevronDownIcon className={`w-6 h-6 ${themeColor} transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
             </div>
-        </button>
+        </div>
     );
 
     return (
@@ -359,6 +390,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                         title="STUDIO PROTOCOLS" 
                         isOpen={isStep1Open} 
                         onToggle={() => setIsStep1Open(!isStep1Open)}
+                        onCopy={handleCopyStep1}
                         icon={<BookmarkIcon className="w-5 h-5" />}
                     />
                     {isStep1Open && (
@@ -396,13 +428,11 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                         title="PRODUCTION BLUEPRINT" 
                         isOpen={isStep2Open} 
                         onToggle={() => setIsStep2Open(!isStep2Open)}
+                        onCopy={handleCopyStep2}
                         icon={<ScriptIcon className="w-6 h-6" />}
                         themeColor="text-blue-400"
                         extra={
                             <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                                <button onClick={handleCopyBlueprint} className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 rounded-lg flex items-center gap-2 border border-neutral-700 font-black uppercase text-[9px] tracking-widest">
-                                    <DuplicateIcon className="w-3.5 h-3.5" /> <span>Lattice</span>
-                                </button>
                                 <button onClick={handleRandomize} className="px-3 py-1.5 bg-brand/10 hover:bg-brand text-brand hover:text-white rounded-lg flex items-center gap-2 border border-brand/20 font-black uppercase text-[9px] tracking-widest transition-all">
                                     <ShuffleIcon className="w-3.5 h-3.5" /> <span>Re-Roll</span>
                                 </button>
@@ -460,6 +490,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                             title="AI SYNTHESIZED OUTLINE" 
                             isOpen={isStep3Open} 
                             onToggle={() => setIsStep3Open(!isStep3Open)}
+                            onCopy={handleCopyStep3}
                             icon={<AutomationIcon className="w-5 h-5" />}
                             themeColor="text-blue-500"
                         />
@@ -473,12 +504,12 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                 ) : (
                                     <div className="space-y-8 flex flex-col items-stretch max-w-5xl mx-auto">
                                         <div className="space-y-3">
-                                            <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest">Working Title</label>
+                                            <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Working Title</label>
                                             <input type="text" value={workingTitle} onChange={(e) => setWorkingTitle(e.target.value)} className="w-full bg-black border border-neutral-800 p-5 rounded-lg text-2xl text-blue-400 font-black shadow-inner outline-none focus:ring-1 focus:ring-brand" />
                                         </div>
 
                                         <div className="space-y-3">
-                                            <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest">Story Logline</label>
+                                            <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Story Logline</label>
                                             <AutoExpandingTextarea 
                                                 value={logline} 
                                                 onChange={(e) => setLogline(e.target.value)} 
@@ -488,7 +519,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                         </div>
                                         
                                         <div className="space-y-3">
-                                            <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest">Narrative Treatment (AI Draft)</label>
+                                            <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Narrative Treatment (AI Draft)</label>
                                             <AutoExpandingTextarea 
                                                 value={treatment} 
                                                 onChange={(e) => setTreatment(e.target.value)} 
@@ -517,11 +548,11 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                             title="FINAL PRODUCTION REPORT" 
                             isOpen={isStep4Open} 
                             onToggle={() => setIsStep4Open(!isStep4Open)}
+                            onCopy={handleCopyStep4}
                             icon={<div className={`w-3.5 h-3.5 rounded-full ${generatedScreenplay ? 'bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-neutral-800'}`}></div>}
                             themeColor="text-green-500"
                             extra={
                                 <div className="flex gap-4" onClick={e => e.stopPropagation()}>
-                                    <button onClick={handleCopyContent} disabled={!generatedOutline && !generatedScreenplay} className="text-[11px] font-black text-neutral-400 hover:text-white px-5 py-2.5 border border-neutral-800 hover:border-neutral-600 rounded-lg uppercase tracking-widest transition-all active:scale-95">Copy Content</button>
                                     <button onClick={handleDownload} disabled={!generatedOutline && !generatedScreenplay} className="text-[11px] font-black text-brand hover:text-brand-hover px-5 py-2.5 flex items-center gap-2 border border-brand/20 hover:border-brand/50 rounded-lg transition-all uppercase tracking-widest active:scale-95"><DownloadIcon className="w-4 h-4" /> Export .txt</button>
                                 </div>
                             }

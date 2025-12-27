@@ -14,9 +14,9 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch and display critical rendering errors.
  */
-// Fix: Explicitly use React.Component to ensure inheritance is correctly recognized by TypeScript and avoid ambiguities with the named import.
+// Fix: Use React.Component explicitly to ensure inheritance is correctly recognized by TypeScript and avoid potential named import conflicts.
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
+  public override state: ErrorBoundaryState = {
     hasError: false,
     error: null,
     errorInfo: null,
@@ -27,18 +27,18 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return { hasError: true, error, errorInfo: null };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log the error for diagnostic purposes.
     console.error("Uncaught error in ErrorBoundary:", error, errorInfo);
     
-    // Fix: setState is available on instances of React.Component.
+    // Fix: Accessing setState which is inherited from the base React.Component class.
     this.setState({
       error: error,
       errorInfo: errorInfo,
     });
   }
 
-  public render() {
+  public override render() {
     // If an error was caught, render the technical crash report
     if (this.state.hasError) {
       return (
@@ -50,7 +50,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
 
     // Otherwise, render children normally
-    // Fix: props is available on instances of React.Component.
+    // Fix: Accessing children from the inherited props property.
     return this.props.children;
   }
 }
