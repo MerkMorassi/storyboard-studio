@@ -72,7 +72,6 @@ export interface ScribeOutlineOutput {
 }
 
 const getScribeSystemPrompt = (pos?: string, neg?: string, rating?: string, dynamicLists?: any[]) => {
-    // Resolve rating technical prompt
     let ratingPrompt = "";
     if (rating && rating !== "none" && CONTENT_GUIDELINES.RATINGS[rating as keyof typeof CONTENT_GUIDELINES.RATINGS]) {
         const rData = CONTENT_GUIDELINES.RATINGS[rating as keyof typeof CONTENT_GUIDELINES.RATINGS];
@@ -239,7 +238,7 @@ export const generateSpeech = async (text: string, voice: string, rate: number) 
         const ai = getClient();
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-preview-tts',
-            contents: [{ parts: [{ text: prompt }] }],
+            contents: [{ parts: [{ text: text }] }],
             config: {
                 responseModalities: [Modality.AUDIO],
                 speechConfig: {

@@ -14,24 +14,28 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
         fs: {
-            // Allow serving files from one level up to the project root
-            allow: ['..']
+            allow: ['.']
         }
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY || ''),
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY || '')
       },
       resolve: {
         alias: {
-          // Absolute path alias for project root
           '@': path.resolve(__dirname, '.'),
         }
       },
       build: {
           target: 'esnext',
-          modulePreload: true
+          modulePreload: true,
+          outDir: 'dist',
+          rollupOptions: {
+              input: {
+                  main: path.resolve(__dirname, 'index.html'),
+              }
+          }
       }
     };
 });

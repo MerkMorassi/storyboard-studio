@@ -2,48 +2,48 @@
 export const simpleMarkdownToHtml = (markdown: string): string => {
     if (!markdown) return '';
 
-    // Cleanup: Remove code block wrappers if the model wrapped HTML in them
-    // This fixes the issue where users see ```html ... ``` as text instead of rendered HTML
-    let cleanMarkdown = markdown.replace(/^```html\s*/i, '').replace(/```$/i, '');
+    // 1. Normalize Newlines: Convert literal '\n' strings and Windows line endings to actual newlines
+    let cleanMarkdown = markdown
+        .replace(/\\n/g, '\n')
+        .replace(/\r\n/g, '\n')
+        .replace(/^```html\s*/i, '')
+        .replace(/```$/i, '');
 
+    // 2. Perform Regex Replacements for Markdown elements
     let html = cleanMarkdown
-        // Removed HTML escaping to allow rendering of model-generated HTML
-        // .replace(/&/g, "&amp;")
-        // .replace(/</g, "&lt;")
-        // .replace(/>/g, "&gt;")
+        // Headers (Handling potential leading whitespace and line starts)
+        .replace(/^\s*### (.*$)/gim, '<h3 class="text-lg font-black text-blue-400 mt-8 mb-4 uppercase tracking-wider">$1</h3>')
+        .replace(/^\s*## (.*$)/gim, '<h2 class="text-2xl font-black text-white mt-10 mb-5 border-l-4 border-blue-600 pl-4 uppercase tracking-tight">$1</h2>')
+        .replace(/^\s*# (.*$)/gim, '<h1 class="text-3xl font-black text-white mt-12 mb-6 border-b-2 border-accent pb-3 uppercase tracking-tighter">$1</h1>')
         
-        // Headers
-        .replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-brand-hover mt-4 mb-2">$1</h3>')
-        .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold text-white mt-5 mb-3">$1</h2>')
-        .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold text-white mt-6 mb-4 border-b border-accent pb-2">$1</h1>')
+        // Bold & Italic
+        .replace(/\*\*(.*?)\*\*/gim, '<strong class="text-white font-bold">$1</strong>')
+        .replace(/\*(.*?)\*/gim, '<em class="text-neutral-300 italic">$1</em>')
         
-        // Bold
-        .replace(/\*\*(.*?)\*\*/gim, '<strong class="text-white">$1</strong>')
-        .replace(/__((?:[^_]|_[^_])*?)__/gim, '<strong class="text-white">$1</strong>')
-        
-        // Italic
-        .replace(/\*(.*?)\*/gim, '<em class="text-neutral-300">$1</em>')
-        .replace(/_((?:[^_]|__)*?)_/gim, '<em class="text-neutral-300">$1</em>')
-        
-        // Blockquotes
-        .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-brand pl-4 py-1 my-4 italic text-neutral-400 bg-neutral-800/30 rounded-r">$1</blockquote>')
-        
-        // Code blocks - Only format if they are NOT html blocks (which we stripped)
-        .replace(/```([\s\S]*?)```/gim, '<pre class="bg-black/50 p-4 rounded-lg my-4 overflow-x-auto border border-accent"><code class="font-mono text-sm text-green-400">$1</code></pre>')
-        
-        // Inline code
-        .replace(/`([^`]+)`/gim, '<code class="bg-black/50 px-1.5 py-0.5 rounded font-mono text-sm text-green-400 border border-white/10">$1</code>')
-        
-        // Lists (unordered) - Wrap in a div to simulate list structure for visuals
-        .replace(/^\s*-\s+(.*$)/gim, '<div class="flex gap-2 mb-1 ml-4"><span class="text-brand">•</span><span>$1</span></div>')
-        .replace(/^\s*\*\s+(.*$)/gim, '<div class="flex gap-2 mb-1 ml-4"><span class="text-brand">•</span><span>$1</span></div>')
+        // Blockquotes (Cinematic Directives)
+        .replace(/^\s*> (.*$)/gim, '<blockquote class="border-l-4 border-blue-500 pl-6 py-2 my-6 italic text-neutral-400 bg-blue-900/10 rounded-r-lg shadow-inner">$1</blockquote>')
         
         // Horizontal Rule
-        .replace(/^---$/gim, '<hr class="border-accent my-6" />');
+        .replace(/^\s*---\s*$/gim, '<hr class="border-neutral-800 my-10" />')
 
-    // Paragraphs: Any text block separated by double newlines that isn't already a tag
-    return html.split('\n\n').map(block => {
-        if (block.trim().match(/^<(h|div|blockquote|pre|hr|ul|li|ol)/i)) return block;
-        return `<p class="mb-4 leading-relaxed">${block.replace(/\n/g, '<br/>')}</p>`;
+        // Lists (Unordered)
+        .replace(/^\s*[-*]\s+(.*$)/gim, '<div class="flex gap-3 mb-2 ml-4"><span class="text-blue-500 font-black">•</span><span class="text-neutral-400">$1</span></div>');
+
+    // 3. Paragraph Wrapping Logic
+    // We split by double newlines to find paragraphs, but we must be careful not to wrap 
+    // blocks that already contain our generated HTML tags at the start.
+    const blocks = html.split(/\n\n+/);
+    
+    return blocks.map(block => {
+        const trimmed = block.trim();
+        if (!trimmed) return '';
+        
+        // If the block starts with one of our custom tags, return as is (already formatted)
+        if (trimmed.match(/^<(h1|h2|h3|blockquote|div|hr|pre)/i)) {
+            return trimmed.replace(/\n/g, '<br/>'); // Preserve single newlines inside these blocks
+        }
+        
+        // Otherwise, wrap in a paragraph tag and convert single newlines to breaks
+        return `<p class="mb-6 leading-relaxed text-neutral-400">${trimmed.replace(/\n/g, '<br/>')}</p>`;
     }).join('');
 };

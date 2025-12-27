@@ -1,8 +1,8 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { App } from './App';
-import { ErrorBoundary } from './ErrorBoundary';
-import { loadMythosData } from './services/mythosData';
+import { createRoot } from 'react-dom/client';
+import { App } from './App.tsx';
+import { ErrorBoundary } from './ErrorBoundary.tsx';
+import { loadMythosData } from './services/mythosData.ts';
 
 async function bootstrap() {
   try {
@@ -16,7 +16,7 @@ async function bootstrap() {
     }
 
     // 3. Initialize React
-    const root = ReactDOM.createRoot(rootElement);
+    const root = createRoot(rootElement);
     root.render(
       <React.StrictMode>
         <ErrorBoundary>

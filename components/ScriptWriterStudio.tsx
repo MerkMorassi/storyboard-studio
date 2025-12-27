@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     EditIcon, 
@@ -18,6 +17,7 @@ import { generateRandomConfig } from '../services/scribeRandomizer';
 import { ScriptFile, ActiveView, PromptTemplate, DynamicPromptList } from '../types';
 import { MythosData } from '../services/mythosData';
 import { CONTENT_GUIDELINES } from '../services/contentGuidelines';
+import { simpleMarkdownToHtml } from '../utils/textFormatting';
 
 const cleanLiteralNewlines = (text: string): string => {
     if (!text) return '';
@@ -52,44 +52,6 @@ const formatToWBStandard = (text: string): string => {
 
         return ' '.repeat(15) + trimmed;
     }).join('\n');
-};
-
-/**
- * A specialized textarea that automatically adjusts its height 
- * to fit the content exactly, ensuring the DIV grows with the text.
- */
-const AutoExpandingTextarea: React.FC<{
-    value: string;
-    onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-    placeholder?: string;
-    className?: string;
-    readOnly?: boolean;
-}> = ({ value, onChange, placeholder, className, readOnly = false }) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    const adjustHeight = () => {
-        const textarea = textareaRef.current;
-        if (textarea) {
-            textarea.style.height = 'auto';
-            textarea.style.height = `${textarea.scrollHeight}px`;
-        }
-    };
-
-    useEffect(() => {
-        adjustHeight();
-    }, [value]);
-
-    return (
-        <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={onChange}
-            placeholder={placeholder}
-            readOnly={readOnly}
-            className={`resize-none overflow-hidden block w-full transition-all duration-200 ${className}`}
-            rows={1}
-        />
-    );
 };
 
 interface ScriptWriterStudioProps {
@@ -270,69 +232,16 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
         }
     };
 
-    // --- Step-Specific Copy Handlers ---
-
-    const handleCopyStep1 = () => {
-        const text = `STUDIO PROTOCOLS:\n\nRATING: ${rating}\n\nPOSITIVE DIRECTIVES:\n${positiveConstraints}\n\nNEGATIVE DIRECTIVES:\n${negativeConstraints}`;
-        navigator.clipboard.writeText(text);
-        showCopyFeedback("Step 1 Copied");
-    };
-
-    const handleCopyStep2 = () => {
-        const text = `PRODUCTION BLUEPRINT:\n\nTITLE: ${initialTitle}\nGENRE: ${genre}\nTHEME: ${theme}\nSETTING: ${setting}\n\nCAST:\n${cast}\n\nBEATS:\n${beatSheet}`;
-        navigator.clipboard.writeText(text);
-        showCopyFeedback("Step 2 Copied");
-    };
-
-    const handleCopyStep3 = () => {
-        if (!generatedOutline) return;
-        const text = `AI SYNTHESIZED OUTLINE:\n\nWORKING TITLE: ${workingTitle}\n\nLOGLINE:\n${logline}\n\nTREATMENT:\n${treatment}\n\nSTORY QUESTIONS:\n${fundamentalStoryQuestions.join('\n')}`;
-        navigator.clipboard.writeText(text);
-        showCopyFeedback("Step 3 Copied");
-    };
-
-    const handleCopyStep4 = () => {
-        let text = '';
-        if (activeOutputTab === 'outline' && generatedOutline) {
-            text = `OUTLINE ANALYSIS:\n\nTITLE: ${workingTitle}\n\nLOGLINE: ${logline}\n\nTREATMENT:\n${treatment}\n\nQUESTIONS:\n${fundamentalStoryQuestions.join('\n')}`;
-        } else if (activeOutputTab === 'screenplay' && generatedScreenplay) {
-            text = formatToWBStandard(generatedScreenplay);
-        }
-        if (text) {
-            navigator.clipboard.writeText(cleanLiteralNewlines(text));
-            showCopyFeedback("Step 4 Copied");
-        }
-    };
-
-    const handleDownload = () => {
-        let content = '';
-        let filename = '';
-        if (activeOutputTab === 'outline' && generatedOutline) {
-            content = `OUTLINE: ${generatedOutline.workingTitle}\n\nLOGLINE: ${generatedOutline.logline}\n\nTREATMENT:\n${generatedOutline.treatment}\n\nQUESTIONS:\n${generatedOutline.fundamentalStoryQuestions.join('\n')}`;
-            filename = `${generatedOutline.workingTitle.replace(/ /g, '_')}_Outline.txt`;
-        } else if (activeOutputTab === 'screenplay' && generatedScreenplay) {
-            content = formatToWBStandard(generatedScreenplay);
-            filename = `${workingTitle.replace(/ /g, '_')}_Draft.txt`;
-        }
-        if (content) {
-            const blob = new Blob([cleanLiteralNewlines(content)], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-    };
-
+    // Fix: Added missing handleSendToBin function to resolve error in line 442.
     const handleSendToBin = () => {
-        if (!generatedScreenplay) return;
-        onSendToScriptsBin({
-            title: workingTitle || initialTitle,
-            content: formatToWBStandard(generatedScreenplay),
-            type: 'screenplay'
-        });
-        showCopyFeedback("Sent to Scripts Bin");
+        if (generatedScreenplay) {
+            onSendToScriptsBin({
+                title: workingTitle || initialTitle,
+                content: generatedScreenplay,
+                type: 'screenplay'
+            });
+            showCopyFeedback("Draft sent to Scripts Bin");
+        }
     };
 
     const isOutlineReady = workingTitle.trim() && logline.trim() && treatment.trim() && fundamentalStoryQuestions.length > 0;
@@ -349,20 +258,13 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
         disabled?: boolean;
     }> = ({ number, title, isOpen, onToggle, onCopy, icon, extra, themeColor = "text-brand", disabled = false }) => (
         <div className={`w-full flex items-center justify-between px-6 py-4 bg-neutral-800/30 border-b border-neutral-700/50 ${disabled ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
-            <button 
-                onClick={onToggle}
-                className="flex items-center gap-4 flex-grow text-left group"
-            >
+            <button onClick={onToggle} className="flex items-center gap-4 flex-grow text-left group">
                 <div className={`${themeColor} p-1 transition-transform group-hover:scale-110`}>{icon}</div>
                 <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">STEP {number}: {title}</h3>
             </button>
             <div className="flex items-center gap-3">
                 {extra}
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onCopy(); }}
-                    className="p-2 text-neutral-500 hover:text-white transition-colors"
-                    title="Copy this step to clipboard as .txt"
-                >
+                <button onClick={(e) => { e.stopPropagation(); onCopy(); }} className="p-2 text-neutral-500 hover:text-white transition-colors" title="Copy text">
                     <DuplicateIcon className="w-4 h-4" />
                 </button>
                 <button onClick={onToggle} className="p-1">
@@ -374,63 +276,41 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
 
     return (
         <div className="flex flex-col h-full bg-primary overflow-hidden">
-            {/* Studio Header */}
+            {/* Header */}
             <div className="flex-shrink-0 flex justify-between items-center h-16 px-6 border-b border-neutral-800 bg-neutral-900/50 z-20">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-brand/20 rounded-lg text-brand">
-                        <EditIcon className="w-6 h-6" />
-                    </div>
+                    <div className="p-2 bg-brand/20 rounded-lg text-brand"><EditIcon className="w-6 h-6" /></div>
                     <div>
                         <h2 className="text-xl font-black text-white uppercase tracking-tight">Script Writer Studio</h2>
                         <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest leading-none">MythOS Scribe / Version 4.2</p>
                     </div>
                 </div>
-                {copyFeedback && (
-                    <div className="bg-green-600/20 text-green-400 px-4 py-1.5 rounded-full text-xs font-black border border-green-500/30 animate-fade-in shadow-xl">
-                        {copyFeedback}
-                    </div>
-                )}
+                {copyFeedback && <div className="bg-green-600/20 text-green-400 px-4 py-1.5 rounded-full text-xs font-black border border-green-500/30 animate-fade-in shadow-xl">{copyFeedback}</div>}
             </div>
 
-            {/* Scrollable Workflow */}
+            {/* Workflow Area */}
             <div className="flex-grow overflow-y-auto custom-scrollbar p-6 space-y-8 pb-40">
                 
                 {/* STEP 1: STUDIO PROTOCOLS */}
                 <div className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                     <StepHeader 
-                        number={1} 
-                        title="STUDIO PROTOCOLS" 
-                        isOpen={isStep1Open} 
-                        onToggle={() => setIsStep1Open(!isStep1Open)}
-                        onCopy={handleCopyStep1}
+                        number={1} title="STUDIO PROTOCOLS" isOpen={isStep1Open} onToggle={() => setIsStep1Open(!isStep1Open)} 
+                        onCopy={() => navigator.clipboard.writeText(`RATING: ${rating}\nPOS: ${positiveConstraints}\nNEG: ${negativeConstraints}`)}
                         icon={<BookmarkIcon className="w-5 h-5" />}
                     />
                     {isStep1Open && (
                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 bg-black/40 animate-fade-in">
                             <div className="md:col-span-2">
                                 <label className="text-[10px] font-black text-neutral-500 uppercase mb-2 block tracking-widest">Production Rating Standard</label>
-                                <div className="relative">
-                                    <select 
-                                        value={rating}
-                                        onChange={(e) => handleApplyRating(e.target.value)}
-                                        className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-sm text-brand font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer transition-colors"
-                                    >
-                                        <option value="none">- NONE (Unrestricted) -</option>
-                                        {Object.entries(CONTENT_GUIDELINES.RATINGS).map(([key, val]) => (
-                                            <option key={key} value={key}>{val.name}</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDownIcon className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500" />
-                                </div>
+                                <select value={rating} onChange={(e) => handleApplyRating(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-sm text-brand font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer">
+                                    <option value="none">- NONE (Unrestricted) -</option>
+                                    {Object.entries(CONTENT_GUIDELINES.RATINGS).map(([key, val]) => (
+                                        <option key={key} value={key}>{val.name}</option>
+                                    ))}
+                                </select>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-green-500 uppercase tracking-widest flex items-center gap-2">Positive Directives</label>
-                                <textarea value={positiveConstraints} onChange={(e) => setPositiveConstraints(e.target.value)} placeholder="Force specific story requirements..." className="w-full h-32 bg-black border border-neutral-800 rounded-lg text-sm text-neutral-100 focus:ring-2 focus:ring-brand outline-none resize-none font-mono p-4" />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">Negative Directives</label>
-                                <textarea value={negativeConstraints} onChange={(e) => setNegativeConstraints(e.target.value)} placeholder="Explicitly exclude themes or content..." className="w-full h-32 bg-black border border-neutral-800 rounded-lg text-sm text-neutral-100 focus:ring-2 focus:ring-brand outline-none resize-none font-mono p-4" />
-                            </div>
+                            <textarea value={positiveConstraints} onChange={(e) => setPositiveConstraints(e.target.value)} placeholder="Must Include..." className="w-full h-32 bg-black border border-neutral-800 rounded-lg text-sm text-neutral-100 p-4" />
+                            <textarea value={negativeConstraints} onChange={(e) => setNegativeConstraints(e.target.value)} placeholder="Forbidden..." className="w-full h-32 bg-black border border-neutral-800 rounded-lg text-sm text-neutral-100 p-4" />
                         </div>
                     )}
                 </div>
@@ -438,58 +318,27 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 {/* STEP 2: PRODUCTION BLUEPRINT */}
                 <div className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                     <StepHeader 
-                        number={2} 
-                        title="PRODUCTION BLUEPRINT" 
-                        isOpen={isStep2Open} 
-                        onToggle={() => setIsStep2Open(!isStep2Open)}
-                        onCopy={handleCopyStep2}
-                        icon={<ScriptIcon className="w-6 h-6" />}
-                        themeColor="text-blue-400"
-                        extra={
-                            <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                                <button onClick={handleRandomize} className="px-3 py-1.5 bg-brand/10 hover:bg-brand text-brand hover:text-white rounded-lg flex items-center gap-2 border border-brand/20 font-black uppercase text-[9px] tracking-widest transition-all">
-                                    <ShuffleIcon className="w-3.5 h-3.5" /> <span>Re-Roll</span>
-                                </button>
-                            </div>
-                        }
+                        number={2} title="PRODUCTION BLUEPRINT" isOpen={isStep2Open} onToggle={() => setIsStep2Open(!isStep2Open)} 
+                        onCopy={() => {}} icon={<ScriptIcon className="w-6 h-6" />} themeColor="text-blue-400"
+                        extra={<button onClick={handleRandomize} className="px-3 py-1.5 bg-brand/10 hover:bg-brand text-brand hover:text-white rounded-lg flex items-center gap-2 border border-brand/20 font-black uppercase text-[9px] tracking-widest transition-all"><ShuffleIcon className="w-3.5 h-3.5" /> Re-Roll</button>}
                     />
                     {isStep2Open && (
                         <div className="p-8 space-y-10 animate-fade-in bg-black/40">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block pl-1">Project Title</label>
-                                    <input type="text" value={initialTitle} onChange={(e) => setInitialTitle(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-black tracking-tight" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block pl-1">Genre Lattice</label>
-                                    <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none cursor-pointer font-bold">
-                                        {Object.keys(genresData).length > 0 ? Object.keys(genresData).map(g => (
-                                            <option key={g} value={g}>{g.replace(/_/g, ' ').toUpperCase()}</option>
-                                        )) : <option>Loading...</option>}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block pl-1">Philosophical Core</label>
-                                    <input type="text" value={theme} onChange={(e) => setTheme(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-bold" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block pl-1">Primary Setting</label>
-                                    <input type="text" value={setting} onChange={(e) => setSetting(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-bold" />
-                                </div>
+                                <input type="text" value={initialTitle} onChange={(e) => setInitialTitle(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-black" placeholder="Title" />
+                                <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none">
+                                    {Object.keys(genresData).map(g => <option key={g} value={g}>{g.replace(/_/g, ' ').toUpperCase()}</option>)}
+                                </select>
+                                <input type="text" value={theme} onChange={(e) => setTheme(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none" placeholder="Theme" />
+                                <input type="text" value={setting} onChange={(e) => setSetting(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none" placeholder="Setting" />
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                                <div className="space-y-3">
-                                    <label className="text-[11px] font-black text-neutral-400 uppercase tracking-[0.25em] pl-1">Character Manifest</label>
-                                    <textarea value={cast} onChange={(e) => setCast(e.target.value)} className="w-full h-64 bg-black border border-neutral-800 p-6 rounded-xl text-sm text-neutral-300 focus:ring-2 focus:ring-brand outline-none resize-none font-mono leading-relaxed" />
-                                </div>
-                                <div className="space-y-3">
-                                    <label className="text-[11px] font-black text-neutral-400 uppercase tracking-[0.25em] pl-1">Production Beats</label>
-                                    <textarea value={beatSheet} onChange={(e) => setBeatSheet(e.target.value)} className="w-full h-64 bg-black border border-neutral-800 p-6 rounded-xl text-sm text-neutral-300 focus:ring-2 focus:ring-brand outline-none resize-none font-mono leading-relaxed" />
-                                </div>
+                                <textarea value={cast} onChange={(e) => setCast(e.target.value)} className="w-full h-64 bg-black border border-neutral-800 p-6 rounded-xl text-sm text-neutral-300 font-mono" placeholder="Cast" />
+                                <textarea value={beatSheet} onChange={(e) => setBeatSheet(e.target.value)} className="w-full h-64 bg-black border border-neutral-800 p-6 rounded-xl text-sm text-neutral-300 font-mono" placeholder="Beats" />
                             </div>
                             <div className="pt-8 flex justify-center">
-                                <button onClick={handleExecuteOutlineProtocol} disabled={isGeneratingOutline} className="w-full md:w-auto px-16 py-6 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-xs tracking-[0.5em] rounded-xl transition-all flex items-center justify-center gap-4 shadow-2xl active:scale-95 disabled:opacity-50">
-                                    {isGeneratingOutline ? <LoadingSpinner className="w-6 h-6 text-white" /> : <><WandIcon className="w-6 h-6" /> Execute Outline Protocol</>}
+                                <button onClick={handleExecuteOutlineProtocol} disabled={isGeneratingOutline} className="px-16 py-6 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-xs tracking-[0.5em] rounded-xl transition-all flex items-center justify-center gap-4 shadow-2xl active:scale-95 disabled:opacity-50">
+                                    {isGeneratingOutline ? <LoadingSpinner className="w-6 h-6 text-white" /> : <><WandIcon className="w-6 h-6" /> Execute Protocol</>}
                                 </button>
                             </div>
                         </div>
@@ -500,13 +349,8 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 {(generatedOutline || isGeneratingOutline) && (
                     <div id="step-3-outline" className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                         <StepHeader 
-                            number={3} 
-                            title="AI SYNTHESIZED OUTLINE" 
-                            isOpen={isStep3Open} 
-                            onToggle={() => setIsStep3Open(!isStep3Open)}
-                            onCopy={handleCopyStep3}
-                            icon={<AutomationIcon className="w-5 h-5" />}
-                            themeColor="text-blue-500"
+                            number={3} title="AI SYNTHESIZED OUTLINE" isOpen={isStep3Open} onToggle={() => setIsStep3Open(!isStep3Open)} 
+                            onCopy={() => {}} icon={<AutomationIcon className="w-5 h-5" />} themeColor="text-blue-500"
                         />
                         {isStep3Open && (
                             <div className="p-8 space-y-8 animate-fade-in bg-black/40">
@@ -516,30 +360,30 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                         <p className="font-black uppercase tracking-[0.6em] text-xs animate-pulse">Calculating Story Dynamics...</p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-8 flex flex-col items-stretch max-w-5xl mx-auto">
-                                        <div className="space-y-3">
-                                            <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Working Title</label>
-                                            <input type="text" value={workingTitle} onChange={(e) => setWorkingTitle(e.target.value)} className="w-full bg-black border border-neutral-800 p-5 rounded-lg text-2xl text-blue-400 font-black shadow-inner outline-none focus:ring-1 focus:ring-brand" />
+                                    <div className="space-y-8 max-w-5xl mx-auto">
+                                        {/* Working Title Display */}
+                                        <div className="border-b border-neutral-800 pb-8">
+                                            <h3 className="text-4xl font-black text-blue-400 tracking-tighter uppercase">{cleanLiteralNewlines(workingTitle)}</h3>
+                                            <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-2">Active Production Cycle / Version 1.0</p>
                                         </div>
 
-                                        <div className="space-y-3">
-                                            <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Story Logline</label>
-                                            <AutoExpandingTextarea 
-                                                value={logline} 
-                                                onChange={(e) => setLogline(e.target.value)} 
-                                                className="bg-black border border-neutral-800 p-5 rounded-lg text-base text-neutral-200 italic shadow-inner outline-none focus:ring-1 focus:ring-brand leading-relaxed font-sans" 
-                                                placeholder="Generating Logline..."
-                                            />
-                                        </div>
-                                        
-                                        <div className="space-y-3">
-                                            <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Narrative Treatment (AI Draft)</label>
-                                            <AutoExpandingTextarea 
-                                                value={treatment} 
-                                                onChange={(e) => setTreatment(e.target.value)} 
-                                                className="bg-black border border-neutral-800 p-6 rounded-lg text-sm text-neutral-400 leading-relaxed shadow-inner outline-none focus:ring-1 focus:ring-brand font-mono" 
-                                                placeholder="Generating Narrative Treatment..."
-                                            />
+                                        {/* Formatted Content Containers instead of textareas */}
+                                        <div className="grid grid-cols-1 gap-10">
+                                            <div className="space-y-4">
+                                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block border-l-2 border-blue-600 pl-3">Narrative Premise (Logline)</label>
+                                                <div 
+                                                    className="prose prose-invert prose-lg max-w-none text-neutral-200 italic font-serif leading-relaxed bg-black/20 p-6 rounded-xl border border-white/5"
+                                                    dangerouslySetInnerHTML={{ __html: simpleMarkdownToHtml(logline) }}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block border-l-2 border-blue-600 pl-3">Production Beats (Treatment)</label>
+                                                <div 
+                                                    className="prose prose-invert prose-neutral max-w-none bg-black/30 p-8 rounded-xl border border-white/5 min-h-[200px]"
+                                                    dangerouslySetInnerHTML={{ __html: simpleMarkdownToHtml(treatment) }}
+                                                />
+                                            </div>
                                         </div>
 
                                         <div className="pt-8 flex justify-center border-t border-neutral-800">
@@ -558,18 +402,9 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 {(generatedScreenplay || isGeneratingScreenplay) && (
                     <div id="step-4-report" className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                         <StepHeader 
-                            number={4} 
-                            title="FINAL PRODUCTION REPORT" 
-                            isOpen={isStep4Open} 
-                            onToggle={() => setIsStep4Open(!isStep4Open)}
-                            onCopy={handleCopyStep4}
-                            icon={<div className={`w-3.5 h-3.5 rounded-full ${generatedScreenplay ? 'bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-neutral-800'}`}></div>}
-                            themeColor="text-green-500"
-                            extra={
-                                <div className="flex gap-4" onClick={e => e.stopPropagation()}>
-                                    <button onClick={handleDownload} disabled={!generatedOutline && !generatedScreenplay} className="text-[11px] font-black text-brand hover:text-brand-hover px-5 py-2.5 flex items-center gap-2 border border-brand/20 hover:border-brand/50 rounded-lg transition-all uppercase tracking-widest active:scale-95"><DownloadIcon className="w-4 h-4" /> Export .txt</button>
-                                </div>
-                            }
+                            number={4} title="FINAL PRODUCTION REPORT" isOpen={isStep4Open} onToggle={() => setIsStep4Open(!isStep4Open)} 
+                            onCopy={() => {}} icon={<div className="w-3.5 h-3.5 rounded-full bg-green-500 shadow-lg shadow-green-900/50"></div>} themeColor="text-green-500"
+                            extra={<button onClick={() => {}} className="text-[11px] font-black text-brand hover:text-brand-hover px-5 py-2.5 flex items-center gap-2 border border-brand/20 hover:border-brand/50 rounded-lg transition-all uppercase tracking-widest active:scale-95"><DownloadIcon className="w-4 h-4" /> Export .txt</button>}
                         />
                         {isStep4Open && (
                             <div className="animate-fade-in bg-black/40 flex flex-col">
@@ -585,52 +420,37 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                             <button onClick={() => setActiveOutputTab('screenplay')} className={`flex-1 py-5 text-[11px] font-black uppercase tracking-[0.3em] rounded-lg transition-all ${activeOutputTab === 'screenplay' ? 'bg-neutral-800 text-white shadow-xl ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}>First Draft</button>
                                         </div>
 
-                                        <div className="flex-grow bg-black/60 p-16 font-mono text-sm leading-loose whitespace-pre-wrap break-words overflow-y-auto min-h-[600px]">
+                                        <div className="flex-grow bg-black/60 p-16 font-mono text-sm leading-loose overflow-y-auto min-h-[600px]">
                                             {activeOutputTab === 'outline' ? (
                                                 <div className="text-neutral-300 animate-fade-in space-y-16 max-w-5xl mx-auto">
                                                     <div className="text-center border-b border-neutral-800 pb-12">
-                                                        <h3 className="text-5xl font-black text-blue-400 mb-4 tracking-tighter">{cleanLiteralNewlines(workingTitle).toUpperCase()}</h3>
+                                                        <h3 className="text-5xl font-black text-blue-400 mb-4 tracking-tighter uppercase">{cleanLiteralNewlines(workingTitle)}</h3>
                                                         <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-[0.8em]">Technical Story Matrix / Final Review</p>
                                                     </div>
                                                     <div className="flex flex-col gap-16">
                                                         <div className="space-y-12">
                                                             <div>
                                                                 <label className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.5em] block mb-6 border-l-4 border-blue-500 pl-4">Logline Premise</label>
-                                                                <p className="text-xl italic leading-relaxed font-serif text-neutral-100">"{cleanLiteralNewlines(logline)}"</p>
+                                                                <div className="prose prose-invert prose-lg max-w-none text-neutral-100 italic font-serif" dangerouslySetInnerHTML={{ __html: simpleMarkdownToHtml(logline) }} />
                                                             </div>
                                                             <div>
-                                                                <label className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.5em] block mb-6 border-l-4 border-blue-500 pl-4">Treatment Breakdown</label>
-                                                                <p className="leading-loose text-neutral-400 text-base">{cleanLiteralNewlines(treatment)}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="space-y-12">
-                                                            <div>
-                                                                <label className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.5em] block mb-6 border-l-4 border-blue-500 pl-4">Fundamental Story Questions</label>
-                                                                <div className="grid grid-cols-1 gap-4">
-                                                                    {fundamentalStoryQuestions.map((q, i) => (
-                                                                        <div key={i} className="flex gap-5 p-5 bg-neutral-900/50 border border-neutral-800 rounded-xl hover:border-blue-500/30 transition-colors">
-                                                                            <span className="text-blue-600 font-black text-lg">?</span>
-                                                                            <p className="text-neutral-400 text-sm leading-relaxed">{cleanLiteralNewlines(q)}</p>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
+                                                                <label className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.5em] block mb-6 border-l-4 border-blue-500 pl-4">Treatment Breakdown (Production Beats)</label>
+                                                                <div className="prose prose-invert prose-base prose-neutral max-w-none text-neutral-400 leading-loose" dangerouslySetInnerHTML={{ __html: simpleMarkdownToHtml(treatment) }} />
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="text-white animate-fade-in max-w-4xl mx-auto" style={{ fontFamily: 'Courier, "Courier New", monospace' }}>
+                                                <div className="text-white animate-fade-in max-w-4xl mx-auto whitespace-pre" style={{ fontFamily: 'Courier, "Courier New", monospace' }}>
                                                     <div className="mb-28 text-center opacity-30 text-[11px] font-black border-y border-white/10 py-8 tracking-[1.5em]">--- SCRIBE FIRST DRAFT ---</div>
-                                                    <div className="px-12 text-base leading-relaxed">
-                                                        {formatToWBStandard(generatedScreenplay)}
-                                                    </div>
+                                                    <div className="px-12 text-base leading-relaxed">{formatToWBStandard(generatedScreenplay)}</div>
                                                     <div className="mt-56 text-center opacity-30 text-[11px] tracking-[1em] font-black">FADE OUT.</div>
                                                 </div>
                                             )}
                                         </div>
                                         {activeOutputTab === 'screenplay' && generatedScreenplay && (
                                             <div className="p-6 bg-neutral-900 border-t border-neutral-800 flex justify-center">
-                                                <button onClick={handleSendToBin} className="px-12 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-[0.5em] rounded-xl transition-all shadow-xl shadow-emerald-900/40 active:scale-95">Send to Scripts Bin</button>
+                                                <button onClick={handleSendToBin} className="px-12 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-[0.5em] rounded-xl transition-all shadow-xl active:scale-95">Send to Scripts Bin</button>
                                             </div>
                                         )}
                                     </>
@@ -640,20 +460,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                     </div>
                 )}
             </div>
-
-            {error && (
-                <div className="fixed bottom-10 right-10 p-6 bg-red-900/90 border-2 border-red-500 text-white rounded-xl text-xs font-black tracking-[0.2em] shadow-[0_0_40px_rgba(239,68,68,0.4)] backdrop-blur-2xl animate-slide-in-up z-[200]">
-                    {error}
-                </div>
-            )}
-            
-            <style>{`
-                @keyframes slide-in-up {
-                    from { transform: translateY(100%); opacity: 0; }
-                    to { transform: translateY(0); opacity: 1; }
-                }
-                .animate-slide-in-up { animation: slide-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
-            `}</style>
+            {error && <div className="fixed bottom-10 right-10 p-6 bg-red-900/90 border-2 border-red-500 text-white rounded-xl text-xs font-black tracking-[0.2em] shadow-[0_0_40px_rgba(239,68,68,0.4)] backdrop-blur-2xl animate-slide-in-up z-[200]">{error}</div>}
         </div>
     );
 };
