@@ -1,8 +1,6 @@
-
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { CrashReport } from './components/CrashReport';
 
-// Fixed: children is made optional to satisfy JSX type checks in index.tsx where it is used as a wrapper
 interface ErrorBoundaryProps {
   children?: ReactNode;
 }
@@ -16,11 +14,12 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch and display critical rendering errors.
  */
-// Fixed: Explicitly extend Component from react to ensure state/props properties are correctly inherited and recognized by TypeScript
+// FIX: Using the named export 'Component' and extending it directly ensures TypeScript correctly identifies the base class and inherits state, setState, and props.
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Fixed: Initialize state correctly within the constructor
+    // Initialize state within the constructor.
+    // FIX: Properly initializing state inherited from React.Component.
     this.state = {
       hasError: false,
       error: null,
@@ -34,10 +33,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log the error for diagnostic purposes
+    // Log the error for diagnostic purposes.
     console.error("Uncaught error in ErrorBoundary:", error, errorInfo);
     
-    // Fixed: Use setState from the base Component class to capture error details
+    // Capture error details in state using the base class setState method.
+    // FIX: 'setState' is now properly recognized as an inherited member.
     this.setState({
       error: error,
       errorInfo: errorInfo,
@@ -45,9 +45,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   public render() {
-    // Fixed: Correctly access state through 'this' to check for errors
+    // Access state properties via 'this' safely.
+    // FIX: 'this.state' is now properly recognized with correct ErrorBoundaryState types.
     if (this.state.hasError) {
-      // Render fallback UI when an error is caught
+      // Render fallback UI when an error is caught.
       return (
         <CrashReport 
           error={this.state.error || new Error("An unknown error occurred.")} 
@@ -56,7 +57,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
-    // Fixed: Correctly access children through this.props
+    // Access children through this.props.
+    // FIX: 'this.props' is now properly recognized as an inherited member.
     return this.props.children;
   }
 }

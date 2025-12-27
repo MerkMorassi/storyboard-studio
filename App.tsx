@@ -87,8 +87,6 @@ export const App: React.FC = () => {
         }
     });
     
-    // Global Settings
-    // Fix: Remove hasGeminiApiKey state as the key is managed by the environment.
     const [topazApiKey, setTopazApiKey] = useState(getTopazApiKey() || '');
     const [hfApiKey, setHfApiKey] = useState(getHfApiKey() || '');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -98,12 +96,10 @@ export const App: React.FC = () => {
     const [gridOverlay, setGridOverlay] = useState<'none' | 'basic' | 'triadic' | 'golden-basic' | 'golden-triadic'>('none');
     const [agentFilter, setAgentFilter] = useState('');
 
-    // Persist Project
     useEffect(() => {
         localStorage.setItem('mythos_current_project', JSON.stringify(project));
     }, [project]);
 
-    // Helpers
     const updateProject = (updates: Partial<Project>) => {
         setProject(prev => ({ ...prev, ...updates }));
     };
@@ -150,7 +146,6 @@ export const App: React.FC = () => {
         updateProjectData({ agents: updatedAgents });
     };
 
-    // Navigation Handler
     const handleNavigate = (view: ActiveView, agentId?: string) => {
         setActiveView(view);
         if (agentId) setActiveAgentId(agentId);
@@ -248,7 +243,12 @@ export const App: React.FC = () => {
                     onAddToInspiration={(base64) => updateProjectData({ inspirationImages: [...project.data.inspirationImages, { id: generateId(), base64Image: base64 }] })}
                 />;
             case 'script-writer':
-                return <ScriptWriterStudio onSendToScriptsBin={handleAddScriptToBin} onNavigate={handleNavigate} />;
+                return <ScriptWriterStudio 
+                    onSendToScriptsBin={handleAddScriptToBin} 
+                    onNavigate={handleNavigate} 
+                    promptTemplates={getPromptTemplates()}
+                    dynamicPromptLists={project.data.dynamicPromptLists}
+                />;
             case 'scripts-bin':
                 return <ScriptingStudio 
                     agent={allAgents.find(a => a.id === 'agent-scripting')!} 

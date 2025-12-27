@@ -78,8 +78,8 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
     const startLiveChat = useCallback(async () => {
         if (isLive) return;
 
-        const apiKey = getApiKey();
-        if (!apiKey) {
+        // FIX: Verify API key availability from environment directly as per guidelines.
+        if (!process.env.API_KEY) {
             setConnectionState('error');
             console.error("API Key not found for live chat.");
             return;
@@ -96,7 +96,8 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
             outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             nextStartTimeRef.current = 0;
 
-            const ai = new GoogleGenAI({ apiKey });
+            // FIX: Initialize GoogleGenAI using process.env.API_KEY directly as required by standard coding guidelines.
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             sessionPromiseRef.current = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-09-2025',
                 config: {

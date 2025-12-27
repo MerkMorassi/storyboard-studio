@@ -1,4 +1,3 @@
-
 import { MythosData } from './mythosData';
 
 export interface ScribeConfig {
@@ -8,7 +7,7 @@ export interface ScribeConfig {
     tone: string;
     cast: string;
     beatSheet: string;
-    genre?: string;
+    genre: string;
     workingTitle: string;
     logline: string;
     treatment: string;
@@ -32,72 +31,81 @@ const GENRE_SETTING_MAP: Record<string, string[]> = {
 const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 const pickKey = (obj: any) => {
     const keys = Object.keys(obj);
+    if (keys.length === 0) return null;
     return keys[Math.floor(Math.random() * keys.length)];
 };
 
+/**
+ * Procedurally generates a narrative configuration by sampling the MythOS metadata lattice.
+ */
 export const generateRandomConfig = (): ScribeConfig => {
-    // Access centralized database synchronously
+    // 1. Access synchronized narrative database
     const { genres, themes, structures } = MythosData;
 
-    // 1. ROLL GENRE
-    const mainGenreKey = pickKey(genres); 
-    const subGenreData = genres[mainGenreKey].subgenres || genres[mainGenreKey]; 
-    const subGenreKey = pickKey(subGenreData); 
-    const genreInfo = subGenreData[subGenreKey];
+    // 2. Sample the Genre Lattice
+    const mainGenreKey = pickKey(genres) || 'drama'; 
+    const subGenreObject = genres[mainGenreKey]?.subgenres || {};
+    const subGenreKey = pickKey(subGenreObject) || 'contemporary'; 
+    const genreInfo = subGenreObject[subGenreKey] || { definition: "A human story." };
 
-    // 2. RESOLVE SETTING
-    const possibleSettings = GENRE_SETTING_MAP[mainGenreKey] || ["Unknown Location", "The Void"];
+    // 3. Resolve Environmental Context
+    const possibleSettings = GENRE_SETTING_MAP[mainGenreKey] || ["An Unnamed Location"];
     const selectedSetting = pick(possibleSettings);
 
-    // 3. INJECT PHILOSOPHY
-    const themeKey = pickKey(themes.core_themes);
-    const philosophyData = themes.core_themes[themeKey].philosophies;
-    const coreQuestion = Array.isArray(philosophyData) ? philosophyData[0] : (philosophyData.core_questions ? pick(philosophyData.core_questions) : "Why are we here?");
+    // 4. Inject Philosophical Core
+    const themeKey = pickKey(themes.core_themes) || 'identity_crisis';
+    const themeData = themes.core_themes[themeKey];
+    const philosophies = themeData.philosophies?.core_questions || ["What makes us human?"];
+    const coreQuestion = pick(philosophies);
 
-    // 4. ROLL STRUCTURE & BEAT
-    const structureKey = pickKey(structures);
+    // 5. Select Narrative Blueprint (Structure)
+    const structureKey = pickKey(structures) || 'comprehensive_feature_film';
     const structure = structures[structureKey];
-    const openingBeat = structure.beats.find((b: any) => b.label.toLowerCase().includes("opening") || b.label.toLowerCase().includes("ordinary")) || structure.beats[0];
+    const openingBeat = structure.beats?.find((b: any) => 
+        b.label.toLowerCase().includes("opening") || 
+        b.label.toLowerCase().includes("ordinary")
+    ) || structure.beats[0];
 
-    // 5. CONSTRUCT ARTIFACTS
-    const tone = `${mainGenreKey.toUpperCase()} // ${subGenreKey.replace(/_/g, ' ').toUpperCase()}`;
-    const titleStub = `UNTITLED ${subGenreKey.toUpperCase()} PROJECT`;
+    // 6. Assemble Production Artifacts
+    const displayGenreName = subGenreKey.replace(/_/g, ' ').toUpperCase();
+    const tone = `${mainGenreKey.toUpperCase()} // ${displayGenreName}`;
+    const titleStub = `PROJ_${subGenreKey.toUpperCase()}_${Math.floor(Math.random() * 999)}`;
 
     const cast = `
-    ROLE: PROTAGONIST
-    ARCHETYPE: The Hero 
-    NOTE: Must fit the '${subGenreKey}' genre tropes.
-    
-    ROLE: ANTAGONIST
-    ARCHETYPE: The Shadow
-    NOTE: Represents the philosophical opposition to: "${coreQuestion}"
-    `;
+ROLE: PROTAGONIST
+ARCHETYPE: The Hero 
+NOTE: Must embody the traits of the ${displayGenreName} sub-genre.
+
+ROLE: ANTAGONIST
+ARCHETYPE: The Shadow
+NOTE: Represents the psychological antithesis of: "${coreQuestion}"
+    `.trim();
 
     const beatSheet = `
-    ## GENRE DEFINITION
-    ${genreInfo.definition || "A genre story."}
-    
-    ## THEMATIC QUESTION
-    "${coreQuestion}"
+## GENRE PROTOCOL: ${displayGenreName}
+${genreInfo.definition}
 
-    ## SEQUENCE: ${openingBeat.label.toUpperCase()}
-    ACTION: ${openingBeat.instruction}
-    CONTEXT: The scene must take place in ${selectedSetting} and establish the tone of ${subGenreKey}.
-    `;
+## THEMATIC ANCHOR
+"${coreQuestion}"
+
+## SEQUENCE START: ${openingBeat.label.toUpperCase()}
+ACTION: ${openingBeat.instruction}
+ENVIRONMENT: ${selectedSetting}
+    `.trim();
 
     return {
         title: titleStub,
-        genre: subGenreKey, 
-        theme: subGenreKey, 
+        genre: mainGenreKey, // FIX: Return top-level key for UI Select component synchronization
+        theme: themeKey, 
         setting: selectedSetting,
         tone: tone,
-        cast: cast.trim().replace(/^\s+/gm, ''), 
-        beatSheet: beatSheet.trim().replace(/^\s+/gm, ''),
+        cast: cast, 
+        beatSheet: beatSheet,
         workingTitle: titleStub,
-        logline: `A ${subGenreKey} journey exploring ${themeKey}.`,
-        treatment: `The story opens in ${selectedSetting} where we find our protagonist...`,
-        fundamentalStoryQuestions: `1. ${coreQuestion}`,
-        archetypalCharacters: `- Protagonist (The Hero)\n- Antagonist (The Shadow)`,
-        sceneGenerationQuestions: `1. How does the environment of ${selectedSetting} influence the action?`
+        logline: themeData.logline || `A ${displayGenreName} exploration of ${themeKey.replace(/_/g, ' ')}.`,
+        treatment: `The narrative sequence initiates in ${selectedSetting}. We observe our protagonist grappling with the physical manifestations of "${coreQuestion}" within a ${displayGenreName} context.`,
+        fundamentalStoryQuestions: `1. ${coreQuestion}\n2. How does the environment of ${selectedSetting} test the protagonist's resolve?`,
+        archetypalCharacters: `- Protagonist: The Hero / Seeker\n- Antagonist: The Shadow / System`,
+        sceneGenerationQuestions: `1. What visual motif in ${selectedSetting} represents the theme?\n2. How does the lighting reflect the ${tone} tone?`
     };
 };

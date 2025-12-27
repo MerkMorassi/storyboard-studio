@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Content, Type, Modality } from "@google/genai";
 import { MythosData } from './mythosData';
 
@@ -8,10 +9,6 @@ const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
-/**
- * Initializes the Gemini API client.
- * API key is obtained exclusively from process.env.API_KEY.
- */
 const getClient = () => {
     return new GoogleGenAI({ apiKey: process.env.API_KEY });
 }
@@ -32,23 +29,6 @@ const apiCallWithRetry = async <T>(apiFunction: () => Promise<T>, maxRetries = 3
     throw new Error("API call failed after multiple retries.");
 };
 
-const SCRIBE_SYSTEM_INSTRUCTION_STATIC = `
-### ROLE
-You are the MythOS Screenwriter (Model 3.5). You are an expert in Warner Bros. standard formatting and feature film structure.
-
-### KNOWLEDGE BASE
-You have been provided with internal MythOS Databases (STRUCTURES, ARCHETYPES, THEMES).
-**CRITICAL:** When input mentions a Structure Beat, Theme ID, or Archetype, you MUST cross-reference these definitions.
-* Do not hallucinate generic traits; use the specific ones in the file.
-* Apply the "Cinematic Style" found in the Themes database.
-
-### FORMATTING RULES (STRICT WB FEATURE FILM)
-1. FONT: Courier 12-point style (simulated in text output).
-2. SLUGLINES: INT./EXT. LOCATION - TIME (ALL CAPS).
-3. ACTION: Present tense, visual, concise.
-4. DIALOGUE: Centered names (simulated with spaces).
-`;
-
 export interface ScribeInput {
   workingTitle: string;
   genre: string;
@@ -62,6 +42,9 @@ export interface ScribeInput {
   fundamentalStoryQuestions: string;
   archetypalCharacters: string;
   sceneGenerationQuestions: string;
+  positiveConstraints?: string;
+  negativeConstraints?: string;
+  dynamicLists?: any[];
 }
 
 export interface ScribeOutlineInput {
@@ -72,6 +55,9 @@ export interface ScribeOutlineInput {
   tone: string;
   cast: string;
   beatSheet: string;
+  positiveConstraints?: string;
+  negativeConstraints?: string;
+  dynamicLists?: any[];
 }
 
 export interface ScribeOutlineOutput {
@@ -83,66 +69,66 @@ export interface ScribeOutlineOutput {
   sceneGenerationQuestions: string[];
 }
 
+const getScribeSystemPrompt = (pos?: string, neg?: string, dynamicLists?: any[]) => {
+    let base = `
+### ROLE
+You are the MythOS Studio Screenwriter. You transform story blueprints into industry-standard screenplays.
+
+### STUDIO STANDARDS (PRIMARY OVERRIDE)
+**MUST INCLUDE (Positive):** ${pos || "Standard cinematic storytelling."}
+**STRICTLY FORBIDDEN (Negative/Guardrails):** ${neg || "None specified."}
+
+### KNOWLEDGE BASE
+You have access to the MythOS Lattice (Genres, Structures, Archetypes). Cross-reference all inputs with these protocols.
+`;
+
+    if (dynamicLists && dynamicLists.length > 0) {
+        base += `\n### DYNAMIC DICTIONARIES\n`;
+        dynamicLists.forEach(list => {
+            base += `[${list.name}]: ${list.items.join(', ')}\n`;
+        });
+        base += `\n**RULE:** Resolve any [BracketedTags] in the prompt by selecting a relevant item from these lists.\n`;
+    }
+
+    return base;
+};
+
 export const runScribeAgent = async (input: ScribeInput): Promise<string> => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
-        
-        const LORE_PACK_DYNAMIC = `
-=== MYTHOS DATABASE: STRUCTURES ===
-${JSON.stringify(MythosData.structures, null, 2)}
-
-=== MYTHOS DATABASE: ARCHETYPES ===
-${JSON.stringify(MythosData.archetypes, null, 2)}
-
-=== MYTHOS DATABASE: THEMES ===
-${JSON.stringify(MythosData.themes, null, 2)}
-`;
-        const systemInstructionFinal = LORE_PACK_DYNAMIC + "\n\n" + SCRIBE_SYSTEM_INSTRUCTION_STATIC;
+        const systemInstruction = getScribeSystemPrompt(input.positiveConstraints, input.negativeConstraints, input.dynamicLists);
 
         const inputBlock = `
 COMMAND: WRITE 40-SCENE SCREENPLAY
-Label the result as "FIRST DRAFT".
+Label as "FIRST DRAFT".
 
-METADATA:
-WORKING TITLE: ${input.workingTitle}
+BLUEPRINT DATA:
+TITLE: ${input.workingTitle}
 GENRE: ${input.genre}
-LOGLINE: ${input.logline}
-THEME ID: ${input.theme} 
-SETTING: ${input.setting}
-TONE: ${input.tone}
-
-=== TREATMENT ===
-${input.treatment}
-
-=== CAST ===
-${input.cast}
-
-=== CORE SCENE BEATS ===
-${input.beatSheet}
+THEME: ${input.theme}
+TREATMENT: ${input.treatment}
+CAST: ${input.cast}
+BEATS: ${input.beatSheet}
 
 TASK:
-Write the complete 40-scene screenplay. Ensure continuous narrative flow.
-Utilize sensory details and narrative hooks appropriate for the theme '${input.theme}' and Genre constraints.
+Write the screenplay. Ensure the "Must Include" rules are central and "Strictly Forbidden" items are entirely absent.
 `;
 
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview', // Industry-leading complex text task
+                model: 'gemini-3-pro-preview',
                 contents: { parts: [{ text: inputBlock }] },
                 config: {
-                    systemInstruction: systemInstructionFinal,
+                    systemInstruction,
                     maxOutputTokens: 8192,
                     temperature: 0.7,
                     safetySettings
                 }
             });
-            
-            const text = response.text;
-            if (!text || !text.trim()) throw new Error("Scribe returned empty prose.");
-            return text;
+            return response.text || "";
         } catch (error) {
             console.error("Scribe Agent Error:", error);
-            throw error instanceof Error ? new Error(`Scribe Error: ${error.message}`) : new Error("Scribe execution failed.");
+            throw error;
         }
     });
 };
@@ -150,47 +136,32 @@ Utilize sensory details and narrative hooks appropriate for the theme '${input.t
 export const runScribeOutlineAgent = async (input: ScribeOutlineInput): Promise<ScribeOutlineOutput> => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
-
-        const LORE_PACK_DYNAMIC = `
-=== MYTHOS DATABASE: STRUCTURES ===
-${JSON.stringify(MythosData.structures, null, 2)}
-
-=== MYTHOS DATABASE: ARCHETYPES ===
-${JSON.stringify(MythosData.archetypes, null, 2)}
-
-=== MYTHOS DATABASE: THEMES ===
-${JSON.stringify(MythosData.themes, null, 2)}
-`;
-        const systemInstructionFinal = LORE_PACK_DYNAMIC + "\n\n" + SCRIBE_SYSTEM_INSTRUCTION_STATIC;
+        const systemInstruction = getScribeSystemPrompt(input.positiveConstraints, input.negativeConstraints, input.dynamicLists);
 
         const inputBlock = `
-COMMAND: GENERATE SCREENPLAY OUTLINE
+COMMAND: GENERATE STORY OUTLINE (JSON)
 
-STORY DETAILS:
+RAW BLUEPRINT:
 TITLE: ${input.title}
 GENRE: ${input.genre}
-THEME ID: ${input.theme}
+THEME: ${input.theme}
 SETTING: ${input.setting}
-TONE: ${input.tone}
-CAST:
-${input.cast}
-CORE SCENE BEATS:
-${input.beatSheet}
+BEATS: ${input.beatSheet}
 
 TASK:
-Generate a working title, logline, treatment, fundamental questions, archetypes list, and scene generation questions.
+Filter this raw blueprint through the STUDIO STANDARDS. If the blueprint contradicts the Standards (Positive/Negative), the Standards WIN.
+Example: If Standard is "Rated G" and Blueprint is "Slasher", pivot the story to a family-friendly spooky adventure.
 
-OUTPUT FORMAT:
-Return a JSON object matching the Schema.
+OUTPUT FORMAT: JSON Schema.
 `;
 
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview', // High-speed basic text task
+                model: 'gemini-3-flash-preview',
                 contents: { parts: [{ text: inputBlock }] },
                 config: {
                     maxOutputTokens: 4096,
-                    systemInstruction: systemInstructionFinal,
+                    systemInstruction,
                     temperature: 0.5,
                     responseMimeType: "application/json",
                     responseSchema: {
@@ -208,14 +179,10 @@ Return a JSON object matching the Schema.
                     safetySettings
                 }
             });
-            
-            const jsonText = response.text;
-            if (!jsonText) throw new Error("Scribe Outline Agent returned empty JSON.");
-            return JSON.parse(jsonText.trim());
-
+            return JSON.parse(response.text.trim());
         } catch (error) {
-            console.error("Scribe Outline Agent Error:", error);
-            throw error instanceof Error ? new Error(`Scribe Outline Error: ${error.message}`) : new Error("Scribe outline execution failed.");
+            console.error("Scribe Outline Error:", error);
+            throw error;
         }
     });
 };

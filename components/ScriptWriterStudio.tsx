@@ -1,63 +1,70 @@
 
 import React, { useState, useEffect } from 'react';
-import { EditIcon, ScriptIcon, DownloadIcon, ShuffleIcon, LibraryIcon } from './icons.tsx';
+// Consolidate imports from icons.tsx and add missing ChevronDownIcon
+import { EditIcon, ScriptIcon, DownloadIcon, ShuffleIcon, LibraryIcon, AutomationIcon, CheckIcon, ChevronDownIcon, LoadingSpinner } from './icons.tsx';
 import { DuplicateIcon } from './icons/DuplicateIcon';
 import { WandIcon } from './icons/WandIcon';
+import { BookmarkIcon } from './icons/BookmarkIcon';
 import { runScribeAgent, runScribeOutlineAgent, ScribeOutlineOutput } from '../services/geminiService';
 import { generateRandomConfig } from '../services/scribeRandomizer';
-import { LoadingSpinner } from './icons.tsx';
-import { ScriptFile, ActiveView } from '../types';
-import { MythosData } from '../services/mythosData'; // Unified Import
+import { ScriptFile, ActiveView, PromptTemplate, DynamicPromptList } from '../types';
+import { MythosData } from '../services/mythosData';
 
-interface ScriptWriterStudioProps {
-    onSendToScriptsBin: (script: Omit<ScriptFile, 'id' | 'date'>) => void;
-    onNavigate: (view: ActiveView) => void;
-}
+const cleanLiteralNewlines = (text: string): string => {
+    if (!text) return '';
+    return text.replace(/\\n/g, '\n');
+};
 
-/**
- * Formats a raw screenplay string into Warner Bros. Standard formatting.
- * Margin spacing for Courier TXT:
- * Character: ~35 spaces
- * Parenthetical: ~30 spaces
- * Dialogue: ~25 spaces
- * Action/Sluglines: ~15 spaces
- */
 const formatToWBStandard = (text: string): string => {
-    return text.split('\n').map(line => {
+    const cleaned = cleanLiteralNewlines(text);
+    return cleaned.split('\n').map(line => {
         const trimmed = line.trim();
         if (!trimmed) return '';
 
-        // SLUGLINES: INT. or EXT.
         if (trimmed.startsWith('INT.') || trimmed.startsWith('EXT.')) {
             return ' '.repeat(15) + trimmed.toUpperCase();
         }
 
-        // TRANSITIONS: CUT TO, FADE IN, etc. (Heuristic: caps, ends with colon)
         if (trimmed === trimmed.toUpperCase() && trimmed.endsWith(':')) {
             return ' '.repeat(55) + trimmed;
         }
 
-        // CHARACTER NAME: All caps, not too long, not a slugline
         if (trimmed === trimmed.toUpperCase() && trimmed.length < 30 && !trimmed.includes('.') && !trimmed.includes(':')) {
             return ' '.repeat(35) + trimmed;
         }
         
-        // PARENTHETICAL: Starts and ends with parens
         if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
             return ' '.repeat(30) + trimmed;
         }
 
-        // DIALOGUE vs ACTION
         if (trimmed !== trimmed.toUpperCase() && !trimmed.startsWith('(')) {
              return ' '.repeat(25) + trimmed;
         }
 
-        // SLUGLINES & ACTION: Approx 15 spaces
         return ' '.repeat(15) + trimmed;
     }).join('\n');
 };
 
-export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendToScriptsBin, onNavigate }) => {
+interface ScriptWriterStudioProps {
+    onSendToScriptsBin: (script: Omit<ScriptFile, 'id' | 'date'>) => void;
+    onNavigate: (view: ActiveView) => void;
+    promptTemplates: PromptTemplate[];
+    dynamicPromptLists: DynamicPromptList[];
+}
+
+export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ 
+    onSendToScriptsBin, 
+    onNavigate,
+    promptTemplates,
+    dynamicPromptLists
+}) => {
+    // UI State - Set to true by default so it's open upon entry
+    const [isStandardsOpen, setIsStandardsOpen] = useState(true);
+
+    // Studio & Rating Standards
+    const [positiveConstraints, setPositiveConstraints] = useState('');
+    const [negativeConstraints, setNegativeConstraints] = useState('');
+    
     // Blueprint Inputs
     const [initialTitle, setInitialTitle] = useState('DIGITAL EXTINCTION');
     const [genre, setGenre] = useState('');
@@ -84,7 +91,6 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
     const [activeOutputTab, setActiveOutputTab] = useState<'outline' | 'screenplay'>('outline');
     const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
-    // FIXED: Using MythosData directly instead of fetch()
     const genresData = MythosData.genres;
 
     useEffect(() => {
@@ -98,22 +104,13 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
         setTimeout(() => setCopyFeedback(null), 2000);
     };
 
-    const handleCopyBlueprint = () => {
-        const blueprint = `BLUEPRINT: ${initialTitle}\nGENRE: ${genre.toUpperCase()}\nTHEME: ${theme}\nSETTING: ${setting}\nTONE: ${tone}\n\nCAST:\n${cast}\n\nBEATS:\n${beatSheet}`;
-        navigator.clipboard.writeText(blueprint);
-        showCopyFeedback("Blueprint Copied");
-    };
-
-    const handleDownloadBlueprint = () => {
-        const blueprint = `BLUEPRINT: ${initialTitle}\nGENRE: ${genre.toUpperCase()}\nTHEME: ${theme}\nSETTING: ${setting}\nTONE: ${tone}\n\nCAST:\n${cast}\n\nBEATS:\n${beatSheet}`;
-        const blob = new Blob([blueprint], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${initialTitle.replace(/ /g, '_')}_Blueprint.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showCopyFeedback("Blueprint Downloaded");
+    const handleApplyStudioStandard = (templateId: string) => {
+        const template = promptTemplates.find(t => t.id === templateId);
+        if (template) {
+            setPositiveConstraints(template.positivePrompt);
+            setNegativeConstraints(template.negativePrompt);
+            showCopyFeedback(`${template.name} Protocol Active`);
+        }
     };
 
     const handleRandomize = async () => {
@@ -150,7 +147,18 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
         setIsGeneratingOutline(true);
         setError(null);
         try {
-            const result = await runScribeOutlineAgent({ title: initialTitle, genre, theme, setting, tone, cast, beatSheet });
+            const result = await runScribeOutlineAgent({ 
+                title: initialTitle, 
+                genre, 
+                theme, 
+                setting, 
+                tone, 
+                cast, 
+                beatSheet,
+                positiveConstraints: positiveConstraints.trim() || undefined,
+                negativeConstraints: negativeConstraints.trim() || undefined,
+                dynamicLists: dynamicPromptLists
+            });
             setGeneratedOutline(result);
             setWorkingTitle(result.workingTitle);
             setLogline(result.logline);
@@ -174,7 +182,23 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
         setIsGeneratingScreenplay(true);
         setError(null);
         try {
-            const result = await runScribeAgent({ workingTitle, genre, theme, setting, tone, cast, beatSheet, logline, treatment, fundamentalStoryQuestions, archetypalCharacters, sceneGenerationQuestions });
+            const result = await runScribeAgent({ 
+                workingTitle, 
+                genre, 
+                theme, 
+                setting, 
+                tone, 
+                cast, 
+                beatSheet, 
+                logline, 
+                treatment, 
+                fundamentalStoryQuestions, 
+                archetypalCharacters, 
+                sceneGenerationQuestions,
+                positiveConstraints: positiveConstraints.trim() || undefined,
+                negativeConstraints: negativeConstraints.trim() || undefined,
+                dynamicLists: dynamicPromptLists
+            });
             setGeneratedScreenplay(result);
             setActiveOutputTab('screenplay');
         } catch (e) {
@@ -191,7 +215,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
         } else if (activeOutputTab === 'screenplay' && generatedScreenplay) {
             content = formatToWBStandard(generatedScreenplay);
         }
-        navigator.clipboard.writeText(content);
+        navigator.clipboard.writeText(cleanLiteralNewlines(content));
         showCopyFeedback("Copied to Clipboard");
     };
 
@@ -205,11 +229,28 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
             content = formatToWBStandard(generatedScreenplay);
             filename = `${workingTitle.replace(/ /g, '_')}_Draft.txt`;
         }
-        const blob = new Blob([content], { type: 'text/plain' });
+        const blob = new Blob([cleanLiteralNewlines(content)], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleCopyBlueprint = () => {
+        const content = `TITLE: ${initialTitle}\nGENRE: ${genre}\nTHEME: ${theme}\nSETTING: ${setting}\n\nCAST:\n${cast}\n\nBEAT SHEET:\n${beatSheet}`;
+        navigator.clipboard.writeText(content);
+        showCopyFeedback("Blueprint Copied");
+    };
+
+    const handleDownloadBlueprint = () => {
+        const content = `TITLE: ${initialTitle}\nGENRE: ${genre}\nTHEME: ${theme}\nSETTING: ${setting}\n\nCAST:\n${cast}\n\nBEAT SHEET:\n${beatSheet}`;
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${initialTitle.replace(/ /g, '_')}_Blueprint.txt`;
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -235,7 +276,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
                         Script Writer Studio
                     </h2>
                     <p className="text-text-secondary">
-                        MythOS Scribe: Industry-standard speculative screenplays from narrative blueprints.
+                        MythOS Scribe: Transforming story blueprints into standards-compliant screenplays.
                     </p>
                 </div>
                 {copyFeedback && (
@@ -247,36 +288,71 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow min-h-0">
                 <div className="bg-secondary/30 p-6 rounded-xl border border-accent flex flex-col gap-6 overflow-y-auto custom-scrollbar shadow-inner">
+                    
+                    {/* Collapsible Studio Protocol & Rating Standards */}
+                    <div className="bg-neutral-900/60 border border-accent rounded-xl overflow-hidden shadow-md">
+                        <button 
+                            onClick={() => setIsStandardsOpen(!isStandardsOpen)}
+                            className="w-full flex items-center justify-between p-4 bg-neutral-800/60 hover:bg-neutral-800/80 transition-colors"
+                        >
+                            <div className="flex items-center gap-2">
+                                <BookmarkIcon className="w-5 h-5 text-brand" />
+                                <h3 className="text-sm font-bold text-text-primary uppercase tracking-widest">Studio Protocol & Rating Standards</h3>
+                            </div>
+                            <ChevronDownIcon className={`w-5 h-5 text-neutral-500 transition-transform duration-300 ${isStandardsOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {isStandardsOpen && (
+                            <div className="p-4 space-y-4 animate-fade-in border-t border-accent/50">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-text-secondary uppercase">Quick Apply</label>
+                                    <div className="relative">
+                                        <select 
+                                            onChange={(e) => handleApplyStudioStandard(e.target.value)}
+                                            className="w-full bg-primary border border-accent p-2 rounded text-xs text-brand font-bold outline-none focus:ring-1 focus:ring-brand appearance-none pr-8 cursor-pointer"
+                                            defaultValue=""
+                                        >
+                                            <option value="" disabled>Apply Rating / Standard...</option>
+                                            {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+                                        <ChevronDownIcon className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500" />
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-green-500 uppercase tracking-tighter">Required Elements</label>
+                                        <textarea 
+                                            value={positiveConstraints} 
+                                            onChange={(e) => setPositiveConstraints(e.target.value)}
+                                            placeholder="Items that MUST be included in the story..."
+                                            className="w-full h-24 bg-primary border border-accent p-3 rounded text-xs text-text-primary focus:ring-1 focus:ring-brand outline-none resize-none font-mono leading-relaxed"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-red-500 uppercase tracking-tighter">Narrative Guardrails</label>
+                                        <textarea 
+                                            value={negativeConstraints} 
+                                            onChange={(e) => setNegativeConstraints(e.target.value)}
+                                            placeholder="Items to EXCLUDE (e.g. gore, adult themes)..."
+                                            className="w-full h-24 bg-primary border border-accent p-3 rounded text-xs text-text-primary focus:ring-1 focus:ring-brand outline-none resize-none font-mono leading-relaxed"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-[9px] text-neutral-500 italic">Note: If empty, Scribe Agent uses baseline creative protocols.</p>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                             <ScriptIcon className="w-5 h-5 text-text-secondary" />
                             <h3 className="text-sm font-bold text-text-primary uppercase tracking-widest">Story Blueprint</h3>
                         </div>
                         <div className="flex gap-2">
-                            <button 
-                                onClick={handleCopyBlueprint}
-                                className="flex items-center gap-2 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-3 py-1.5 border border-neutral-700 transition-colors uppercase tracking-widest rounded"
-                                title="Copy Blueprint Text"
-                            >
-                                <DuplicateIcon className="w-4 h-4" />
-                                <span>Copy</span>
-                            </button>
-                            <button 
-                                onClick={handleDownloadBlueprint}
-                                className="flex items-center gap-2 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-3 py-1.5 border border-neutral-700 transition-colors uppercase tracking-widest rounded"
-                                title="Download Blueprint as TXT"
-                            >
-                                <DownloadIcon className="w-4 h-4" />
-                                <span>Save</span>
-                            </button>
-                            <button 
-                                onClick={handleRandomize}
-                                className="flex items-center gap-2 text-xs bg-brand/20 hover:bg-brand/30 text-brand-hover hover:text-white px-3 py-1.5 border border-brand/30 transition-colors uppercase tracking-widest rounded"
-                                title="Re-Roll Story Lattice"
-                            >
-                                <ShuffleIcon className="w-4 h-4" />
-                                <span>Re-Roll Lattice</span>
-                            </button>
+                            <button onClick={handleCopyBlueprint} className="flex items-center gap-2 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-3 py-1.5 border border-neutral-700 transition-colors uppercase tracking-widest rounded"><DuplicateIcon className="w-4 h-4" /><span>Copy</span></button>
+                            <button onClick={handleDownloadBlueprint} className="flex items-center gap-2 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-3 py-1.5 border border-neutral-700 transition-colors uppercase tracking-widest rounded"><DownloadIcon className="w-4 h-4" /><span>Save</span></button>
+                            <button onClick={handleRandomize} className="flex items-center gap-2 text-xs bg-brand/20 hover:bg-brand/30 text-brand-hover hover:text-white px-3 py-1.5 border border-brand/30 transition-colors uppercase tracking-widest rounded" title="Re-Roll Story Lattice"><ShuffleIcon className="w-4 h-4" /><span>Re-Roll Lattice</span></button>
                         </div>
                     </div>
 
@@ -317,38 +393,15 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
                     </div>
 
                     <div className="flex flex-col gap-4 pt-6 border-t border-accent">
-                        <h3 className="text-sm font-bold text-text-primary uppercase tracking-widest flex items-center gap-2">
-                            <WandIcon className="w-4 h-4 text-brand" /> Outline Protocol
-                        </h3>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-text-secondary uppercase">Working Title</label>
-                            <input type="text" value={workingTitle} onChange={(e) => setWorkingTitle(e.target.value)} className="w-full bg-primary border border-accent p-2 rounded text-sm text-text-primary font-bold" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-text-secondary uppercase">Logline</label>
-                            <input type="text" value={logline} onChange={(e) => setLogline(e.target.value)} className="w-full bg-primary border border-accent p-2 rounded text-sm text-text-primary" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-text-secondary uppercase">Treatment</label>
-                            <textarea value={treatment} onChange={(e) => setTreatment(e.target.value)} className="w-full h-24 bg-primary border border-accent p-3 rounded text-sm text-text-primary outline-none" />
-                        </div>
+                        <h3 className="text-sm font-bold text-text-primary uppercase tracking-widest flex items-center gap-2"><WandIcon className="w-4 h-4 text-brand" /> Outline Protocol</h3>
+                        <div className="space-y-2"><label className="text-xs font-bold text-text-secondary uppercase">Working Title</label><input type="text" value={workingTitle} onChange={(e) => setWorkingTitle(e.target.value)} className="w-full bg-primary border border-accent p-2 rounded text-sm text-text-primary font-bold" /></div>
+                        <div className="space-y-2"><label className="text-xs font-bold text-text-secondary uppercase">Logline</label><input type="text" value={logline} onChange={(e) => setLogline(e.target.value)} className="w-full bg-primary border border-accent p-2 rounded text-sm text-text-primary" /></div>
+                        <div className="space-y-2"><label className="text-xs font-bold text-text-secondary uppercase">Treatment</label><textarea value={treatment} onChange={(e) => setTreatment(e.target.value)} className="w-full h-24 bg-primary border border-accent p-3 rounded text-sm text-text-primary outline-none" /></div>
 
-                        <button
-                            onClick={handleExecuteOutlineProtocol}
-                            disabled={isGeneratingOutline}
-                            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg"
-                        >
-                            {isGeneratingOutline ? <><LoadingSpinner className="w-4 h-4 text-white" /> Analyzing...</> : <><WandIcon className="w-4 h-4" /> Execute Outline Protocol</>}
-                        </button>
+                        <button onClick={handleExecuteOutlineProtocol} disabled={isGeneratingOutline} className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg">{isGeneratingOutline ? <><LoadingSpinner className="w-4 h-4 text-white" /> Analyzing...</> : <><WandIcon className="w-4 h-4" /> Execute Outline Protocol</>}</button>
                     </div>
 
-                    <button
-                        onClick={handleGenerateScreenplay}
-                        disabled={isGeneratingScreenplay || !isOutlineReady}
-                        className="w-full py-4 bg-brand hover:bg-brand-hover text-text-primary font-bold uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg"
-                    >
-                        {isGeneratingScreenplay ? <><LoadingSpinner className="w-4 h-4 text-text-primary" /> Writing First Draft...</> : <><WandIcon className="w-4 h-4" /> Generate Screenplay (40 Scenes)</>}
-                    </button>
+                    <button onClick={handleGenerateScreenplay} disabled={isGeneratingScreenplay || !isOutlineReady} className="w-full py-4 bg-brand hover:bg-brand-hover text-text-primary font-bold uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg">{isGeneratingScreenplay ? <><LoadingSpinner className="w-4 h-4 text-text-primary" /> Writing First Draft...</> : <><WandIcon className="w-4 h-4" /> Generate Screenplay (40 Scenes)</>}</button>
                 </div>
 
                 <div className="bg-secondary/30 p-6 rounded-xl border border-accent flex flex-col h-full overflow-hidden shadow-2xl relative">
@@ -364,24 +417,10 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
                             </h3>
                         </div>
                         <div className="flex gap-2">
-                            <button 
-                                onClick={handleCopyContent} 
-                                disabled={!generatedOutline && !generatedScreenplay} 
-                                className="text-xs font-bold text-text-secondary hover:text-text-primary px-2 py-1 transition-colors border border-transparent hover:border-accent rounded"
-                            >
-                                Copy
-                            </button>
-                            <button 
-                                onClick={handleDownload} 
-                                disabled={!generatedOutline && !generatedScreenplay} 
-                                className="text-xs font-bold text-brand hover:text-brand-hover flex items-center gap-1 px-2 py-1 transition-colors border border-transparent hover:border-brand rounded"
-                            >
-                                <DownloadIcon className="w-3 h-3" /> Download
-                            </button>
+                            <button onClick={handleCopyContent} disabled={!generatedOutline && !generatedScreenplay} className="text-xs font-bold text-text-secondary hover:text-text-primary px-2 py-1 transition-colors border border-transparent hover:border-accent rounded">Copy</button>
+                            <button onClick={handleDownload} disabled={!generatedOutline && !generatedScreenplay} className="text-xs font-bold text-brand hover:text-brand-hover flex items-center gap-1 px-2 py-1 transition-colors border border-transparent hover:border-brand rounded"><DownloadIcon className="w-3 h-3" /> Download</button>
                             {activeOutputTab === 'screenplay' && generatedScreenplay && (
-                                <button onClick={handleSendToBin} className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 px-2 py-1 bg-blue-900/20 border border-blue-900/50 rounded shadow-sm hover:shadow-blue-500/20 transition-all">
-                                    <LibraryIcon className="w-3 h-3" /> Send to Scribe
-                                </button>
+                                <button onClick={handleSendToBin} className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 px-2 py-1 bg-blue-900/20 border border-blue-900/50 rounded shadow-sm hover:shadow-blue-500/20 transition-all"><LibraryIcon className="w-3 h-3" /> Send to Scribe</button>
                             )}
                         </div>
                     </div>
@@ -391,15 +430,15 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({ onSendTo
                         <button onClick={() => setActiveOutputTab('screenplay')} className={`flex-1 py-2 text-xs font-black uppercase tracking-widest transition-all rounded ${activeOutputTab === 'screenplay' ? 'bg-accent text-text-primary shadow-sm' : 'text-text-secondary hover:bg-accent/30'}`}>Screenplay</button>
                     </div>
 
-                    <div className="flex-grow overflow-y-auto custom-scrollbar bg-primary rounded-lg border border-accent p-8 font-mono text-sm leading-relaxed whitespace-pre shadow-inner">
+                    <div className="flex-grow overflow-y-auto custom-scrollbar bg-primary rounded-lg border border-accent p-8 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words shadow-inner">
                         {activeOutputTab === 'outline' ? (
                             generatedOutline ? (
                                 <div className="text-text-primary">
-                                    <h3 className="text-xl font-black text-blue-400 mb-2 border-b border-blue-900 pb-2">{generatedOutline.workingTitle.toUpperCase()}</h3>
-                                    <p className="mb-6 leading-relaxed"><strong>LOGLINE:</strong> {generatedOutline.logline}</p>
-                                    <p className="mb-6 leading-relaxed"><strong>TREATMENT:</strong>\n{generatedOutline.treatment}</p>
+                                    <h3 className="text-xl font-black text-blue-400 mb-2 border-b border-blue-900 pb-2">{cleanLiteralNewlines(generatedOutline.workingTitle).toUpperCase()}</h3>
+                                    <p className="mb-6 leading-relaxed"><strong>LOGLINE:</strong> {cleanLiteralNewlines(generatedOutline.logline)}</p>
+                                    <p className="mb-6 leading-relaxed"><strong>TREATMENT:</strong><br/>{cleanLiteralNewlines(generatedOutline.treatment)}</p>
                                     <h4 className="font-bold border-b border-accent mb-3 text-text-secondary uppercase tracking-widest text-xs">Structural Challenges</h4>
-                                    {generatedOutline.fundamentalStoryQuestions.map((q, i) => <p key={i} className="mb-1 text-sm">• {q}</p>)}
+                                    {generatedOutline.fundamentalStoryQuestions.map((q, i) => <p key={i} className="mb-1 text-sm">• {cleanLiteralNewlines(q)}</p>)}
                                 </div>
                             ) : <div className="opacity-30 h-full flex items-center justify-center italic text-center">Awaiting Outline Protocol Synchronization...</div>
                         ) : (
