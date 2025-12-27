@@ -413,7 +413,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                     <select 
                                         value={rating}
                                         onChange={(e) => handleApplyRating(e.target.value)}
-                                        className="w-full bg-neutral-800 border border-neutral-700 p-3.5 rounded-lg text-sm text-brand font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer shadow-inner hover:bg-neutral-700/50 transition-colors"
+                                        className="w-full bg-black border border-neutral-800 p-3.5 rounded-lg text-sm text-brand font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer shadow-inner hover:bg-neutral-800/50 transition-colors"
                                     >
                                         <option value="none">- NONE (Unrestricted) -</option>
                                         {Object.entries(CONTENT_GUIDELINES.RATINGS).map(([key, val]) => (
@@ -425,11 +425,11 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-green-500 uppercase tracking-widest flex items-center gap-2">Positive Directives</label>
-                                <textarea value={positiveConstraints} onChange={(e) => setPositiveConstraints(e.target.value)} placeholder="Force specific story requirements..." className="w-full h-32 bg-neutral-800/30 border border-neutral-700 rounded-lg text-sm text-neutral-100 focus:ring-2 focus:ring-brand outline-none resize-none font-mono p-4" />
+                                <textarea value={positiveConstraints} onChange={(e) => setPositiveConstraints(e.target.value)} placeholder="Force specific story requirements..." className="w-full h-32 bg-black/30 border border-neutral-800 rounded-lg text-sm text-neutral-100 focus:ring-2 focus:ring-brand outline-none resize-none font-mono p-4" />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">Negative Directives</label>
-                                <textarea value={negativeConstraints} onChange={(e) => setNegativeConstraints(e.target.value)} placeholder="Explicitly exclude themes or content..." className="w-full h-32 bg-neutral-800/30 border border-neutral-700 rounded-lg text-sm text-neutral-100 focus:ring-2 focus:ring-brand outline-none resize-none font-mono p-4" />
+                                <textarea value={negativeConstraints} onChange={(e) => setNegativeConstraints(e.target.value)} placeholder="Explicitly exclude themes or content..." className="w-full h-32 bg-black/30 border border-neutral-800 rounded-lg text-sm text-neutral-100 focus:ring-2 focus:ring-brand outline-none resize-none font-mono p-4" />
                             </div>
                         </div>
                     )}
@@ -458,11 +458,11 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block pl-1">Project Title</label>
-                                    <input type="text" value={initialTitle} onChange={(e) => setInitialTitle(e.target.value)} className="w-full bg-black border border-neutral-700 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-black tracking-tight" />
+                                    <input type="text" value={initialTitle} onChange={(e) => setInitialTitle(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-black tracking-tight" />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block pl-1">Genre Lattice</label>
-                                    <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full bg-black border border-neutral-700 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none cursor-pointer font-bold">
+                                    <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none cursor-pointer font-bold">
                                         {Object.keys(genresData).length > 0 ? Object.keys(genresData).map(g => (
                                             <option key={g} value={g}>{g.replace(/_/g, ' ').toUpperCase()}</option>
                                         )) : <option>Loading...</option>}
@@ -470,21 +470,21 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block pl-1">Philosophical Core</label>
-                                    <input type="text" value={theme} onChange={(e) => setTheme(e.target.value)} className="w-full bg-black border border-neutral-700 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-bold" />
+                                    <input type="text" value={theme} onChange={(e) => setTheme(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-bold" />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block pl-1">Primary Setting</label>
-                                    <input type="text" value={setting} onChange={(e) => setSetting(e.target.value)} className="w-full bg-black border border-neutral-700 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-bold" />
+                                    <input type="text" value={setting} onChange={(e) => setSetting(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-bold" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                                 <div className="space-y-3">
                                     <label className="text-[11px] font-black text-neutral-400 uppercase tracking-[0.25em] pl-1">Character Manifest</label>
-                                    <textarea value={cast} onChange={(e) => setCast(e.target.value)} className="w-full h-64 bg-black border border-neutral-700 p-6 rounded-xl text-sm text-neutral-300 focus:ring-2 focus:ring-brand outline-none resize-none font-mono leading-relaxed" />
+                                    <textarea value={cast} onChange={(e) => setCast(e.target.value)} className="w-full h-64 bg-black border border-neutral-800 p-6 rounded-xl text-sm text-neutral-300 focus:ring-2 focus:ring-brand outline-none resize-none font-mono leading-relaxed" />
                                 </div>
                                 <div className="space-y-3">
                                     <label className="text-[11px] font-black text-neutral-400 uppercase tracking-[0.25em] pl-1">Production Beats</label>
-                                    <textarea value={beatSheet} onChange={(e) => setBeatSheet(e.target.value)} className="w-full h-64 bg-black border border-neutral-700 p-6 rounded-xl text-sm text-neutral-300 focus:ring-2 focus:ring-brand outline-none resize-none font-mono leading-relaxed" />
+                                    <textarea value={beatSheet} onChange={(e) => setBeatSheet(e.target.value)} className="w-full h-64 bg-black border border-neutral-800 p-6 rounded-xl text-sm text-neutral-300 focus:ring-2 focus:ring-brand outline-none resize-none font-mono leading-relaxed" />
                                 </div>
                             </div>
                             <div className="pt-8 flex justify-center">
@@ -519,7 +519,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                     <div className="space-y-8 flex flex-col items-stretch max-w-5xl mx-auto">
                                         <div className="space-y-3">
                                             <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Working Title</label>
-                                            <input type="text" value={workingTitle} onChange={(e) => setWorkingTitle(e.target.value)} className="w-full bg-black border border-neutral-800 p-5 rounded-lg text-2xl text-blue-400 font-black shadow-inner outline-none focus:ring-1 focus:ring-brand" />
+                                            <input type="text" value={workingTitle} onChange={(e) => setWorkingTitle(e.target.value)} className="w-full bg-black border border-neutral-900 p-5 rounded-lg text-2xl text-blue-400 font-black shadow-inner outline-none focus:ring-1 focus:ring-brand" />
                                         </div>
 
                                         <div className="space-y-3">
@@ -527,7 +527,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                             <AutoExpandingTextarea 
                                                 value={logline} 
                                                 onChange={(e) => setLogline(e.target.value)} 
-                                                className="bg-black border border-neutral-800 p-5 rounded-lg text-base text-neutral-200 italic shadow-inner outline-none focus:ring-1 focus:ring-brand leading-relaxed font-sans" 
+                                                className="bg-black border border-neutral-900 p-5 rounded-lg text-base text-neutral-200 italic shadow-inner outline-none focus:ring-1 focus:ring-brand leading-relaxed font-sans" 
                                                 placeholder="Generating Logline..."
                                             />
                                         </div>
@@ -537,7 +537,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                             <AutoExpandingTextarea 
                                                 value={treatment} 
                                                 onChange={(e) => setTreatment(e.target.value)} 
-                                                className="bg-black border border-neutral-800 p-6 rounded-lg text-sm text-neutral-400 leading-relaxed shadow-inner outline-none focus:ring-1 focus:ring-brand font-mono" 
+                                                className="bg-black border border-neutral-900 p-6 rounded-lg text-sm text-neutral-400 leading-relaxed shadow-inner outline-none focus:ring-1 focus:ring-brand font-mono" 
                                                 placeholder="Generating Narrative Treatment..."
                                             />
                                         </div>
