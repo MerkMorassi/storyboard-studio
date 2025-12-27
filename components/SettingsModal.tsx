@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 
 interface SettingsModalProps {
@@ -12,17 +11,11 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave, currentTopazApiKey, currentHfApiKey }) => {
   const [topazApiKeyInput, setTopazApiKeyInput] = useState(currentTopazApiKey);
   const [hfApiKeyInput, setHfApiKeyInput] = useState(currentHfApiKey);
-
-  // Lock states to protect keys
-  const [isTopazLocked, setIsTopazLocked] = useState(!!currentTopazApiKey);
-  const [isHfLocked, setIsHfLocked] = useState(!!currentHfApiKey);
+  const [showKeys, setShowKeys] = useState(false);
 
   useEffect(() => {
     setTopazApiKeyInput(currentTopazApiKey);
-    setIsTopazLocked(!!currentTopazApiKey);
-
     setHfApiKeyInput(currentHfApiKey);
-    setIsHfLocked(!!currentHfApiKey);
   }, [currentTopazApiKey, currentHfApiKey, isOpen]);
 
   useEffect(() => {
@@ -42,53 +35,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   }
 
   const handleSave = () => {
-    const finalTopaz = isTopazLocked ? currentTopazApiKey : topazApiKeyInput.trim();
-    const finalHf = isHfLocked ? currentHfApiKey : hfApiKeyInput.trim();
-
-    onSave(finalTopaz, finalHf);
+    onSave(topazApiKeyInput.trim(), hfApiKeyInput.trim());
   };
-
-  const LockedInput: React.FC<{ label: string; onUnlock: () => void }> = ({ label, onUnlock }) => (
-      <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">{label}</label>
-          <div className="flex gap-2">
-              <input
-                  type="text"
-                  value="••••••••••••••••••••••••••••••"
-                  disabled
-                  className="w-full bg-neutral-900/50 border border-neutral-700 rounded p-2 text-neutral-500 cursor-not-allowed select-none"
-              />
-              <button
-                  onClick={onUnlock}
-                  className="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-white text-sm font-medium rounded transition-colors"
-              >
-                  Change
-              </button>
-          </div>
-          <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
-              Key stored securely
-          </p>
-      </div>
-  );
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+      className="fixed inset-0 bg-black/85 z-[100] flex items-center justify-center p-4 backdrop-blur-md"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="settings-title"
     >
       <div 
-        className="bg-neutral-800 shadow-2xl p-6 w-full max-w-lg border border-neutral-700 rounded-lg max-h-[90vh] overflow-y-auto"
+        className="bg-neutral-900 shadow-2xl p-8 w-full max-w-lg border border-neutral-700 rounded-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-6">
-          <h2 id="settings-title" className="text-xl font-bold text-white">Settings</h2>
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-2xl font-black text-white uppercase tracking-tight">System Auth</h2>
+            <p className="text-xs text-neutral-500 font-mono">Persistent Authentication Buffer</p>
+          </div>
           <button 
             onClick={onClose} 
-            className="text-neutral-400 hover:text-white transition-colors"
+            className="text-neutral-500 hover:text-white transition-colors p-2"
             aria-label="Close settings"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -97,60 +65,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
           </button>
         </div>
         
-        <div className="space-y-6">
-          {isTopazLocked ? (
-              <LockedInput label="Topaz Labs API Key" onUnlock={() => setIsTopazLocked(false)} />
-          ) : (
-              <div>
-                 <label htmlFor="topaz-api-key" className="block text-sm font-medium text-neutral-300 mb-2">
-                  Topaz Labs API Key
-                </label>
-                <input
-                  type="password"
-                  id="topaz-api-key"
-                  value={topazApiKeyInput}
-                  onChange={(e) => setTopazApiKeyInput(e.target.value)}
-                  placeholder="Enter your Topaz API Key"
-                  className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-neutral-200 focus:border-blue-500 focus:outline-none"
-                />
-                 <p className="text-xs text-neutral-500 mt-1">Required for Enhance, Sharpen, and Denoise studios.</p>
-              </div>
-          )}
+        <div className="space-y-8">
+          <div>
+            <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
+              Topaz Labs API Key
+            </label>
+            <input
+              type={showKeys ? "text" : "password"}
+              value={topazApiKeyInput}
+              onChange={(e) => setTopazApiKeyInput(e.target.value)}
+              placeholder="Enter Topaz API Key"
+              className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
+            />
+          </div>
 
-          {isHfLocked ? (
-              <LockedInput label="Hugging Face Access Token" onUnlock={() => setIsHfLocked(false)} />
-          ) : (
-              <div>
-                 <label htmlFor="hf-api-key" className="block text-sm font-medium text-neutral-300 mb-2">
-                  Hugging Face Access Token
-                </label>
-                <input
-                  type="password"
-                  id="hf-api-key"
-                  value={hfApiKeyInput}
-                  onChange={(e) => setHfApiKeyInput(e.target.value)}
-                  placeholder="Enter your HF Access Token"
-                  className="w-full bg-neutral-900 border border-neutral-600 rounded p-2 text-neutral-200 focus:border-blue-500 focus:outline-none"
-                />
-                 <p className="text-xs text-neutral-500 mt-1">
-                    Required for Generative Video and other external tools. <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">Get Token</a>
-                 </p>
-              </div>
-          )}
+          <div>
+            <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
+              Hugging Face Access Token
+            </label>
+            <input
+              type={showKeys ? "text" : "password"}
+              value={hfApiKeyInput}
+              onChange={(e) => setHfApiKeyInput(e.target.value)}
+              placeholder="Enter HF Access Token (hf_...)"
+              className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
+            />
+            <p className="text-[10px] text-neutral-600 mt-2 italic px-1">
+              Used for the merkmorassi-mythos-engine hardware link.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 px-1">
+            <input 
+              type="checkbox" 
+              id="show-keys" 
+              checked={showKeys} 
+              onChange={() => setShowKeys(!showKeys)}
+              className="accent-blue-600"
+            />
+            <label htmlFor="show-keys" className="text-xs text-neutral-400 cursor-pointer">Reveal Keys</label>
+          </div>
         </div>
 
-        <div className="mt-8 flex justify-end gap-3">
+        <div className="mt-10 flex gap-4">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium rounded hover:bg-neutral-700 transition-colors text-neutral-300"
+            className="flex-1 py-4 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-neutral-800 transition-colors text-neutral-500 hover:text-white border border-neutral-800"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors"
+            className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition-all shadow-lg shadow-blue-900/20 active:scale-95"
           >
-            Save
+            Commit to Disk
           </button>
         </div>
       </div>

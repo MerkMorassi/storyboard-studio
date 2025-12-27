@@ -1,19 +1,17 @@
-
 // Gemini API Key is handled by process.env now.
-const TOPAZ_API_KEY_STORAGE_KEY = 'mythos_topaz_api_key_v2';
-const HF_API_KEY_STORAGE_KEY = 'mythos_hf_api_key_v2';
+const TOPAZ_API_KEY_STORAGE_KEY = 'mythos_topaz_v2';
+const HF_API_KEY_STORAGE_KEY = 'mythos_hf_v2';
 
 export const getApiKey = (): string | null => {
-  // Fix: Strictly obtain API key from environment variable as required.
   return process.env.API_KEY || null;
 };
 
-// Topaz and HF keys are still managed via localStorage.
 export const saveTopazApiKey = (key: string): void => {
     try {
-        if (key) localStorage.setItem(TOPAZ_API_KEY_STORAGE_KEY, key);
+        localStorage.setItem(TOPAZ_API_KEY_STORAGE_KEY, key.trim());
+        console.log("[MythOS] Topaz Key Persisted.");
     } catch (error) {
-        console.error("Failed to save Topaz API key:", error);
+        console.error("Persistence Failure (Topaz):", error);
     }
 };
 
@@ -27,9 +25,10 @@ export const getTopazApiKey = (): string | null => {
 
 export const saveHfApiKey = (key: string): void => {
     try {
-        if (key) localStorage.setItem(HF_API_KEY_STORAGE_KEY, key);
+        localStorage.setItem(HF_API_KEY_STORAGE_KEY, key.trim());
+        console.log("[MythOS] HF Token Persisted.");
     } catch (error) {
-        console.error("Failed to save Hugging Face API key:", error);
+        console.error("Persistence Failure (HF):", error);
     }
 };
 

@@ -9,7 +9,7 @@ export interface ScribeConfig {
     beatSheet: string;
     genre: string;
     rating?: string;
-    format?: string; // NEW: Format field
+    format?: string; 
     workingTitle: string;
     logline: string;
     treatment: string;
@@ -37,9 +37,6 @@ const pickKey = (obj: any) => {
     return keys[Math.floor(Math.random() * keys.length)];
 };
 
-/**
- * Procedurally generates a narrative configuration by sampling the MythOS metadata lattice.
- */
 export const generateRandomConfig = (constraints: Partial<ScribeConfig> = {}): ScribeConfig => {
     const { genres, themes, structures } = MythosData;
 
@@ -71,23 +68,23 @@ export const generateRandomConfig = (constraints: Partial<ScribeConfig> = {}): S
     const selectedFormat = constraints.format || pick(formats);
 
     const cast = constraints.cast || `
-ROLE: PROTAGONIST
+--- ROLE: PROTAGONIST ---
 ARCHETYPE: The Hero 
 NOTE: Must embody the traits of the ${displayGenreName} sub-genre.
 
-ROLE: ANTAGONIST
+--- ROLE: ANTAGONIST ---
 ARCHETYPE: The Shadow
 NOTE: Represents the psychological antithesis of: "${coreQuestion}"
     `.trim();
 
     const beatSheet = constraints.beatSheet || `
-## GENRE PROTOCOL: ${displayGenreName}
+--- GENRE PROTOCOL: ${displayGenreName} ---
 ${genreInfo.definition}
 
-## THEMATIC ANCHOR
+--- THEMATIC ANCHOR ---
 "${coreQuestion}"
 
-## SEQUENCE START: ${openingBeat.label.toUpperCase()}
+--- SEQUENCE START: ${openingBeat.label.toUpperCase()} ---
 ACTION: ${openingBeat.instruction}
 ENVIRONMENT: ${selectedSetting}
     `.trim();
@@ -106,7 +103,7 @@ ENVIRONMENT: ${selectedSetting}
         logline: themeData.logline || `A ${displayGenreName} exploration of ${themeKey.replace(/_/g, ' ')}.`,
         treatment: `The narrative sequence initiates in ${selectedSetting}. We observe our protagonist grappling with the physical manifestations of "${coreQuestion}" within a ${displayGenreName} context.`,
         fundamentalStoryQuestions: `1. ${coreQuestion}\n2. How does the environment of ${selectedSetting} test the protagonist's resolve?`,
-        archetypalCharacters: `- Protagonist: The Hero / Seeker\n- Antagonist: The Shadow / System`,
+        archetypalCharacters: `Protagonist: The Hero / Seeker\nAntagonist: The Shadow / System`,
         sceneGenerationQuestions: `1. What visual motif in ${selectedSetting} represents the theme?\n2. How does the lighting reflect the ${tone} tone?`
     };
 };

@@ -45,7 +45,7 @@ export interface ScribeInput {
   positiveConstraints?: string;
   negativeConstraints?: string;
   rating?: string; 
-  format?: string; // New: Format field
+  format?: string; 
   dynamicLists?: any[];
 }
 
@@ -60,7 +60,7 @@ export interface ScribeOutlineInput {
   positiveConstraints?: string;
   negativeConstraints?: string;
   rating?: string; 
-  format?: string; // New: Format field
+  format?: string; 
   dynamicLists?: any[];
 }
 
@@ -94,6 +94,19 @@ const getScribeSystemPrompt = (pos?: string, neg?: string, rating?: string, form
 ### ROLE
 You are the MythOS Studio Screenwriter. You transform abstract blueprints into vivid, shootable screenplays.
 
+### CRITICAL FORMATTING MANDATE: NO MARKDOWN
+STRICTLY FORBIDDEN: NEVER use Markdown formatting in your output strings.
+- DO NOT use hashes (#) for headers.
+- DO NOT use asterisks (*) or underscores (_) for bold or italics.
+- DO NOT use backticks (\`) for code blocks.
+- DO NOT use markdown list symbols like - or *.
+
+INSTEAD:
+- Use ALL CAPS for headers and scene slugs.
+- Use "--- SECTION NAME ---" for major divisions.
+- Use simple numbering (1., 2.) for lists.
+- Use plain text capitalization for emphasis.
+
 ### PRODUCTION PROTOCOLS
 ${ratingPrompt}
 ${formatPrompt}
@@ -107,9 +120,6 @@ ${formatPrompt}
 ### STUDIO STANDARDS (PRIMARY OVERRIDE)
 **MUST INCLUDE (User Directives):** ${pos || "Standard cinematic storytelling."}
 **STRICTLY FORBIDDEN (User Directives):** ${neg || "None specified."}
-
-### KNOWLEDGE BASE
-You have access to the MythOS Lattice (Genres, Structures, Archetypes). Cross-reference all inputs with these protocols.
 `;
 
     if (dynamicLists && dynamicLists.length > 0) {
@@ -133,7 +143,6 @@ COMMAND: WRITE SCREENPLAY SEQUENCE
 TITLE: ${input.workingTitle}
 GENRE: ${input.genre}
 FORMAT: ${input.format}
-TONE: ${input.tone}
 
 === CAST ===
 ${input.cast}
@@ -142,8 +151,9 @@ ${input.cast}
 ${input.beatSheet}
 
 TASK:
-Write the screenplay scenes. Ensure the style matches the ${input.format} definition.
-Ensure the "Must Include" rules and Rating Mandates are central and "Strictly Forbidden" items are entirely absent.
+Write the screenplay scenes. 
+FORMATTING RULE: STRICTLY PLAIN TEXT. NO MARKDOWN SYMBOLS (#, *, _, \`).
+Use ALL CAPS for scene headers and character names.
 Label as "FIRST DRAFT".
 `;
 
@@ -154,7 +164,7 @@ Label as "FIRST DRAFT".
                 config: {
                     systemInstruction,
                     maxOutputTokens: 8192,
-                    temperature: 0.8, // RAISED TEMP FOR CREATIVITY
+                    temperature: 0.8,
                     safetySettings
                 }
             });
@@ -173,20 +183,14 @@ export const runScribeOutlineAgent = async (input: ScribeOutlineInput): Promise<
 
         const inputBlock = `
 COMMAND: GENERATE STORY OUTLINE (JSON)
-
-${input.rating && input.rating !== 'none' ? `MANDATE: FILTER BLUEPRINT THROUGH RATING ${input.rating} STANDARDS.` : ''}
-
 RAW BLUEPRINT:
 TITLE: ${input.title}
 GENRE: ${input.genre}
-FORMAT: ${input.format}
-THEME: ${input.theme}
-SETTING: ${input.setting}
 BEATS: ${input.beatSheet}
 
 TASK:
-Filter this raw blueprint through the STUDIO STANDARDS, RATING MANDATE, and FORMAT structural requirements.
-If the blueprint contradicts the Standards/Rating, the Standards WIN.
+Filter this raw blueprint through the STUDIO STANDARDS and RATING MANDATE.
+OUTPUT RULE: STRICTLY PLAIN TEXT in all string fields. NO MARKDOWN SYMBOLS (#, *, _, \`).
 
 OUTPUT FORMAT: JSON Schema.
 `;
@@ -223,11 +227,11 @@ OUTPUT FORMAT: JSON Schema.
     });
 };
 
-export const getModelForTask = (queryText: string) => 'gemini-3-pro-preview';
 export const fetchModels = async () => [
     { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Preview)' },
     { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Preview)' }
 ];
+
 export const getEmbeddings = async (text: string) => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
@@ -238,6 +242,7 @@ export const getEmbeddings = async (text: string) => {
         return response.embeddings?.[0]?.values || null;
     });
 };
+
 export const generateText = async (prompt: string) => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
@@ -248,6 +253,7 @@ export const generateText = async (prompt: string) => {
         return response.text || "";
     });
 };
+
 export const generateSpeech = async (text: string, voice: string, rate: number) => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
@@ -265,6 +271,7 @@ export const generateSpeech = async (text: string, voice: string, rate: number) 
         return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
     });
 };
+
 export const createChat = (systemPrompt?: string, history?: Content[]) => {
     const ai = getClient();
     return ai.chats.create({ 

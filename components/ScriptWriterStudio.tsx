@@ -21,7 +21,6 @@ import { simpleMarkdownToHtml } from '../utils/textFormatting';
 
 const cleanLiteralNewlines = (text: string): string => {
     if (!text) return '';
-    // Strip literal \n, raw HTML tags like <center>, and normalize line endings
     return text
         .replace(/\\n/g, '\n')
         .replace(/<[^>]*>/g, '')
@@ -71,33 +70,29 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
     promptTemplates,
     dynamicPromptLists
 }) => {
-    // Collapsible states
     const [isStep1Open, setIsStep1Open] = useState(true);
     const [isStep2Open, setIsStep2Open] = useState(true);
     const [isStep3Open, setIsStep3Open] = useState(true);
     const [isStep4Open, setIsStep4Open] = useState(true);
 
-    // Blueprint Inputs
     const [initialTitle, setInitialTitle] = useState('PROJ_ABSURDIST_784');
     const [genre, setGenre] = useState('EXPERIMENTAL');
     const [theme, setTheme] = useState('identity_crisis');
     const [setting, setSetting] = useState('Static TV Screen');
     const [tone, setTone] = useState('EXPERIMENTAL // ABSURDIST');
-    const [cast, setCast] = useState('ROLE: PROTAGONIST\nARCHETYPE: The Hero\nNOTE: Must embody the traits of the ABSURDIST sub-genre.');
-    const [beatSheet, setBeatSheet] = useState('## GENRE PROTOCOL: ABSURDIST\nCharacters experience situations suggesting no central purpose to life.\n\n## THEMATIC ANCHOR\n"Does the mask eventually become the face?"');
+    const [cast, setCast] = useState('--- ROLE: PROTAGONIST ---\nARCHETYPE: The Hero\nNOTE: Must embody the traits of the ABSURDIST sub-genre.');
+    const [beatSheet, setBeatSheet] = useState('--- GENRE PROTOCOL: ABSURDIST ---\nCharacters experience situations suggesting no central purpose to life.\n\n--- THEMATIC ANCHOR ---\n"Does the mask eventually become the face?"');
     
     const [rating, setRating] = useState('R');
     const [format, setFormat] = useState('Feature_Film');
     const [positiveConstraints, setPositiveConstraints] = useState('');
     const [negativeConstraints, setNegativeConstraints] = useState('');
 
-    // Outline Outputs
     const [workingTitle, setWorkingTitle] = useState('');
     const [logline, setLogline] = useState('');
     const [treatment, setTreatment] = useState('');
     const [fundamentalStoryQuestions, setFundamentalStoryQuestions] = useState<string[]>([]);
 
-    // Generation States
     const [generatedOutline, setGeneratedOutline] = useState<ScribeOutlineOutput | null>(null);
     const [generatedScreenplay, setGeneratedScreenplay] = useState<string>('');
     const [isGeneratingOutline, setIsGeneratingOutline] = useState(false);
@@ -307,7 +302,6 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
 
     return (
         <div className="flex flex-col h-full bg-primary overflow-hidden">
-            {/* Header */}
             <div className="flex-shrink-0 flex justify-between items-center h-16 px-6 border-b border-neutral-800 bg-neutral-900/50 z-20">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-brand/20 rounded-lg text-brand"><EditIcon className="w-6 h-6" /></div>
@@ -319,10 +313,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 {copyFeedback && <div className="bg-green-600/20 text-green-400 px-4 py-1.5 rounded-full text-xs font-black border border-green-500/30 animate-fade-in shadow-xl">{copyFeedback}</div>}
             </div>
 
-            {/* Workflow Area */}
             <div className="flex-grow overflow-y-auto custom-scrollbar p-6 space-y-8 pb-40">
-                
-                {/* STEP 1: STUDIO PROTOCOLS */}
                 <div className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                     <StepHeader 
                         number={1} title="STUDIO PROTOCOLS" isOpen={isStep1Open} onToggle={() => setIsStep1Open(!isStep1Open)} 
@@ -357,7 +348,6 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                     )}
                 </div>
 
-                {/* STEP 2: PRODUCTION BLUEPRINT */}
                 <div className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                     <StepHeader 
                         number={2} title="PRODUCTION BLUEPRINT" isOpen={isStep2Open} onToggle={() => setIsStep2Open(!isStep2Open)} 
@@ -387,7 +377,6 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                     )}
                 </div>
 
-                {/* STEP 3: AI SYNTHESIZED OUTLINE */}
                 {(generatedOutline || isGeneratingOutline) && (
                     <div id="step-3-outline" className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                         <StepHeader 
@@ -403,13 +392,11 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                     </div>
                                 ) : (
                                     <div className="space-y-8 max-w-5xl mx-auto">
-                                        {/* Working Title Display */}
                                         <div className="border-b border-neutral-800 pb-8">
                                             <h3 className="text-4xl font-black text-blue-400 tracking-tighter uppercase">{cleanLiteralNewlines(workingTitle)}</h3>
                                             <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-2">Active Production Cycle / Version 1.0</p>
                                         </div>
 
-                                        {/* Formatted Content Containers instead of textareas */}
                                         <div className="grid grid-cols-1 gap-10">
                                             <div className="space-y-4">
                                                 <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block border-l-2 border-blue-600 pl-3">Narrative Premise (Logline)</label>
@@ -440,7 +427,6 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                     </div>
                 )}
 
-                {/* STEP 4: FINAL PRODUCTION REPORT */}
                 {(generatedScreenplay || isGeneratingScreenplay) && (
                     <div id="step-4-report" className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                         <StepHeader 
