@@ -45,6 +45,7 @@ export interface ScribeInput {
   positiveConstraints?: string;
   negativeConstraints?: string;
   rating?: string; 
+  format?: string; // New: Format field
   dynamicLists?: any[];
 }
 
@@ -59,6 +60,7 @@ export interface ScribeOutlineInput {
   positiveConstraints?: string;
   negativeConstraints?: string;
   rating?: string; 
+  format?: string; // New: Format field
   dynamicLists?: any[];
 }
 
@@ -71,7 +73,7 @@ export interface ScribeOutlineOutput {
   sceneGenerationQuestions: string[];
 }
 
-const getScribeSystemPrompt = (pos?: string, neg?: string, rating?: string, dynamicLists?: any[]) => {
+const getScribeSystemPrompt = (pos?: string, neg?: string, rating?: string, format?: string, dynamicLists?: any[]) => {
     let ratingPrompt = "";
     if (rating && rating !== "none" && CONTENT_GUIDELINES.RATINGS[rating as keyof typeof CONTENT_GUIDELINES.RATINGS]) {
         const rData = CONTENT_GUIDELINES.RATINGS[rating as keyof typeof CONTENT_GUIDELINES.RATINGS];
@@ -81,17 +83,28 @@ const getScribeSystemPrompt = (pos?: string, neg?: string, rating?: string, dyna
  ******************************************************************************
  ${rData.positive}
  ------------------------------------------------------------------------------
- FORBIDDEN: ${rData.negative}
+ FORBIDDEN: ${(rData as any).negative || 'None specified.'}
  *****************************************************************************/
 `;
     }
 
+    const formatPrompt = (format && format !== "none" && (CONTENT_GUIDELINES as any).FORMATS[format]) || "";
+
     let base = `
 ### ROLE
-You are the MythOS Studio Screenwriter. You transform story blueprints into industry-standard screenplays.
+You are the MythOS Studio Screenwriter. You transform abstract blueprints into vivid, shootable screenplays.
+
+### PRODUCTION PROTOCOLS
+${ratingPrompt}
+${formatPrompt}
+
+### CREATIVE DIRECTIVES (THE "FIRE" CLAUSE)
+1. **Interpretation over Adherence:** Use provided archetypes and structures as *seeds* for inspiration, not rigid laws.
+2. **Subvert Expectations:** If a character is a "Hero," show their doubt. If a setting is "Sterile," find the dirt.
+3. **Cinematic Style:** Prioritize visual storytelling ("Show, Don't Tell"). Use sensory details (smell, touch, sound) to ground the scene.
+4. **Dialogue:** Subtext is key. Characters should rarely say exactly what they mean.
 
 ### STUDIO STANDARDS (PRIMARY OVERRIDE)
-${ratingPrompt}
 **MUST INCLUDE (User Directives):** ${pos || "Standard cinematic storytelling."}
 **STRICTLY FORBIDDEN (User Directives):** ${neg || "None specified."}
 
@@ -113,24 +126,25 @@ You have access to the MythOS Lattice (Genres, Structures, Archetypes). Cross-re
 export const runScribeAgent = async (input: ScribeInput): Promise<string> => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
-        const systemInstruction = getScribeSystemPrompt(input.positiveConstraints, input.negativeConstraints, input.rating, input.dynamicLists);
+        const systemInstruction = getScribeSystemPrompt(input.positiveConstraints, input.negativeConstraints, input.rating, input.format, input.dynamicLists);
 
         const inputBlock = `
-COMMAND: WRITE 40-SCENE SCREENPLAY
-Label as "FIRST DRAFT".
-
-${input.rating && input.rating !== 'none' ? `MANDATE: STRICTLY ADHERE TO RATING ${input.rating} BOUNDARIES.` : ''}
-
-BLUEPRINT DATA:
+COMMAND: WRITE SCREENPLAY SEQUENCE
 TITLE: ${input.workingTitle}
 GENRE: ${input.genre}
-THEME: ${input.theme}
-TREATMENT: ${input.treatment}
-CAST: ${input.cast}
-BEATS: ${input.beatSheet}
+FORMAT: ${input.format}
+TONE: ${input.tone}
+
+=== CAST ===
+${input.cast}
+
+=== BEAT SHEET ===
+${input.beatSheet}
 
 TASK:
-Write the screenplay. Ensure the "Must Include" rules and Rating Mandates are central and "Strictly Forbidden" items are entirely absent.
+Write the screenplay scenes. Ensure the style matches the ${input.format} definition.
+Ensure the "Must Include" rules and Rating Mandates are central and "Strictly Forbidden" items are entirely absent.
+Label as "FIRST DRAFT".
 `;
 
         try {
@@ -140,7 +154,7 @@ Write the screenplay. Ensure the "Must Include" rules and Rating Mandates are ce
                 config: {
                     systemInstruction,
                     maxOutputTokens: 8192,
-                    temperature: 0.7,
+                    temperature: 0.8, // RAISED TEMP FOR CREATIVITY
                     safetySettings
                 }
             });
@@ -155,7 +169,7 @@ Write the screenplay. Ensure the "Must Include" rules and Rating Mandates are ce
 export const runScribeOutlineAgent = async (input: ScribeOutlineInput): Promise<ScribeOutlineOutput> => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
-        const systemInstruction = getScribeSystemPrompt(input.positiveConstraints, input.negativeConstraints, input.rating, input.dynamicLists);
+        const systemInstruction = getScribeSystemPrompt(input.positiveConstraints, input.negativeConstraints, input.rating, input.format, input.dynamicLists);
 
         const inputBlock = `
 COMMAND: GENERATE STORY OUTLINE (JSON)
@@ -165,13 +179,14 @@ ${input.rating && input.rating !== 'none' ? `MANDATE: FILTER BLUEPRINT THROUGH R
 RAW BLUEPRINT:
 TITLE: ${input.title}
 GENRE: ${input.genre}
+FORMAT: ${input.format}
 THEME: ${input.theme}
 SETTING: ${input.setting}
 BEATS: ${input.beatSheet}
 
 TASK:
-Filter this raw blueprint through the STUDIO STANDARDS and RATING MANDATE. If the blueprint contradicts the Standards/Rating, the Standards WIN.
-Example: If Rating is "G" and Blueprint is "Slasher", pivot the story to a family-friendly adventure.
+Filter this raw blueprint through the STUDIO STANDARDS, RATING MANDATE, and FORMAT structural requirements.
+If the blueprint contradicts the Standards/Rating, the Standards WIN.
 
 OUTPUT FORMAT: JSON Schema.
 `;
@@ -183,7 +198,7 @@ OUTPUT FORMAT: JSON Schema.
                 config: {
                     maxOutputTokens: 4096,
                     systemInstruction,
-                    temperature: 0.5,
+                    temperature: 0.7,
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: Type.OBJECT,

@@ -82,7 +82,8 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
     const [cast, setCast] = useState('ROLE: PROTAGONIST\nARCHETYPE: The Hero\nNOTE: Must embody the traits of the ABSURDIST sub-genre.');
     const [beatSheet, setBeatSheet] = useState('## GENRE PROTOCOL: ABSURDIST\nCharacters experience situations suggesting no central purpose to life.\n\n## THEMATIC ANCHOR\n"Does the mask eventually become the face?"');
     
-    const [rating, setRating] = useState('none');
+    const [rating, setRating] = useState('R');
+    const [format, setFormat] = useState('Feature_Film');
     const [positiveConstraints, setPositiveConstraints] = useState('');
     const [negativeConstraints, setNegativeConstraints] = useState('');
 
@@ -124,7 +125,8 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
         const guidelines = CONTENT_GUIDELINES.RATINGS[ratingKey as keyof typeof CONTENT_GUIDELINES.RATINGS];
         if (guidelines) {
             setPositiveConstraints(guidelines.positive);
-            setNegativeConstraints(guidelines.negative);
+            // Fix: Added type assertion to safely access 'negative' which may be absent in some rating types.
+            setNegativeConstraints((guidelines as any).negative || '');
             showCopyFeedback(`${guidelines.name} Protocols Set`);
         }
     };
@@ -143,7 +145,8 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
             setTone(config.tone);
             setCast(config.cast);
             setBeatSheet(config.beatSheet);
-            setRating(config.rating || 'none');
+            setRating(config.rating || 'R');
+            setFormat(config.format || 'Feature_Film');
             
             setWorkingTitle(config.workingTitle);
             setLogline(config.logline);
@@ -172,6 +175,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 cast, 
                 beatSheet,
                 rating: rating !== 'none' ? rating : undefined,
+                format: format !== 'none' ? format : undefined,
                 positiveConstraints: positiveConstraints.trim() || undefined,
                 negativeConstraints: negativeConstraints.trim() || undefined,
                 dynamicLists: dynamicPromptLists
@@ -215,6 +219,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 archetypalCharacters: generatedOutline?.archetypalCharacters.join('\n') || '', 
                 sceneGenerationQuestions: generatedOutline?.sceneGenerationQuestions.join('\n') || '',
                 rating: rating !== 'none' ? rating : undefined,
+                format: format !== 'none' ? format : undefined,
                 positiveConstraints: positiveConstraints.trim() || undefined,
                 negativeConstraints: negativeConstraints.trim() || undefined,
                 dynamicLists: dynamicPromptLists
@@ -232,7 +237,6 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
         }
     };
 
-    // Fix: Added missing handleSendToBin function to resolve error in line 442.
     const handleSendToBin = () => {
         if (generatedScreenplay) {
             onSendToScriptsBin({
@@ -242,6 +246,30 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
             });
             showCopyFeedback("Draft sent to Scripts Bin");
         }
+    };
+
+    const handleCopyStep1 = () => {
+        const text = `STUDIO PROTOCOLS\nRating: ${rating}\nFormat: ${format}\nMust Include: ${positiveConstraints}\nForbidden: ${negativeConstraints}`;
+        navigator.clipboard.writeText(text);
+        showCopyFeedback("Protocols Copied");
+    };
+
+    const handleCopyStep2 = () => {
+        const text = `PRODUCTION BLUEPRINT\nTitle: ${initialTitle}\nGenre: ${genre}\nTheme: ${theme}\nSetting: ${setting}\n\nCAST:\n${cast}\n\nBEATS:\n${beatSheet}`;
+        navigator.clipboard.writeText(text);
+        showCopyFeedback("Blueprint Copied");
+    };
+
+    const handleCopyStep3 = () => {
+        const text = `AI SYNTHESIZED OUTLINE\nTitle: ${workingTitle}\nLogline: ${logline}\n\nTreatment:\n${treatment}`;
+        navigator.clipboard.writeText(text);
+        showCopyFeedback("Outline Copied");
+    };
+
+    const handleCopyStep4 = () => {
+        const text = activeOutputTab === 'screenplay' ? generatedScreenplay : `FINAL REPORT\nTitle: ${workingTitle}\nLogline: ${logline}\n\nTreatment:\n${treatment}`;
+        navigator.clipboard.writeText(text);
+        showCopyFeedback(activeOutputTab === 'screenplay' ? "Screenplay Copied" : "Report Copied");
     };
 
     const isOutlineReady = workingTitle.trim() && logline.trim() && treatment.trim() && fundamentalStoryQuestions.length > 0;
@@ -295,18 +323,29 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 <div className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                     <StepHeader 
                         number={1} title="STUDIO PROTOCOLS" isOpen={isStep1Open} onToggle={() => setIsStep1Open(!isStep1Open)} 
-                        onCopy={() => navigator.clipboard.writeText(`RATING: ${rating}\nPOS: ${positiveConstraints}\nNEG: ${negativeConstraints}`)}
+                        onCopy={handleCopyStep1}
                         icon={<BookmarkIcon className="w-5 h-5" />}
                     />
                     {isStep1Open && (
                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 bg-black/40 animate-fade-in">
-                            <div className="md:col-span-2">
+                            <div>
                                 <label className="text-[10px] font-black text-neutral-500 uppercase mb-2 block tracking-widest">Production Rating Standard</label>
                                 <select value={rating} onChange={(e) => handleApplyRating(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-sm text-brand font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer">
                                     <option value="none">- NONE (Unrestricted) -</option>
                                     {Object.entries(CONTENT_GUIDELINES.RATINGS).map(([key, val]) => (
                                         <option key={key} value={key}>{val.name}</option>
                                     ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-neutral-500 uppercase mb-2 block tracking-widest">Target Format</label>
+                                <select value={format} onChange={(e) => setFormat(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-sm text-blue-400 font-black outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-10 cursor-pointer">
+                                    <option value="Feature_Film">Feature Film (Standard)</option>
+                                    <option value="Netflix_Limited">Netflix Series (Binge)</option>
+                                    <option value="AppleTV_Prestige">Apple TV+ (Prestige)</option>
+                                    <option value="Network_Procedural">Network TV (Episodic)</option>
+                                    <option value="Indie_Experimental">Indie / Experimental / Vogue</option>
+                                    <option value="Short_Film">Short Film</option>
                                 </select>
                             </div>
                             <textarea value={positiveConstraints} onChange={(e) => setPositiveConstraints(e.target.value)} placeholder="Must Include..." className="w-full h-32 bg-black border border-neutral-800 rounded-lg text-sm text-neutral-100 p-4" />
@@ -319,7 +358,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 <div className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                     <StepHeader 
                         number={2} title="PRODUCTION BLUEPRINT" isOpen={isStep2Open} onToggle={() => setIsStep2Open(!isStep2Open)} 
-                        onCopy={() => {}} icon={<ScriptIcon className="w-6 h-6" />} themeColor="text-blue-400"
+                        onCopy={handleCopyStep2} icon={<ScriptIcon className="w-6 h-6" />} themeColor="text-blue-400"
                         extra={<button onClick={handleRandomize} className="px-3 py-1.5 bg-brand/10 hover:bg-brand text-brand hover:text-white rounded-lg flex items-center gap-2 border border-brand/20 font-black uppercase text-[9px] tracking-widest transition-all"><ShuffleIcon className="w-3.5 h-3.5" /> Re-Roll</button>}
                     />
                     {isStep2Open && (
@@ -350,7 +389,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                     <div id="step-3-outline" className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                         <StepHeader 
                             number={3} title="AI SYNTHESIZED OUTLINE" isOpen={isStep3Open} onToggle={() => setIsStep3Open(!isStep3Open)} 
-                            onCopy={() => {}} icon={<AutomationIcon className="w-5 h-5" />} themeColor="text-blue-500"
+                            onCopy={handleCopyStep3} icon={<AutomationIcon className="w-5 h-5" />} themeColor="text-blue-500"
                         />
                         {isStep3Open && (
                             <div className="p-8 space-y-8 animate-fade-in bg-black/40">
@@ -403,7 +442,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                     <div id="step-4-report" className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                         <StepHeader 
                             number={4} title="FINAL PRODUCTION REPORT" isOpen={isStep4Open} onToggle={() => setIsStep4Open(!isStep4Open)} 
-                            onCopy={() => {}} icon={<div className="w-3.5 h-3.5 rounded-full bg-green-500 shadow-lg shadow-green-900/50"></div>} themeColor="text-green-500"
+                            onCopy={handleCopyStep4} icon={<div className="w-3.5 h-3.5 rounded-full bg-green-500 shadow-lg shadow-green-900/50"></div>} themeColor="text-green-500"
                             extra={<button onClick={() => {}} className="text-[11px] font-black text-brand hover:text-brand-hover px-5 py-2.5 flex items-center gap-2 border border-brand/20 hover:border-brand/50 rounded-lg transition-all uppercase tracking-widest active:scale-95"><DownloadIcon className="w-4 h-4" /> Export .txt</button>}
                         />
                         {isStep4Open && (

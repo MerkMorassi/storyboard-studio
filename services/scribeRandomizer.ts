@@ -8,7 +8,8 @@ export interface ScribeConfig {
     cast: string;
     beatSheet: string;
     genre: string;
-    rating?: string; // NEW: Rating field
+    rating?: string;
+    format?: string; // NEW: Format field
     workingTitle: string;
     logline: string;
     treatment: string;
@@ -66,6 +67,9 @@ export const generateRandomConfig = (constraints: Partial<ScribeConfig> = {}): S
     const tone = `${mainGenreKey.toUpperCase()} // ${displayGenreName}`;
     const titleStub = constraints.title || `PROJ_${subGenreKey.toUpperCase()}_${Math.floor(Math.random() * 999)}`;
 
+    const formats = ["Feature_Film", "Netflix_Limited", "AppleTV_Prestige", "Network_Procedural", "Indie_Experimental", "Short_Film"];
+    const selectedFormat = constraints.format || pick(formats);
+
     const cast = constraints.cast || `
 ROLE: PROTAGONIST
 ARCHETYPE: The Hero 
@@ -96,7 +100,8 @@ ENVIRONMENT: ${selectedSetting}
         tone: tone,
         cast: cast, 
         beatSheet: beatSheet,
-        rating: constraints.rating || "",
+        rating: constraints.rating || "R",
+        format: selectedFormat,
         workingTitle: titleStub,
         logline: themeData.logline || `A ${displayGenreName} exploration of ${themeKey.replace(/_/g, ' ')}.`,
         treatment: `The narrative sequence initiates in ${selectedSetting}. We observe our protagonist grappling with the physical manifestations of "${coreQuestion}" within a ${displayGenreName} context.`,
