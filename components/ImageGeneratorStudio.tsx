@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { PromptTemplate, DynamicPromptList, Agent } from '../types.ts';
 import { generateImageSDXL } from '../services/huggingFaceService';
@@ -320,7 +319,6 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                 const currentSeed = seedToUse + i;
                 
                 // Use 'prompt' directly as it now contains all the info
-                // FIX: Remove invalid `model_name` parameter and extraneous third argument.
                 const blob = await generateImageSDXL({
                     prompt: prompt, 
                     negative_prompt: negativePrompt || "sensitive, nsfw, explicit, bad quality, worst quality, worst detail, sketch, censor",
@@ -329,7 +327,6 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                     height: height,
                     guidance_scale: guidanceScale,
                     num_inference_steps: steps,
-                    // model_name: modelVersion // This is not a valid parameter for generateImageSDXL
                 }, hfToken);
 
                 const asset = await new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
@@ -633,7 +630,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                         <div className="font-mono text-xs text-neutral-300 leading-relaxed whitespace-pre-wrap pt-4">
                             <span className="font-bold text-white">{sceneType}. {location.toUpperCase() || 'LOCATION'} - {timeOfDay}</span>
                             <br/><br/>
-                            {prompt.replace(`${sceneType}. ${location.toUpperCase() || 'LOCATION'} - {timeOfDay}`, '').trim()}
+                            {prompt.replace(`${sceneType}. ${location.toUpperCase() || 'LOCATION'} - ${timeOfDay}`, '').trim()}
                         </div>
                     </div>
 
@@ -662,7 +659,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                                 </div>
                             ) : generatedImage ? (
                                 <img 
-                                    src={`data:${generatedImage.mimeType};base664,${generatedImage.base64}`} 
+                                    src={`data:${generatedImage.mimeType};base64,${generatedImage.base64}`} 
                                     alt="Generated Result" 
                                     className="max-w-full max-h-[75vh] object-contain shadow-2xl rounded-lg" 
                                 />
