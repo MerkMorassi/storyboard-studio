@@ -269,6 +269,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
 
     return (
         <div className="p-6 max-w-7xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
+            {/* Header Section */}
             <div className="flex-shrink-0 flex justify-between items-center">
                 <div>
                     <h2 className="text-3xl font-bold text-text-primary mb-2 flex items-center gap-3">
@@ -286,64 +287,66 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow min-h-0">
-                <div className="bg-secondary/30 p-6 rounded-xl border border-accent flex flex-col gap-6 overflow-y-auto custom-scrollbar shadow-inner">
-                    
-                    {/* Collapsible Studio Protocol & Rating Standards */}
-                    <div className="bg-neutral-900/60 border border-accent rounded-xl overflow-hidden shadow-md">
-                        <button 
-                            onClick={() => setIsStandardsOpen(!isStandardsOpen)}
-                            className="w-full flex items-center justify-between p-4 bg-neutral-800/60 hover:bg-neutral-800/80 transition-colors"
-                        >
-                            <div className="flex items-center gap-2">
-                                <BookmarkIcon className="w-5 h-5 text-brand" />
-                                <h3 className="text-sm font-bold text-text-primary uppercase tracking-widest">Studio Protocol & Rating Standards</h3>
-                            </div>
-                            <ChevronDownIcon className={`w-5 h-5 text-neutral-500 transition-transform duration-300 ${isStandardsOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        
-                        {isStandardsOpen && (
-                            <div className="p-4 space-y-4 animate-fade-in border-t border-accent/50">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-text-secondary uppercase">Quick Apply</label>
-                                    <div className="relative">
-                                        <select 
-                                            onChange={(e) => handleApplyStudioStandard(e.target.value)}
-                                            className="w-full bg-primary border border-accent p-2 rounded text-xs text-brand font-bold outline-none focus:ring-1 focus:ring-brand appearance-none pr-8 cursor-pointer"
-                                            defaultValue=""
-                                        >
-                                            <option value="" disabled>Apply Rating / Standard...</option>
-                                            {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
-                                        <ChevronDownIcon className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500" />
-                                    </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-green-500 uppercase tracking-tighter">Required Elements</label>
-                                        <textarea 
-                                            value={positiveConstraints} 
-                                            onChange={(e) => setPositiveConstraints(e.target.value)}
-                                            placeholder="Items that MUST be included in the story..."
-                                            className="w-full h-24 bg-primary border border-accent p-3 rounded text-xs text-text-primary focus:ring-1 focus:ring-brand outline-none resize-none font-mono leading-relaxed"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-red-500 uppercase tracking-tighter">Narrative Guardrails</label>
-                                        <textarea 
-                                            value={negativeConstraints} 
-                                            onChange={(e) => setNegativeConstraints(e.target.value)}
-                                            placeholder="Items to EXCLUDE (e.g. gore, adult themes)..."
-                                            className="w-full h-24 bg-primary border border-accent p-3 rounded text-xs text-text-primary focus:ring-1 focus:ring-brand outline-none resize-none font-mono leading-relaxed"
-                                        />
-                                    </div>
-                                </div>
-                                <p className="text-[9px] text-neutral-500 italic">Note: If empty, Scribe Agent uses baseline creative protocols.</p>
-                            </div>
-                        )}
+            {/* Collapsible Studio Protocol & Rating Standards - Spans Full Width */}
+            <div className="bg-neutral-900/60 border border-neutral-700 rounded-xl overflow-hidden shadow-md">
+                <button 
+                    onClick={() => setIsStandardsOpen(!isStandardsOpen)}
+                    className="w-full flex items-center justify-between p-4 bg-neutral-800/60 hover:bg-neutral-800/80 transition-colors"
+                >
+                    <div className="flex items-center gap-2">
+                        <BookmarkIcon className="w-5 h-5 text-brand" />
+                        <h3 className="text-sm font-bold text-text-primary uppercase tracking-widest">Studio Protocol & Rating Standards</h3>
                     </div>
+                    <ChevronDownIcon className={`w-5 h-5 text-neutral-500 transition-transform duration-300 ${isStandardsOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {isStandardsOpen && (
+                    <div className="p-4 space-y-4 animate-fade-in border-t border-neutral-700/50 bg-neutral-950/20">
+                        <div className="flex flex-col sm:flex-row items-end gap-4">
+                            <div className="flex-grow w-full">
+                                <label className="text-[10px] font-bold text-text-secondary uppercase mb-1 block">Quick Apply Protocol</label>
+                                <div className="relative">
+                                    <select 
+                                        onChange={(e) => handleApplyStudioStandard(e.target.value)}
+                                        className="w-full bg-primary border border-accent p-2 rounded text-xs text-brand font-bold outline-none focus:ring-1 focus:ring-brand appearance-none pr-8 cursor-pointer"
+                                        defaultValue=""
+                                    >
+                                        <option value="" disabled>Apply Rating / Standard...</option>
+                                        {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                    <ChevronDownIcon className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-green-500 uppercase tracking-tighter">Required Elements</label>
+                                <textarea 
+                                    value={positiveConstraints} 
+                                    onChange={(e) => setPositiveConstraints(e.target.value)}
+                                    placeholder="Items that MUST be included in the story..."
+                                    className="w-full h-24 bg-primary border border-accent p-3 rounded text-xs text-text-primary focus:ring-1 focus:ring-brand outline-none resize-none font-mono leading-relaxed"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-red-500 uppercase tracking-tighter">Narrative Guardrails</label>
+                                <textarea 
+                                    value={negativeConstraints} 
+                                    onChange={(e) => setNegativeConstraints(e.target.value)}
+                                    placeholder="Items to EXCLUDE (e.g. gore, adult themes)..."
+                                    className="w-full h-24 bg-primary border border-accent p-3 rounded text-xs text-text-primary focus:ring-1 focus:ring-brand outline-none resize-none font-mono leading-relaxed"
+                                />
+                            </div>
+                        </div>
+                        <p className="text-[9px] text-neutral-500 italic">Note: If empty, Scribe Agent uses baseline creative protocols.</p>
+                    </div>
+                )}
+            </div>
 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow min-h-0">
+                {/* Left Side: Input Blueprint */}
+                <div className="bg-secondary/30 p-6 rounded-xl border border-accent flex flex-col gap-6 overflow-y-auto custom-scrollbar shadow-inner">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                             <ScriptIcon className="w-5 h-5 text-text-secondary" />
@@ -404,6 +407,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                     <button onClick={handleGenerateScreenplay} disabled={isGeneratingScreenplay || !isOutlineReady} className="w-full py-4 bg-brand hover:bg-brand-hover text-text-primary font-bold uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg">{isGeneratingScreenplay ? <><LoadingSpinner className="w-4 h-4 text-text-primary" /> Writing First Draft...</> : <><WandIcon className="w-4 h-4" /> Generate Screenplay (40 Scenes)</>}</button>
                 </div>
 
+                {/* Right Side: Output Report */}
                 <div className="bg-secondary/30 p-6 rounded-xl border border-accent flex flex-col h-full overflow-hidden shadow-2xl relative">
                     <div className="flex-shrink-0 flex items-center justify-between mb-4 border-b border-accent pb-2">
                         <div className="flex items-center gap-2">
