@@ -166,7 +166,8 @@ export const App: React.FC = () => {
                         dynamicPromptLists: project.data.dynamicPromptLists.length,
                         promptTemplates: getPromptTemplates().length,
                         imagesGenerated: project.data.images.length,
-                        totalProjects: 1
+                        totalProjects: 1,
+                        scriptsCount: project.data.scriptsBin.length
                     }}
                     onNavigate={handleNavigate}
                 />;
@@ -283,7 +284,8 @@ export const App: React.FC = () => {
                     resultImage={project.data.blenderResult}
                     isLoading={false} error={null}
                     onUpload={(files: FileList) => {
-                        Array.from(files).forEach(file => {
+                        const newFiles = Array.from(files);
+                        newFiles.forEach(file => {
                             const reader = new FileReader();
                             reader.onload = (e) => {
                                 const base64 = (e.target?.result as string).split(',')[1];

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ActiveView, Project, ImageState } from '../types.ts';
-import { StoryboardIcon, CharacterIcon, LoreIcon, PinIcon, ShuffleIcon, GridIcon, LibraryIcon, DashboardIcon, EditIcon, CheckIcon } from './icons.tsx';
+import { StoryboardIcon, CharacterIcon, LoreIcon, PinIcon, ShuffleIcon, GridIcon, LibraryIcon, DashboardIcon, EditIcon, CheckIcon, ScriptIcon } from './icons.tsx';
 
 interface DashboardStudioProps {
     project: Project;
@@ -16,6 +16,7 @@ interface DashboardStudioProps {
         promptTemplates: number;
         imagesGenerated: number;
         totalProjects: number;
+        scriptsCount: number;
     };
     onNavigate: (view: ActiveView) => void;
 }
@@ -29,6 +30,7 @@ const colorClasses = {
     teal: { border: 'hover:border-teal-500/50', text: 'text-teal-400 group-hover:text-teal-300' },
     red: { border: 'hover:border-red-500/50', text: 'text-red-400 group-hover:text-red-300' },
     blue: { border: 'hover:border-blue-500/50', text: 'text-blue-400 group-hover:text-blue-300' },
+    emerald: { border: 'hover:border-emerald-500/50', text: 'text-emerald-400 group-hover:text-emerald-300' },
 };
 
 const StatCard: React.FC<{
@@ -144,6 +146,7 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ project, onUpd
                     <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-2">Asset Overview</h3>
                     <div className="grid grid-cols-2 gap-3">
                         <StatCard title="Storyboard" value={stats.storyboardFrames} icon={<StoryboardIcon />} onClick={() => onNavigate('story')} color="purple" />
+                        <StatCard title="Scripts" value={stats.scriptsCount} icon={<ScriptIcon />} onClick={() => onNavigate('scripts-bin')} color="emerald" />
                         <StatCard title="Studio Players" value={stats.agents} icon={<CharacterIcon />} onClick={() => onNavigate('agents')} color="sky" />
                         <StatCard title="Inspiration" value={stats.inspirationImages} icon={<PinIcon />} onClick={() => onNavigate('inspiration')} color="pink" />
                         <StatCard title="Gallery" value={stats.imagesGenerated} icon={<GridIcon />} onClick={() => onNavigate('grid')} color="red" />
@@ -156,8 +159,8 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ project, onUpd
                                 <span>Consult Production Team</span>
                                 <span className="text-neutral-500 group-hover:text-white">→</span>
                             </button>
-                            <button onClick={() => onNavigate('image-generator')} className="w-full text-left px-4 py-3 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-bold text-neutral-300 transition-colors flex items-center justify-between group">
-                                <span>Generate New Assets</span>
+                            <button onClick={() => onNavigate('script-writer')} className="w-full text-left px-4 py-3 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-bold text-neutral-300 transition-colors flex items-center justify-between group">
+                                <span>Draft New Screenplay</span>
                                 <span className="text-neutral-500 group-hover:text-white">→</span>
                             </button>
                         </div>
