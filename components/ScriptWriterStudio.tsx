@@ -21,7 +21,11 @@ import { simpleMarkdownToHtml } from '../utils/textFormatting';
 
 const cleanLiteralNewlines = (text: string): string => {
     if (!text) return '';
-    return text.replace(/\\n/g, '\n');
+    // Strip literal \n, raw HTML tags like <center>, and normalize line endings
+    return text
+        .replace(/\\n/g, '\n')
+        .replace(/<[^>]*>/g, '')
+        .trim();
 };
 
 const formatToWBStandard = (text: string): string => {
@@ -125,7 +129,6 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
         const guidelines = CONTENT_GUIDELINES.RATINGS[ratingKey as keyof typeof CONTENT_GUIDELINES.RATINGS];
         if (guidelines) {
             setPositiveConstraints(guidelines.positive);
-            // Fix: Added type assertion to safely access 'negative' which may be absent in some rating types.
             setNegativeConstraints((guidelines as any).negative || '');
             showCopyFeedback(`${guidelines.name} Protocols Set`);
         }
@@ -459,7 +462,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                             <button onClick={() => setActiveOutputTab('screenplay')} className={`flex-1 py-5 text-[11px] font-black uppercase tracking-[0.3em] rounded-lg transition-all ${activeOutputTab === 'screenplay' ? 'bg-neutral-800 text-white shadow-xl ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}>First Draft</button>
                                         </div>
 
-                                        <div className="flex-grow bg-black/60 p-16 font-mono text-sm leading-loose overflow-y-auto min-h-[600px]">
+                                        <div className="flex-grow bg-black/60 p-4 md:p-16 font-mono text-sm leading-loose overflow-y-auto min-h-[600px]">
                                             {activeOutputTab === 'outline' ? (
                                                 <div className="text-neutral-300 animate-fade-in space-y-16 max-w-5xl mx-auto">
                                                     <div className="text-center border-b border-neutral-800 pb-12">
@@ -480,10 +483,10 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="text-white animate-fade-in max-w-4xl mx-auto whitespace-pre" style={{ fontFamily: 'Courier, "Courier New", monospace' }}>
-                                                    <div className="mb-28 text-center opacity-30 text-[11px] font-black border-y border-white/10 py-8 tracking-[1.5em]">--- SCRIBE FIRST DRAFT ---</div>
-                                                    <div className="px-12 text-base leading-relaxed">{formatToWBStandard(generatedScreenplay)}</div>
-                                                    <div className="mt-56 text-center opacity-30 text-[11px] tracking-[1em] font-black">FADE OUT.</div>
+                                                <div className="text-white animate-fade-in max-w-4xl mx-auto whitespace-pre-wrap" style={{ fontFamily: 'Courier, "Courier New", monospace' }}>
+                                                    <div className="mb-12 md:mb-28 text-center opacity-30 text-[11px] font-black border-y border-white/10 py-8 tracking-[1.5em]">--- SCRIBE FIRST DRAFT ---</div>
+                                                    <div className="px-4 md:px-12 text-base leading-relaxed">{formatToWBStandard(generatedScreenplay)}</div>
+                                                    <div className="mt-24 md:mt-56 text-center opacity-30 text-[11px] tracking-[1em] font-black">FADE OUT.</div>
                                                 </div>
                                             )}
                                         </div>
