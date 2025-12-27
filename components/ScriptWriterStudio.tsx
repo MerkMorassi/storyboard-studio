@@ -1,11 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
     EditIcon, 
     ScriptIcon, 
     DownloadIcon, 
     ShuffleIcon, 
-    LibraryIcon, 
     AutomationIcon, 
     ChevronDownIcon, 
     LoadingSpinner 
@@ -51,6 +50,44 @@ const formatToWBStandard = (text: string): string => {
 
         return ' '.repeat(15) + trimmed;
     }).join('\n');
+};
+
+/**
+ * A specialized textarea that automatically adjusts its height 
+ * to fit the content exactly, avoiding scrollbars and empty space.
+ */
+const AutoExpandingTextarea: React.FC<{
+    value: string;
+    onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+    placeholder?: string;
+    className?: string;
+}> = ({ value, onChange, placeholder, className }) => {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const adjustHeight = () => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = 'auto';
+            // Force browser to recalculate height to fit scrollable content exactly
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        }
+    };
+
+    useEffect(() => {
+        // Adjust whenever value changes (e.g. user typing or AI updating)
+        adjustHeight();
+    }, [value]);
+
+    return (
+        <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            className={`resize-none overflow-hidden block w-full transition-all duration-200 ${className}`}
+            rows={1}
+        />
+    );
 };
 
 interface ScriptWriterStudioProps {
@@ -427,9 +464,9 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                     )}
                 </div>
 
-                {/* STEP 3: AI SYNTHESIZED OUTLINE (Intermediary - Fluid Single Column) */}
+                {/* STEP 3: AI SYNTHESIZED OUTLINE (Intermediary - Fluid Single Column with Flex-Height Containers) */}
                 {(generatedOutline || isGeneratingOutline) && (
-                    <div id="outline-results-view" className="bg-neutral-900 border border-neutral-700 rounded-xl p-8 shadow-2xl space-y-10 animate-fade-in ring-1 ring-white/5">
+                    <div id="outline-results-view" className="bg-neutral-900 border border-neutral-700 rounded-xl p-8 shadow-2xl space-y-8 animate-fade-in ring-1 ring-white/5">
                         <div className="flex items-center gap-4 border-b border-neutral-800 pb-6">
                             <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
                             <h3 className="text-xs font-black text-white uppercase tracking-[0.4em]">STEP 3: AI SYNTHESIZED OUTLINE</h3>
@@ -441,26 +478,37 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                 <p className="font-black uppercase tracking-[0.6em] text-xs animate-pulse">Calculating Story Dynamics...</p>
                             </div>
                         ) : (
-                            <div className="space-y-8 flex flex-col">
-                                {/* Working Title - Separate Div */}
+                            <div className="space-y-8 flex flex-col items-stretch">
+                                {/* Working Title - Dedicated Input */}
                                 <div className="space-y-3">
                                     <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Working Title</label>
-                                    <input type="text" value={workingTitle} onChange={(e) => setWorkingTitle(e.target.value)} className="w-full bg-black border border-neutral-800 p-5 rounded-lg text-2xl text-blue-400 font-black shadow-inner" />
+                                    <input 
+                                        type="text" 
+                                        value={workingTitle} 
+                                        onChange={(e) => setWorkingTitle(e.target.value)} 
+                                        className="w-full bg-black border border-neutral-800 p-5 rounded-lg text-2xl text-blue-400 font-black shadow-inner outline-none focus:ring-1 focus:ring-brand" 
+                                    />
                                 </div>
 
-                                {/* Story Logline - Separate Div */}
+                                {/* Story Logline - Flex Container (Auto-Expanding Height) */}
                                 <div className="space-y-3">
                                     <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Story Logline</label>
-                                    <textarea value={logline} onChange={(e) => setLogline(e.target.value)} className="w-full h-32 bg-black border border-neutral-800 p-5 rounded-lg text-base text-neutral-200 italic shadow-inner resize-none leading-relaxed" />
+                                    <AutoExpandingTextarea 
+                                        value={logline} 
+                                        onChange={(e) => setLogline(e.target.value)} 
+                                        className="bg-black border border-neutral-800 p-5 rounded-lg text-base text-neutral-200 italic shadow-inner outline-none focus:ring-1 focus:ring-brand leading-relaxed font-sans" 
+                                        placeholder="Generating Logline..."
+                                    />
                                 </div>
                                 
-                                {/* Narrative Treatment - Expanded & Fluid Height */}
+                                {/* Narrative Treatment - Flex Container (Auto-Expanding Height) */}
                                 <div className="space-y-3">
                                     <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Narrative Treatment (AI Draft)</label>
-                                    <textarea 
+                                    <AutoExpandingTextarea 
                                         value={treatment} 
                                         onChange={(e) => setTreatment(e.target.value)} 
-                                        className="w-full min-h-[400px] h-auto bg-black border border-neutral-800 p-6 rounded-lg text-sm text-neutral-400 leading-relaxed shadow-inner" 
+                                        className="bg-black border border-neutral-800 p-6 rounded-lg text-sm text-neutral-400 leading-relaxed shadow-inner outline-none focus:ring-1 focus:ring-brand font-mono" 
+                                        placeholder="Generating Narrative Treatment..."
                                     />
                                 </div>
 

@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { CrashReport } from './components/CrashReport';
 
 interface ErrorBoundaryProps {
@@ -14,37 +14,35 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch and display critical rendering errors.
  */
-// Fix: Use React.Component and class property initialization to resolve inheritance issues where 'state', 'props', and 'setState' were not recognized.
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Initializing state as a class property ensures it is correctly typed and recognized by TypeScript.
-  public override state: ErrorBoundaryState = {
+// Fix: Use Component directly from 'react' to ensure correct inheritance resolution and fix errors about missing base class.
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Initializing state as a class property. Removed 'override' as it was failing due to inheritance resolution issues.
+  public state: ErrorBoundaryState = {
     hasError: false,
     error: null,
     errorInfo: null,
   };
-
-  // Fix: super() is implicitly called if no constructor is provided, but we can omit it when using property initializers.
 
   public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     // Update state so the next render will show the fallback UI.
     return { hasError: true, error, errorInfo: null };
   }
 
-  // Fix: Capture runtime rendering errors and update component state using inherited setState.
-  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  // Fix: Capture runtime rendering errors and update component state. Removed 'override' modifier.
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log the error for diagnostic purposes.
     console.error("Uncaught error in ErrorBoundary:", error, errorInfo);
     
-    // Fix: setState is now correctly recognized as a member of React.Component.
+    // Fix: setState is now correctly recognized as a member of Component.
     this.setState({
       error: error,
       errorInfo: errorInfo,
     });
   }
 
-  // Fix: Correctly access 'state' and 'props' within the render method.
-  public override render() {
-    // Fix: Accessing inherited state.
+  // Fix: Correctly access 'state' and 'props' within the render method. Removed 'override' modifier.
+  public render() {
+    // Accessing inherited state.
     if (this.state.hasError) {
       // Render fallback UI when an error is caught.
       return (
@@ -55,7 +53,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
-    // Fix: Accessing inherited props.
+    // Accessing inherited props.
     return this.props.children;
   }
 }
