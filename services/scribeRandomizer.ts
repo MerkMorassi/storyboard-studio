@@ -8,6 +8,7 @@ export interface ScribeConfig {
     cast: string;
     beatSheet: string;
     genre: string;
+    rating?: string; // NEW: Rating field
     workingTitle: string;
     logline: string;
     treatment: string;
@@ -38,27 +39,22 @@ const pickKey = (obj: any) => {
 /**
  * Procedurally generates a narrative configuration by sampling the MythOS metadata lattice.
  */
-export const generateRandomConfig = (): ScribeConfig => {
-    // 1. Access synchronized narrative database
+export const generateRandomConfig = (constraints: Partial<ScribeConfig> = {}): ScribeConfig => {
     const { genres, themes, structures } = MythosData;
 
-    // 2. Sample the Genre Lattice
-    const mainGenreKey = pickKey(genres) || 'drama'; 
+    const mainGenreKey = constraints.genre || pickKey(genres) || 'drama'; 
     const subGenreObject = genres[mainGenreKey]?.subgenres || {};
     const subGenreKey = pickKey(subGenreObject) || 'contemporary'; 
     const genreInfo = subGenreObject[subGenreKey] || { definition: "A human story." };
 
-    // 3. Resolve Environmental Context
     const possibleSettings = GENRE_SETTING_MAP[mainGenreKey] || ["An Unnamed Location"];
-    const selectedSetting = pick(possibleSettings);
+    const selectedSetting = constraints.setting || pick(possibleSettings);
 
-    // 4. Inject Philosophical Core
-    const themeKey = pickKey(themes.core_themes) || 'identity_crisis';
+    const themeKey = constraints.theme || pickKey(themes.core_themes) || 'identity_crisis';
     const themeData = themes.core_themes[themeKey];
     const philosophies = themeData.philosophies?.core_questions || ["What makes us human?"];
     const coreQuestion = pick(philosophies);
 
-    // 5. Select Narrative Blueprint (Structure)
     const structureKey = pickKey(structures) || 'comprehensive_feature_film';
     const structure = structures[structureKey];
     const openingBeat = structure.beats?.find((b: any) => 
@@ -66,12 +62,11 @@ export const generateRandomConfig = (): ScribeConfig => {
         b.label.toLowerCase().includes("ordinary")
     ) || structure.beats[0];
 
-    // 6. Assemble Production Artifacts
     const displayGenreName = subGenreKey.replace(/_/g, ' ').toUpperCase();
     const tone = `${mainGenreKey.toUpperCase()} // ${displayGenreName}`;
-    const titleStub = `PROJ_${subGenreKey.toUpperCase()}_${Math.floor(Math.random() * 999)}`;
+    const titleStub = constraints.title || `PROJ_${subGenreKey.toUpperCase()}_${Math.floor(Math.random() * 999)}`;
 
-    const cast = `
+    const cast = constraints.cast || `
 ROLE: PROTAGONIST
 ARCHETYPE: The Hero 
 NOTE: Must embody the traits of the ${displayGenreName} sub-genre.
@@ -81,7 +76,7 @@ ARCHETYPE: The Shadow
 NOTE: Represents the psychological antithesis of: "${coreQuestion}"
     `.trim();
 
-    const beatSheet = `
+    const beatSheet = constraints.beatSheet || `
 ## GENRE PROTOCOL: ${displayGenreName}
 ${genreInfo.definition}
 
@@ -95,12 +90,13 @@ ENVIRONMENT: ${selectedSetting}
 
     return {
         title: titleStub,
-        genre: mainGenreKey, // FIX: Return top-level key for UI Select component synchronization
+        genre: mainGenreKey,
         theme: themeKey, 
         setting: selectedSetting,
         tone: tone,
         cast: cast, 
         beatSheet: beatSheet,
+        rating: constraints.rating || "",
         workingTitle: titleStub,
         logline: themeData.logline || `A ${displayGenreName} exploration of ${themeKey.replace(/_/g, ' ')}.`,
         treatment: `The narrative sequence initiates in ${selectedSetting}. We observe our protagonist grappling with the physical manifestations of "${coreQuestion}" within a ${displayGenreName} context.`,

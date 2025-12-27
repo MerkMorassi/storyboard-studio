@@ -17,6 +17,7 @@ import { runScribeAgent, runScribeOutlineAgent, ScribeOutlineOutput } from '../s
 import { generateRandomConfig } from '../services/scribeRandomizer';
 import { ScriptFile, ActiveView, PromptTemplate, DynamicPromptList } from '../types';
 import { MythosData } from '../services/mythosData';
+import { CONTENT_GUIDELINES } from '../services/contentGuidelines';
 
 const cleanLiteralNewlines = (text: string): string => {
     if (!text) return '';
@@ -119,6 +120,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
     const [cast, setCast] = useState('ROLE: PROTAGONIST\nARCHETYPE: The Hero\nNOTE: Must embody the traits of the ABSURDIST sub-genre.');
     const [beatSheet, setBeatSheet] = useState('## GENRE PROTOCOL: ABSURDIST\nCharacters experience situations suggesting no central purpose to life.\n\n## THEMATIC ANCHOR\n"Does the mask eventually become the face?"');
     
+    const [rating, setRating] = useState('none');
     const [positiveConstraints, setPositiveConstraints] = useState('');
     const [negativeConstraints, setNegativeConstraints] = useState('');
 
@@ -150,12 +152,18 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
         setTimeout(() => setCopyFeedback(null), 2000);
     };
 
-    const handleApplyStudioStandard = (templateId: string) => {
-        const template = promptTemplates.find(t => t.id === templateId);
-        if (template) {
-            setPositiveConstraints(template.positivePrompt);
-            setNegativeConstraints(template.negativePrompt);
-            showCopyFeedback(`${template.name} Protocol Active`);
+    const handleApplyRating = (ratingKey: string) => {
+        setRating(ratingKey);
+        if (ratingKey === 'none') {
+            setPositiveConstraints('');
+            setNegativeConstraints('');
+            return;
+        }
+        const guidelines = CONTENT_GUIDELINES.RATINGS[ratingKey as keyof typeof CONTENT_GUIDELINES.RATINGS];
+        if (guidelines) {
+            setPositiveConstraints(guidelines.positive);
+            setNegativeConstraints(guidelines.negative);
+            showCopyFeedback(`${guidelines.name} Protocols Set`);
         }
     };
 
@@ -173,6 +181,8 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
             setTone(config.tone);
             setCast(config.cast);
             setBeatSheet(config.beatSheet);
+            setRating(config.rating || 'none');
+            
             setWorkingTitle(config.workingTitle);
             setLogline(config.logline);
             setTreatment(config.treatment);
@@ -199,6 +209,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 tone, 
                 cast, 
                 beatSheet,
+                rating: rating !== 'none' ? rating : undefined,
                 positiveConstraints: positiveConstraints.trim() || undefined,
                 negativeConstraints: negativeConstraints.trim() || undefined,
                 dynamicLists: dynamicPromptLists
@@ -241,6 +252,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 fundamentalStoryQuestions: fundamentalStoryQuestions.join('\n'), 
                 archetypalCharacters: generatedOutline?.archetypalCharacters.join('\n') || '', 
                 sceneGenerationQuestions: generatedOutline?.sceneGenerationQuestions.join('\n') || '',
+                rating: rating !== 'none' ? rating : undefined,
                 positiveConstraints: positiveConstraints.trim() || undefined,
                 negativeConstraints: negativeConstraints.trim() || undefined,
                 dynamicLists: dynamicPromptLists
@@ -261,7 +273,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
     // --- Step-Specific Copy Handlers ---
 
     const handleCopyStep1 = () => {
-        const text = `STUDIO PROTOCOLS:\n\nPOSITIVE DIRECTIVES:\n${positiveConstraints}\n\nNEGATIVE DIRECTIVES:\n${negativeConstraints}`;
+        const text = `STUDIO PROTOCOLS:\n\nRATING: ${rating}\n\nPOSITIVE DIRECTIVES:\n${positiveConstraints}\n\nNEGATIVE DIRECTIVES:\n${negativeConstraints}`;
         navigator.clipboard.writeText(text);
         showCopyFeedback("Step 1 Copied");
     };
@@ -399,12 +411,14 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                 <label className="text-[10px] font-black text-neutral-500 uppercase mb-2 block tracking-widest">Production Rating Standard</label>
                                 <div className="relative">
                                     <select 
-                                        onChange={(e) => handleApplyStudioStandard(e.target.value)}
+                                        value={rating}
+                                        onChange={(e) => handleApplyRating(e.target.value)}
                                         className="w-full bg-neutral-800 border border-neutral-700 p-3.5 rounded-lg text-sm text-brand font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer shadow-inner hover:bg-neutral-700/50 transition-colors"
-                                        defaultValue=""
                                     >
-                                        <option value="" disabled>Select Global Standard (e.g. Rated R, PG-13)...</option>
-                                        {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        <option value="none">- NONE (Unrestricted) -</option>
+                                        {Object.entries(CONTENT_GUIDELINES.RATINGS).map(([key, val]) => (
+                                            <option key={key} value={key}>{val.name}</option>
+                                        ))}
                                     </select>
                                     <ChevronDownIcon className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500" />
                                 </div>

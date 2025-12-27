@@ -1,6 +1,6 @@
-
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Content, Type, Modality } from "@google/genai";
 import { MythosData } from './mythosData';
+import { CONTENT_GUIDELINES } from './contentGuidelines';
 
 const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -44,6 +44,7 @@ export interface ScribeInput {
   sceneGenerationQuestions: string;
   positiveConstraints?: string;
   negativeConstraints?: string;
+  rating?: string; // NEW
   dynamicLists?: any[];
 }
 
@@ -57,6 +58,7 @@ export interface ScribeOutlineInput {
   beatSheet: string;
   positiveConstraints?: string;
   negativeConstraints?: string;
+  rating?: string; // NEW
   dynamicLists?: any[];
 }
 
@@ -69,14 +71,26 @@ export interface ScribeOutlineOutput {
   sceneGenerationQuestions: string[];
 }
 
-const getScribeSystemPrompt = (pos?: string, neg?: string, dynamicLists?: any[]) => {
+const getScribeSystemPrompt = (pos?: string, neg?: string, rating?: string, dynamicLists?: any[]) => {
+    // Resolve rating technical prompt
+    let ratingPrompt = "";
+    if (rating && rating !== "none" && CONTENT_GUIDELINES.RATINGS[rating as keyof typeof CONTENT_GUIDELINES.RATINGS]) {
+        const rData = CONTENT_GUIDELINES.RATINGS[rating as keyof typeof CONTENT_GUIDELINES.RATINGS];
+        ratingPrompt = `
+*** CONTENT RATING MANDATE: ${rating} ***
+ALLOWED/REQUIRED: ${rData.positive}
+STRICTLY FORBIDDEN: ${rData.negative}
+`;
+    }
+
     let base = `
 ### ROLE
 You are the MythOS Studio Screenwriter. You transform story blueprints into industry-standard screenplays.
 
 ### STUDIO STANDARDS (PRIMARY OVERRIDE)
-**MUST INCLUDE (Positive):** ${pos || "Standard cinematic storytelling."}
-**STRICTLY FORBIDDEN (Negative/Guardrails):** ${neg || "None specified."}
+${ratingPrompt}
+**MUST INCLUDE (User Directives):** ${pos || "Standard cinematic storytelling."}
+**STRICTLY FORBIDDEN (User Directives):** ${neg || "None specified."}
 
 ### KNOWLEDGE BASE
 You have access to the MythOS Lattice (Genres, Structures, Archetypes). Cross-reference all inputs with these protocols.
@@ -96,7 +110,7 @@ You have access to the MythOS Lattice (Genres, Structures, Archetypes). Cross-re
 export const runScribeAgent = async (input: ScribeInput): Promise<string> => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
-        const systemInstruction = getScribeSystemPrompt(input.positiveConstraints, input.negativeConstraints, input.dynamicLists);
+        const systemInstruction = getScribeSystemPrompt(input.positiveConstraints, input.negativeConstraints, input.rating, input.dynamicLists);
 
         const inputBlock = `
 COMMAND: WRITE 40-SCENE SCREENPLAY
@@ -111,7 +125,7 @@ CAST: ${input.cast}
 BEATS: ${input.beatSheet}
 
 TASK:
-Write the screenplay. Ensure the "Must Include" rules are central and "Strictly Forbidden" items are entirely absent.
+Write the screenplay. Ensure the "Must Include" rules and Rating Mandates are central and "Strictly Forbidden" items are entirely absent.
 `;
 
         try {
@@ -136,7 +150,7 @@ Write the screenplay. Ensure the "Must Include" rules are central and "Strictly 
 export const runScribeOutlineAgent = async (input: ScribeOutlineInput): Promise<ScribeOutlineOutput> => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
-        const systemInstruction = getScribeSystemPrompt(input.positiveConstraints, input.negativeConstraints, input.dynamicLists);
+        const systemInstruction = getScribeSystemPrompt(input.positiveConstraints, input.negativeConstraints, input.rating, input.dynamicLists);
 
         const inputBlock = `
 COMMAND: GENERATE STORY OUTLINE (JSON)
@@ -149,8 +163,8 @@ SETTING: ${input.setting}
 BEATS: ${input.beatSheet}
 
 TASK:
-Filter this raw blueprint through the STUDIO STANDARDS. If the blueprint contradicts the Standards (Positive/Negative), the Standards WIN.
-Example: If Standard is "Rated G" and Blueprint is "Slasher", pivot the story to a family-friendly spooky adventure.
+Filter this raw blueprint through the STUDIO STANDARDS and RATING MANDATE. If the blueprint contradicts the Standards/Rating, the Standards WIN.
+Example: If Rating is "G" and Blueprint is "Slasher", pivot the story to a family-friendly spooky adventure.
 
 OUTPUT FORMAT: JSON Schema.
 `;
@@ -217,7 +231,7 @@ export const generateSpeech = async (text: string, voice: string, rate: number) 
         const ai = getClient();
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-preview-tts',
-            contents: [{ parts: [{ text }] }],
+            contents: [{ parts: [{ text: prompt }] }],
             config: {
                 responseModalities: [Modality.AUDIO],
                 speechConfig: {
