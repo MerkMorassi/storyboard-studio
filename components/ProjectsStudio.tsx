@@ -72,7 +72,7 @@ const ProjectCard: React.FC<{
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="w-full bg-black border border-neutral-600 p-2 rounded text-lg font-bold focus:ring-2 focus:ring-blue-500 outline-none text-white"
+                                className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-lg font-bold focus:ring-2 focus:ring-brand outline-none text-white"
                                 autoFocus
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') handleRename();
@@ -80,8 +80,8 @@ const ProjectCard: React.FC<{
                                 }}
                             />
                             <div className="flex gap-2 justify-end">
-                                 <button onClick={handleRename} className="text-xs bg-blue-600 text-white hover:bg-blue-500 px-3 py-1.5 rounded font-bold">Save</button>
-                                 <button onClick={() => setIsEditing(false)} className="text-xs bg-neutral-700 text-neutral-300 hover:bg-neutral-600 px-3 py-1.5 rounded">Cancel</button>
+                                 <button onClick={handleRename} className="text-xs bg-blue-600 text-white hover:bg-blue-500 px-3 py-1.5 rounded-lg font-bold">Save</button>
+                                 <button onClick={() => setIsEditing(false)} className="text-xs bg-neutral-700 text-neutral-300 hover:bg-neutral-600 px-3 py-1.5 rounded-lg">Cancel</button>
                             </div>
                         </div>
                     ) : (
@@ -189,12 +189,12 @@ export const ProjectsStudio: React.FC<ProjectsStudioProps> = ({ projects, active
                 <p className="text-neutral-400">Manage your productions. Each project contains its own separate universe of images, scripts, characters, and settings.</p>
             </div>
 
-            <div className="bg-neutral-800/50 p-6 border border-neutral-700 rounded-xl shadow-sm">
+            <div className="bg-neutral-800/50 p-6 border border-neutral-700 rounded-xl shadow-2xl">
                 <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-4">Start New Production</h3>
                 <form onSubmit={handleCreate} className="flex flex-col md:flex-row gap-6">
                     {/* Thumbnail Input */}
                     <div 
-                        className="w-full md:w-48 h-32 bg-neutral-900 border-2 border-dashed border-neutral-700 rounded-lg flex items-center justify-center cursor-pointer hover:border-neutral-500 hover:bg-neutral-800 transition-all relative overflow-hidden group shrink-0"
+                        className="w-full md:w-48 h-32 bg-black border-2 border-dashed border-neutral-800 rounded-xl flex items-center justify-center cursor-pointer hover:border-brand hover:bg-neutral-900 transition-all relative overflow-hidden group shrink-0"
                         onClick={() => fileInputRef.current?.click()}
                     >
                         {newProjectThumbnail ? (
@@ -220,28 +220,28 @@ export const ProjectsStudio: React.FC<ProjectsStudioProps> = ({ projects, active
                     </div>
 
                     {/* Text Inputs */}
-                    <div className="flex-grow flex flex-col gap-3">
+                    <div className="flex-grow flex flex-col gap-4">
                         <input
                             type="text"
                             value={newProjectName}
                             onChange={(e) => setNewProjectName(e.target.value)}
                             placeholder="Project Title (e.g. Cyberpunk Noir Feature)..."
-                            className="w-full bg-neutral-900 border border-neutral-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-neutral-600 font-bold"
+                            className="w-full bg-black border border-neutral-800 p-4 rounded-xl focus:ring-2 focus:ring-brand outline-none text-white font-black tracking-tight"
                         />
                         <input
                             type="text"
                             value={newProjectTagline}
                             onChange={(e) => setNewProjectTagline(e.target.value)}
                             placeholder="Short Tagline (e.g. A detective story set in 2049)..."
-                            className="w-full bg-neutral-900 border border-neutral-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-neutral-300 placeholder-neutral-600 text-sm"
+                            className="w-full bg-black border border-neutral-800 p-4 rounded-xl focus:ring-2 focus:ring-brand outline-none text-neutral-300 font-medium"
                         />
                         <div className="flex justify-end pt-2">
                             <button
                                 type="submit"
                                 disabled={!newProjectName.trim()}
-                                className="bg-blue-600 text-white font-bold py-2.5 px-6 hover:bg-blue-500 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-lg hover:shadow-blue-500/20"
+                                className="bg-blue-600 text-white font-black uppercase text-xs tracking-widest py-4 px-8 hover:bg-blue-500 transition duration-300 disabled:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-2xl"
                             >
-                                Create Project
+                                Create Production
                             </button>
                         </div>
                     </div>

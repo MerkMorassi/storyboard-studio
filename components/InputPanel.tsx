@@ -246,47 +246,47 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
         <AccordionSection title="1. PROMPT & SCENE" sectionId="prompt" isOpen={openSections.has('prompt')} onToggle={() => toggleSection('prompt')}>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <FormField label="Scene Type" className="sm:col-span-1">
-                    <select value={sceneType} onChange={(e) => setSceneType(e.target.value as any)} className="w-full">
+                    <select value={sceneType} onChange={(e) => setSceneType(e.target.value as any)} className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none cursor-pointer">
                         <option value="INT">INT.</option>
                         <option value="EXT">EXT.</option>
                     </select>
                 </FormField>
                 <FormField label="Location" className="sm:col-span-1">
-                     <input type="text" list="locations" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., COFFEE SHOP" className="w-full" />
+                     <input type="text" list="locations" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., COFFEE SHOP" className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none" />
                      {scriptLocations.length > 0 && <datalist id="locations">{scriptLocations.map(loc => <option key={loc} value={loc} />)}</datalist>}
                 </FormField>
                 <FormField label="Time" className="sm:col-span-1">
-                    <select value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value as any)} className="w-full">
+                    <select value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value as any)} className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none cursor-pointer">
                         <option value="DAY">DAY</option>
                         <option value="NIGHT">NIGHT</option>
                     </select>
                 </FormField>
             </div>
             <FormField label="Characters">
-                <input type="text" value={characters} onChange={(e) => setCharacters(e.target.value)} placeholder="e.g., JANE DOE, a mysterious stranger" className="w-full" />
+                <input type="text" value={characters} onChange={(e) => setCharacters(e.target.value)} placeholder="e.g., JANE DOE, a mysterious stranger" className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none" />
             </FormField>
             <FormField label="Positive Prompt">
-                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="A detailed description of the scene, action, emotion, and style." className="w-full h-32 resize-y" />
+                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="A detailed description of the scene, action, emotion, and style." className="w-full h-32 bg-black border border-neutral-800 p-3 rounded-lg text-white focus:ring-2 focus:ring-brand outline-none resize-y" />
             </FormField>
             <FormField label="Negative Prompt">
-                <textarea value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} placeholder="Things to avoid, e.g., blurry, watermark, text" className="w-full h-16 resize-y" />
+                <textarea value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} placeholder="Things to avoid, e.g., blurry, watermark, text" className="w-full h-16 bg-black border border-neutral-800 p-3 rounded-lg text-white focus:ring-2 focus:ring-brand outline-none resize-y" />
             </FormField>
             <div className="flex flex-wrap gap-2 items-center">
                 <div className="relative flex-grow">
-                    <select onChange={(e) => handleApplyTemplate(e.target.value)} defaultValue="" className="w-full text-sm p-2 pr-8 appearance-none">
+                    <select onChange={(e) => handleApplyTemplate(e.target.value)} defaultValue="" className="w-full text-sm bg-black border border-neutral-800 p-2 pr-8 appearance-none text-white rounded-lg focus:ring-2 focus:ring-brand outline-none cursor-pointer">
                         <option value="" disabled>Apply a Style Template...</option>
                         {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
-                     <ChevronDownIcon className="h-4 w-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                     <ChevronDownIcon className="h-4 w-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500" />
                 </div>
                  <div className="relative flex-grow">
-                    <select onChange={(e) => handleInsertDynamic(e.target.value)} defaultValue="" className="w-full text-sm p-2 pr-8 appearance-none">
+                    <select onChange={(e) => handleInsertDynamic(e.target.value)} defaultValue="" className="w-full text-sm bg-black border border-neutral-800 p-2 pr-8 appearance-none text-white rounded-lg focus:ring-2 focus:ring-brand outline-none cursor-pointer">
                         <option value="" disabled>Insert Dynamic List...</option>
                         {dynamicPromptLists.map(l => <option key={l.id} value={l.name}>[{l.name}]</option>)}
                     </select>
-                     <ChevronDownIcon className="h-4 w-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                     <ChevronDownIcon className="h-4 w-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500" />
                 </div>
-                <button type="button" onClick={handleClearForm} title="Clear prompts" className="p-2 text-sm flex items-center"><ClearIcon /></button>
+                <button type="button" onClick={handleClearForm} title="Clear prompts" className="p-2 text-sm flex items-center hover:text-white transition-colors"><ClearIcon /></button>
             </div>
         </AccordionSection>
         <AccordionSection title="2. IMAGE SETTINGS" sectionId="settings" isOpen={openSections.has('settings')} onToggle={() => toggleSection('settings')}>
@@ -294,11 +294,11 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
                  <FormField label={`Images: ${numImages}`} className="col-span-2">
                     <div className="flex gap-2 items-center">
                         <input type="range" min="1" max={model === 'imagen-4.0-generate-001' ? 8 : 16} value={numImages} onChange={(e) => setNumImages(parseInt(e.target.value))} className="w-full accent-blue-500" disabled={prompt.includes('[') && prompt.includes(']')} />
-                        <input type="number" min="1" max="16" value={numImages} onChange={(e) => setNumImages(parseInt(e.target.value))} className="w-12 bg-neutral-900 border border-neutral-600 rounded text-center text-sm p-1" />
+                        <input type="number" min="1" max="16" value={numImages} onChange={(e) => setNumImages(parseInt(e.target.value))} className="w-12 bg-black border border-neutral-800 rounded-lg text-center text-sm p-1 text-white" />
                     </div>
                 </FormField>
                  <FormField label="Aspect Ratio" className="col-span-2">
-                    <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value as any)} className="w-full">
+                    <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value as any)} className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none cursor-pointer">
                         <option value="16:9">16:9 (Widescreen)</option>
                         <option value="9:16">9:16 (Vertical)</option>
                         <option value="1:1">1:1 (Square)</option>
@@ -306,34 +306,34 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
                     </select>
                 </FormField>
                  <FormField label={`Guidance: ${guidanceScale}`} className="col-span-2">
-                    <input type="range" min="0" max="20" value={guidanceScale} onChange={(e) => setGuidanceScale(parseInt(e.target.value))} className="w-full" />
+                    <input type="range" min="0" max="20" value={guidanceScale} onChange={(e) => setGuidanceScale(parseInt(e.target.value))} className="w-full accent-blue-500" />
                 </FormField>
                 <FormField label="Seed" className="col-span-2">
                     <div className="flex gap-1">
-                        <input type="text" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Leave blank for random" className="w-full" />
-                        <button type="button" onClick={handleRandomSeed} className="p-2"><DiceIcon /></button>
+                        <input type="text" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Leave blank for random" className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none" />
+                        <button type="button" onClick={handleRandomSeed} className="p-2 hover:text-white transition-colors"><DiceIcon /></button>
                     </div>
                 </FormField>
                 <FormField label="Camera Angle" className="col-span-4">
-                    <select value={cameraAngle} onChange={(e) => setCameraAngle(e.target.value)} className="w-full">
+                    <select value={cameraAngle} onChange={(e) => setCameraAngle(e.target.value)} className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none cursor-pointer">
                         {['Medium Shot', 'Close-up Shot', 'Wide Angle Shot', 'Establishing Shot', 'Point of View (POV)', 'Low Angle Shot', 'High Angle Shot', 'Dutch Angle', 'Over the Shoulder Shot', 'Long Shot', 'Extreme Close-up', 'Full Shot'].map(angle => <option key={angle} value={angle}>{angle}</option>)}
                     </select>
                 </FormField>
                  <FormField label="Model Engine" className="col-span-2">
-                    <select value={model} onChange={(e) => setModel(e.target.value as any)} className="w-full">
+                    <select value={model} onChange={(e) => setModel(e.target.value as any)} className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none cursor-pointer">
                         <option value="gemini-2.5-flash-image">Gemini Flash Image (Fast, Versatile)</option>
                         <option value="imagen-4.0-generate-001">Imagen 4 (High Quality)</option>
                     </select>
                 </FormField>
                  <FormField label="Generation Engine" className="col-span-2">
-                    <select value={engine} onChange={(e) => setEngine(e.target.value as any)} className="w-full">
+                    <select value={engine} onChange={(e) => setEngine(e.target.value as any)} className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none cursor-pointer">
                         <option value="internal">Internal (This App)</option>
                         <option value="external">External (Webhook)</option>
                     </select>
                 </FormField>
                  <FormField label="Post-Processing" className="col-span-4">
-                     <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={addLetterbox} onChange={(e) => setAddLetterbox(e.target.checked)} />
+                     <label className="flex items-center gap-2 text-sm text-neutral-300">
+                        <input type="checkbox" checked={addLetterbox} onChange={(e) => setAddLetterbox(e.target.checked)} className="accent-brand" />
                         Add Cinematic Letterbox (2.39:1)
                     </label>
                 </FormField>
@@ -345,7 +345,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 font-bold text-white bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-600 disabled:cursor-wait transition-colors"
+            className="w-full py-3 font-bold text-white bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-600 disabled:cursor-wait transition-colors rounded-lg shadow-lg"
           >
             {isLoading ? 'Generating...' : (engine === 'external' ? 'Send Generation Request' : 'Generate Images')}
           </button>

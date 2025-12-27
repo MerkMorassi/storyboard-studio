@@ -413,7 +413,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                     <select 
                                         value={rating}
                                         onChange={(e) => handleApplyRating(e.target.value)}
-                                        className="w-full bg-black border border-neutral-800 p-3.5 rounded-lg text-sm text-brand font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer shadow-inner hover:bg-neutral-800/50 transition-colors"
+                                        className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-sm text-brand font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer transition-colors"
                                     >
                                         <option value="none">- NONE (Unrestricted) -</option>
                                         {Object.entries(CONTENT_GUIDELINES.RATINGS).map(([key, val]) => (
@@ -425,11 +425,11 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-green-500 uppercase tracking-widest flex items-center gap-2">Positive Directives</label>
-                                <textarea value={positiveConstraints} onChange={(e) => setPositiveConstraints(e.target.value)} placeholder="Force specific story requirements..." className="w-full h-32 bg-black/30 border border-neutral-800 rounded-lg text-sm text-neutral-100 focus:ring-2 focus:ring-brand outline-none resize-none font-mono p-4" />
+                                <textarea value={positiveConstraints} onChange={(e) => setPositiveConstraints(e.target.value)} placeholder="Force specific story requirements..." className="w-full h-32 bg-black border border-neutral-800 rounded-lg text-sm text-neutral-100 focus:ring-2 focus:ring-brand outline-none resize-none font-mono p-4" />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">Negative Directives</label>
-                                <textarea value={negativeConstraints} onChange={(e) => setNegativeConstraints(e.target.value)} placeholder="Explicitly exclude themes or content..." className="w-full h-32 bg-black/30 border border-neutral-800 rounded-lg text-sm text-neutral-100 focus:ring-2 focus:ring-brand outline-none resize-none font-mono p-4" />
+                                <textarea value={negativeConstraints} onChange={(e) => setNegativeConstraints(e.target.value)} placeholder="Explicitly exclude themes or content..." className="w-full h-32 bg-black border border-neutral-800 rounded-lg text-sm text-neutral-100 focus:ring-2 focus:ring-brand outline-none resize-none font-mono p-4" />
                             </div>
                         </div>
                     )}
@@ -519,7 +519,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                     <div className="space-y-8 flex flex-col items-stretch max-w-5xl mx-auto">
                                         <div className="space-y-3">
                                             <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest pl-1">Working Title</label>
-                                            <input type="text" value={workingTitle} onChange={(e) => setWorkingTitle(e.target.value)} className="w-full bg-black border border-neutral-900 p-5 rounded-lg text-2xl text-blue-400 font-black shadow-inner outline-none focus:ring-1 focus:ring-brand" />
+                                            <input type="text" value={workingTitle} onChange={(e) => setWorkingTitle(e.target.value)} className="w-full bg-black border border-neutral-800 p-5 rounded-lg text-2xl text-blue-400 font-black shadow-inner outline-none focus:ring-1 focus:ring-brand" />
                                         </div>
 
                                         <div className="space-y-3">
@@ -527,7 +527,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                             <AutoExpandingTextarea 
                                                 value={logline} 
                                                 onChange={(e) => setLogline(e.target.value)} 
-                                                className="bg-black border border-neutral-900 p-5 rounded-lg text-base text-neutral-200 italic shadow-inner outline-none focus:ring-1 focus:ring-brand leading-relaxed font-sans" 
+                                                className="bg-black border border-neutral-800 p-5 rounded-lg text-base text-neutral-200 italic shadow-inner outline-none focus:ring-1 focus:ring-brand leading-relaxed font-sans" 
                                                 placeholder="Generating Logline..."
                                             />
                                         </div>
@@ -537,7 +537,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                             <AutoExpandingTextarea 
                                                 value={treatment} 
                                                 onChange={(e) => setTreatment(e.target.value)} 
-                                                className="bg-black border border-neutral-900 p-6 rounded-lg text-sm text-neutral-400 leading-relaxed shadow-inner outline-none focus:ring-1 focus:ring-brand font-mono" 
+                                                className="bg-black border border-neutral-800 p-6 rounded-lg text-sm text-neutral-400 leading-relaxed shadow-inner outline-none focus:ring-1 focus:ring-brand font-mono" 
                                                 placeholder="Generating Narrative Treatment..."
                                             />
                                         </div>

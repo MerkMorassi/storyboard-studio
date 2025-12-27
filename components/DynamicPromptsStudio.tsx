@@ -45,12 +45,12 @@ const ListEditor: React.FC<{
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="List Name (e.g., character, location)"
-                    className="w-full bg-neutral-900 border border-neutral-600 p-2 text-lg font-bold focus:ring-2 focus:ring-neutral-500 outline-none rounded mr-4"
+                    className="w-full bg-black border border-neutral-800 p-3 text-lg font-bold text-white focus:ring-2 focus:ring-brand outline-none rounded-lg mr-4"
                 />
                 <div className="flex gap-2">
-                    <button onClick={() => onDelete(list.id)} className="px-3 py-2 text-sm font-medium text-red-400 bg-neutral-900 hover:bg-red-900/50 transition rounded">Delete</button>
-                    <button onClick={onCancel} className="px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition rounded">Cancel</button>
-                    <button onClick={handleSave} className="px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 transition rounded shadow-lg shadow-blue-900/20">Save</button>
+                    <button onClick={() => onDelete(list.id)} className="px-3 py-2 text-sm font-medium text-red-400 bg-neutral-900 hover:bg-red-900/50 transition rounded-lg">Delete</button>
+                    <button onClick={onCancel} className="px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition rounded-lg">Cancel</button>
+                    <button onClick={handleSave} className="px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 transition rounded-lg shadow-lg">Save</button>
                 </div>
             </div>
 
@@ -101,7 +101,7 @@ const CreateListForm: React.FC<{
         return (
             <button 
                 onClick={() => setIsExpanded(true)}
-                className="w-full py-3 border-2 border-dashed border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-300 transition flex items-center justify-center gap-2 rounded-lg"
+                className="w-full py-4 border-2 border-dashed border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200 transition bg-neutral-900/30 flex items-center justify-center gap-2 rounded-xl"
             >
                 <span className="text-xl">+</span> Create New Prompt List
             </button>
@@ -109,17 +109,17 @@ const CreateListForm: React.FC<{
     }
 
     return (
-        <form onSubmit={handleCreate} className="bg-neutral-800/50 p-4 border border-neutral-700 space-y-4 animate-fade-in rounded-lg">
+        <form onSubmit={handleCreate} className="bg-neutral-800/50 p-6 border border-neutral-700 space-y-4 animate-fade-in rounded-xl shadow-2xl">
             <h3 className="text-lg font-semibold text-neutral-300">New Dynamic List</h3>
             <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="List Name (e.g., colors, moods)"
-                className="w-full bg-neutral-900 border border-neutral-600 p-2 focus:ring-2 focus:ring-neutral-500 outline-none rounded"
+                className="w-full bg-black border border-neutral-800 p-3 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none"
             />
             
-            <div className="h-64">
+            <div className="h-64 rounded-lg overflow-hidden border border-neutral-800">
                 <Dataframe 
                     value={{ 
                         headers: ["Prompt Options"], 
@@ -133,18 +133,18 @@ const CreateListForm: React.FC<{
                 />
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-2">
                 <button
                     type="button"
                     onClick={() => setIsExpanded(false)}
-                    className="flex-1 bg-neutral-800 text-neutral-300 font-semibold py-2 px-4 hover:bg-neutral-700 transition duration-300 rounded"
+                    className="flex-1 bg-neutral-800 text-neutral-300 font-bold py-3 px-4 hover:bg-neutral-700 transition duration-300 rounded-lg"
                 >
                     Cancel
                 </button>
                 <button
                     type="submit"
                     disabled={!name.trim()}
-                    className="flex-1 bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed rounded"
+                    className="flex-1 bg-blue-600 text-white font-bold py-3 px-4 hover:bg-blue-500 transition duration-300 disabled:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-lg"
                 >
                     Create List
                 </button>
@@ -190,7 +190,7 @@ export const DynamicPromptsStudio: React.FC<DynamicPromptsStudioProps> = ({ list
                                                 Edit
                                             </button>
                                         </div>
-                                        <div className="bg-neutral-900/50 p-2 rounded text-xs text-neutral-400 font-mono h-24 overflow-y-auto border border-neutral-800">
+                                        <div className="bg-black/40 p-2 rounded text-xs text-neutral-400 font-mono h-24 overflow-y-auto border border-neutral-800 custom-scrollbar">
                                             {list.items.map((item, i) => (
                                                 <div key={i} className="truncate border-b border-neutral-800/50 last:border-0 py-0.5">• {item}</div>
                                             ))}

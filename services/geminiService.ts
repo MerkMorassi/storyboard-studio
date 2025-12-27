@@ -44,7 +44,7 @@ export interface ScribeInput {
   sceneGenerationQuestions: string;
   positiveConstraints?: string;
   negativeConstraints?: string;
-  rating?: string; // NEW
+  rating?: string; 
   dynamicLists?: any[];
 }
 
@@ -58,7 +58,7 @@ export interface ScribeOutlineInput {
   beatSheet: string;
   positiveConstraints?: string;
   negativeConstraints?: string;
-  rating?: string; // NEW
+  rating?: string; 
   dynamicLists?: any[];
 }
 
@@ -77,9 +77,13 @@ const getScribeSystemPrompt = (pos?: string, neg?: string, rating?: string, dyna
     if (rating && rating !== "none" && CONTENT_GUIDELINES.RATINGS[rating as keyof typeof CONTENT_GUIDELINES.RATINGS]) {
         const rData = CONTENT_GUIDELINES.RATINGS[rating as keyof typeof CONTENT_GUIDELINES.RATINGS];
         ratingPrompt = `
-*** CONTENT RATING MANDATE: ${rating} ***
-ALLOWED/REQUIRED: ${rData.positive}
-STRICTLY FORBIDDEN: ${rData.negative}
+/******************************************************************************
+ * CRITICAL PRODUCTION MANDATE: CONTENT RATING ${rating}
+ ******************************************************************************
+ ${rData.positive}
+ ------------------------------------------------------------------------------
+ FORBIDDEN: ${rData.negative}
+ *****************************************************************************/
 `;
     }
 
@@ -115,6 +119,8 @@ export const runScribeAgent = async (input: ScribeInput): Promise<string> => {
         const inputBlock = `
 COMMAND: WRITE 40-SCENE SCREENPLAY
 Label as "FIRST DRAFT".
+
+${input.rating && input.rating !== 'none' ? `MANDATE: STRICTLY ADHERE TO RATING ${input.rating} BOUNDARIES.` : ''}
 
 BLUEPRINT DATA:
 TITLE: ${input.workingTitle}
@@ -155,6 +161,8 @@ export const runScribeOutlineAgent = async (input: ScribeOutlineInput): Promise<
         const inputBlock = `
 COMMAND: GENERATE STORY OUTLINE (JSON)
 
+${input.rating && input.rating !== 'none' ? `MANDATE: FILTER BLUEPRINT THROUGH RATING ${input.rating} STANDARDS.` : ''}
+
 RAW BLUEPRINT:
 TITLE: ${input.title}
 GENRE: ${input.genre}
@@ -164,7 +172,7 @@ BEATS: ${input.beatSheet}
 
 TASK:
 Filter this raw blueprint through the STUDIO STANDARDS and RATING MANDATE. If the blueprint contradicts the Standards/Rating, the Standards WIN.
-Example: If Rating is "G" and Blueprint is "Slasher", pivot the story to a family-friendly spooky adventure.
+Example: If Rating is "G" and Blueprint is "Slasher", pivot the story to a family-friendly adventure.
 
 OUTPUT FORMAT: JSON Schema.
 `;
