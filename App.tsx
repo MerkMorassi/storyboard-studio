@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ActiveView, Project, Agent, ImageState, ScriptFile } from './types.ts';
+import { ActiveView, Project, Agent, ImageState, ScriptFile, LoreEntry } from './types.ts';
 import { Sidebar } from './components/Sidebar.tsx';
 import { DashboardStudio } from './components/DashboardStudio.tsx';
 import { ProjectsStudio } from './components/ProjectsStudio.tsx';
@@ -112,6 +112,28 @@ export const App = () => {
       updateProjectData({ images: [newImage, ...project.data.images] });
   };
 
+  // Lore Handlers
+  const handleCreateLore = (title: string, content: string, projectId: string) => {
+      const newEntry: LoreEntry = {
+          id: `lore_${Date.now()}`,
+          projectId,
+          title,
+          content
+      };
+      // For now, we only update the active project's lore list. 
+      // In a multi-project DB system, this would save to the specific project ID.
+      // Here, we assume the user is adding to the current project context.
+      updateProjectData({ lore: [newEntry, ...project.data.lore] });
+  };
+
+  const handleUpdateLore = (id: string, title: string, content: string) => {
+      updateProjectData({ lore: project.data.lore.map(l => l.id === id ? { ...l, title, content } : l) });
+  };
+
+  const handleDeleteLore = (id: string) => {
+      updateProjectData({ lore: project.data.lore.filter(l => l.id !== id) });
+  };
+
   const getAgentById = (id: string) => project.data.agents.find(a => a.id === id) || project.data.agents[0];
   
   // Specific agents for shortcuts
@@ -165,7 +187,7 @@ export const App = () => {
           case 'scripts-bin': return <ScriptingStudio agent={scribe} scriptText={project.data.scriptText} scriptsBin={project.data.scriptsBin} onScriptUpload={(file) => { const reader = new FileReader(); reader.onload = (e) => updateProjectData({ scriptText: e.target?.result as string }); reader.readAsText(file); }} onDeleteScript={(id) => updateProjectData({ scriptsBin: project.data.scriptsBin.filter(s => s.id !== id) })} onNavigate={setActiveView} onCallAgent={() => { setActiveAgentId(scribe.id); setActiveView('agent-chat'); }} defaultTab='bin' />;
           case 'script-writer': return <ScriptWriterStudio onSendToScriptsBin={(s) => updateProjectData({ scriptsBin: [...project.data.scriptsBin, { ...s, id: `script_${Date.now()}`, date: new Date().toLocaleDateString() }] })} onNavigate={setActiveView} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} />;
           case 'agents': return <AgentsStudio agents={project.data.agents} images={project.data.images} onCreateAgent={() => ({} as Agent)} onViewImage={setSelectedImage} onUpdateAgent={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} onDeleteAgent={() => {}} onImageUpload={() => {}} onCallAgent={() => {}} />;
-          case 'lore': return <LoreStudio lore={project.data.lore} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
+          case 'lore': return <LoreStudio lore={project.data.lore} projects={[{ id: project.id, name: project.name }]} onCreate={handleCreateLore} onUpdate={handleUpdateLore} onDelete={handleDeleteLore} />;
           case 'prompt-library': return <PromptLibraryStudio templates={project.data.promptTemplates} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
           case 'dynamic-prompts': return <DynamicPromptsStudio lists={project.data.dynamicPromptLists} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
           case 'agent-chat': return <AgentChatStudio agents={project.data.agents} onUploadLore={() => {}} onSendMessage={() => {}} isResponding={false} error={null} />;

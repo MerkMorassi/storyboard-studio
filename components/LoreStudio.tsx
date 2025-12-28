@@ -1,11 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LoreEntry } from '../types.ts';
-import { LoreIcon } from './icons.tsx';
+import { LoreIcon, FolderIcon } from './icons.tsx';
+
+interface ProjectSummary {
+    id: string;
+    name: string;
+}
 
 interface LoreStudioProps {
     lore: LoreEntry[];
-    onCreate: (title: string, content: string) => void;
+    projects: ProjectSummary[];
+    onCreate: (title: string, content: string, projectId: string) => void;
     onUpdate: (id: string, title: string, content: string) => void;
     onDelete: (id: string) => void;
 }
@@ -50,15 +56,22 @@ const LoreEntryEditor: React.FC<{
     );
 };
 
-export const LoreStudio: React.FC<LoreStudioProps> = ({ lore, onCreate, onUpdate, onDelete }) => {
+export const LoreStudio: React.FC<LoreStudioProps> = ({ lore, projects, onCreate, onUpdate, onDelete }) => {
     const [newTitle, setNewTitle] = useState('');
     const [newContent, setNewContent] = useState('');
+    const [selectedProjectId, setSelectedProjectId] = useState('');
     const [editingId, setEditingId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (projects.length > 0 && !selectedProjectId) {
+            setSelectedProjectId(projects[0].id);
+        }
+    }, [projects, selectedProjectId]);
 
     const handleCreate = (e: React.FormEvent) => {
         e.preventDefault();
-        if (newTitle.trim() && newContent.trim()) {
-            onCreate(newTitle, newContent);
+        if (newTitle.trim() && newContent.trim() && selectedProjectId) {
+            onCreate(newTitle, newContent, selectedProjectId);
             setNewTitle('');
             setNewContent('');
         }
@@ -72,13 +85,33 @@ export const LoreStudio: React.FC<LoreStudioProps> = ({ lore, onCreate, onUpdate
                 
                 <form onSubmit={handleCreate} className="bg-neutral-800/50 p-6 border border-neutral-700 space-y-4 rounded-xl shadow-xl">
                      <h3 className="text-lg font-semibold text-neutral-300">Add New Lore Entry</h3>
-                    <input
-                        type="text"
-                        value={newTitle}
-                        onChange={(e) => setNewTitle(e.target.value)}
-                        placeholder="Lore Title (e.g., The Sunstone of Arath)"
-                        className="w-full bg-black border border-neutral-800 p-3 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none"
-                    />
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="relative">
+                            <select
+                                value={selectedProjectId}
+                                onChange={(e) => setSelectedProjectId(e.target.value)}
+                                className="w-full bg-black border border-neutral-800 p-3 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none appearance-none cursor-pointer"
+                            >
+                                <option value="" disabled>Select Project...</option>
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500">
+                                <FolderIcon className="w-4 h-4" />
+                            </div>
+                        </div>
+                        
+                        <input
+                            type="text"
+                            value={newTitle}
+                            onChange={(e) => setNewTitle(e.target.value)}
+                            placeholder="Lore Title (e.g., The Sunstone of Arath)"
+                            className="w-full bg-black border border-neutral-800 p-3 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none"
+                        />
+                    </div>
+
                     <textarea
                         value={newContent}
                         onChange={(e) => setNewContent(e.target.value)}
@@ -87,7 +120,7 @@ export const LoreStudio: React.FC<LoreStudioProps> = ({ lore, onCreate, onUpdate
                     />
                     <button
                         type="submit"
-                        disabled={!newTitle.trim() || !newContent.trim()}
+                        disabled={!newTitle.trim() || !newContent.trim() || !selectedProjectId}
                         className="w-full bg-blue-600 text-white font-bold py-3 px-4 hover:bg-blue-500 transition duration-300 disabled:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-lg"
                     >
                         Add to Lore Bible
@@ -109,7 +142,14 @@ export const LoreStudio: React.FC<LoreStudioProps> = ({ lore, onCreate, onUpdate
                             ) : (
                                 <div className="bg-neutral-800/50 p-4 border border-neutral-700 group rounded-lg hover:border-neutral-500 transition-colors">
                                     <div className="flex justify-between items-start">
-                                        <h4 className="text-lg font-bold text-neutral-200">{entry.title}</h4>
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800">
+                                                    {projects.find(p => p.id === entry.projectId)?.name || 'Unknown Project'}
+                                                </span>
+                                            </div>
+                                            <h4 className="text-lg font-bold text-neutral-200">{entry.title}</h4>
+                                        </div>
                                         <button 
                                             onClick={() => setEditingId(entry.id)} 
                                             className="text-sm text-neutral-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"

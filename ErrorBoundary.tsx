@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { CrashReport } from './components/CrashReport';
 
 interface ErrorBoundaryProps {
@@ -14,7 +14,7 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch and display critical rendering errors.
  */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   // Explicitly declare state property for TypeScript class fields
   public state: ErrorBoundaryState = {
     hasError: false,
