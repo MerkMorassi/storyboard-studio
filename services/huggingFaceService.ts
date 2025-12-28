@@ -50,67 +50,85 @@ export const generateImageSDXL = async (
 
     console.log(`[MythOS] Direct-Linking to GPU Core: ${PROPRIETARY_SUBDOMAIN}...`);
     
-    try {
-        // Step 1: Attempt generation at the primary route
-        let response = await fetch(`${PROPRIETARY_SUBDOMAIN}/generate`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(payload),
-            cache: 'no-store'
-        });
+    // Probing sequence: Try standard endpoints in order
+    const endpointsToProbe = [
+        `${PROPRIETARY_SUBDOMAIN}/generate`,
+        `${PROPRIETARY_SUBDOMAIN}/`,
+        `${PROPRIETARY_SUBDOMAIN}/predict`,
+        `${PROPRIETARY_SUBDOMAIN}/api/generate`
+    ];
 
-        // Step 2: Fallback to root if /generate is 404
-        if (response.status === 404) {
-            console.log("[MythOS] /generate 404, attempting root POST...");
-            response = await fetch(`${PROPRIETARY_SUBDOMAIN}/`, {
+    let lastError: Error | null = null;
+
+    for (const endpoint of endpointsToProbe) {
+        try {
+            console.log(`[MythOS] Probing endpoint: ${endpoint}`);
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(payload),
                 cache: 'no-store'
             });
+
+            if (response.status === 404) {
+                console.warn(`[MythOS] 404 at ${endpoint}, trying next...`);
+                continue; // Try next endpoint
+            }
+
+            const contentType = response.headers.get('content-type') || '';
+
+            // Check for HTML response (Cold Boot / Error Page)
+            if (contentType.includes('text/html')) {
+                const status = response.status;
+                if (status === 401 || status === 403) {
+                    throw new Error(`Access Denied (${status}). HF Token lacks permissions.`);
+                }
+                if (response.headers.get('x-error-code') === 'SPACE_SLEEPING') {
+                    throw new Error("Hardware Sleeping. Visit space to wake.");
+                }
+                // If HTML but 200/500, it's likely a generic UI page, not our API
+                console.warn(`[MythOS] Received HTML at ${endpoint}, skipping.`);
+                continue; 
+            }
+
+            // Check for JSON response
+            if (contentType.includes('application/json')) {
+                const json = await response.json();
+                if (json.error || json.detail) {
+                    throw new Error(`Engine Error: ${json.error || json.detail}`);
+                }
+                // If it returns status but no image, treat as failure for this endpoint
+                if (json.status === "ONLINE" && !json.image) {
+                     console.warn(`[MythOS] Endpoint ${endpoint} returned status only.`);
+                     continue;
+                }
+                // Some endpoints return { image: "base64..." }
+                if (json.image || json.images) {
+                     // Handle base64 response if necessary, but preferred is direct blob
+                     // For now, assume blob return is standard for this specific engine unless wrapped
+                }
+            }
+
+            if (response.ok) {
+                console.log(`[MythOS] Connection Successful at ${endpoint}`);
+                return await response.blob();
+            }
+            
+            throw new Error(`Engine Fault (${response.status}) at ${endpoint}`);
+
+        } catch (err) {
+            lastError = err instanceof Error ? err : new Error("Unknown error");
+            // If it's a specific logic error (like Access Denied), stop trying
+            if (lastError.message.includes("Access Denied") || lastError.message.includes("Hardware Sleeping")) {
+                throw lastError;
+            }
+            // Otherwise continue loop
         }
-
-        const contentType = response.headers.get('content-type') || '';
-        
-        // If we get JSON back, it might be an error message or status instead of the image blob
-        if (contentType.includes('application/json')) {
-            const json = await response.json();
-            // If the user's engine returns status at root even for POST, we know it's a diagnostic response
-            if (json.status === "ONLINE" && !json.image) {
-                throw new Error(`Target endpoint reached, but no image data returned. The engine is ONLINE but the POST request was rejected. Details: ${JSON.stringify(json)}`);
-            }
-            if (json.error || json.detail) {
-                throw new Error(`Engine reported error: ${json.error || json.detail}`);
-            }
-        }
-
-        // If we get HTML, Hugging Face is likely intercepting the request (Sleeping/Building/Auth Error)
-        if (contentType.includes('text/html')) {
-            const status = response.status;
-            if (status === 401 || status === 403) {
-                throw new Error(`Access Denied (${status}). Your HF Token is invalid or lacks 'Read' permissions for this private Space.`);
-            }
-            if (status === 404) {
-                throw new Error("Space Path Not Found (404). The Docker container is not listening on the expected API route.");
-            }
-            // Check for HF specific headers that indicate sleeping
-            if (response.headers.get('x-error-code') === 'SPACE_SLEEPING') {
-                throw new Error("Hardware is Sleeping. Please wake it manually at: https://huggingface.co/spaces/merkmorassi/mythos-engine");
-            }
-            throw new Error(`Hardware Interface Error: Received HTML instead of image. Status: ${status}`);
-        }
-
-        if (response.ok) {
-            console.log(`[MythOS] Neural Link Established.`);
-            return await response.blob();
-        }
-
-        throw new Error(`Engine Fault (${response.status}): The hardware cluster refused the request.`);
-
-    } catch (err) {
-        console.error("[MythOS] Cluster Handshake Failure:", err);
-        throw err instanceof Error ? err : new Error("Fatal hardware link error.");
     }
+
+    // If we get here, all endpoints failed
+    console.error("[MythOS] All probes failed.");
+    throw lastError || new Error("Space Path Not Found (404). The Docker container is not listening on known API routes.");
   }
 
   // --- STANDARD FALLBACK ---

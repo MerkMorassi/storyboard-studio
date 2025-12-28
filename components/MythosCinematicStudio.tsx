@@ -1,13 +1,14 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { generateImageSDXL } from '../services/huggingFaceService';
-import { CameraLensIcon, MagicIcon, ImageIcon, LibraryIcon, LoadingSpinner } from './icons.tsx';
+import { CameraLensIcon, MagicIcon, LoadingSpinner, LibraryIcon, ShuffleIcon } from './icons.tsx';
 import { WarningIcon } from './icons/WarningIcon';
 import { AssetActions } from './AssetActions';
-import { PromptTemplate } from '../types.ts';
+import { PromptTemplate, DynamicPromptList } from '../types.ts';
 
 interface MythosCinematicStudioProps {
     hfToken: string;
     promptTemplates: PromptTemplate[];
+    dynamicPromptLists: DynamicPromptList[];
     onAddAssetToGrid: (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string; metadata?: any }) => void;
     onAddToStoryboard: (base64: string) => void;
     onAddToInspiration: (base64: string) => void;
@@ -23,6 +24,7 @@ const RATIOS = [
 
 const CINEMATIC_TIERS = {
     framing: [
+        { label: 'Select Framing...', value: '' },
         { label: 'Extreme Long Shot (ELS)', value: '(extreme long shot:1.4), (establishing shot:1.2), wide view' },
         { label: 'Long Shot (LS)', value: '(long shot:1.3), full body visible, environmental context' },
         { label: 'Full Shot (FS)', value: '(full shot:1.3), head to toe visible' },
@@ -33,6 +35,7 @@ const CINEMATIC_TIERS = {
         { label: 'Extreme Close Up (ECU)', value: '(extreme close up:1.5), macro details, eye focus, intense' }
     ],
     angle: [
+        { label: 'Select Angle...', value: '' },
         { label: 'Eye Level (Neutral)', value: '(eye level shot:1.0), neutral perspective' },
         { label: 'Low Angle (Heroic)', value: '(low angle shot:1.3), looking up, imposing, heroic' },
         { label: 'High Angle (Vulnerable)', value: '(high angle shot:1.3), looking down, vulnerable' },
@@ -43,7 +46,7 @@ const CINEMATIC_TIERS = {
         { label: 'Point of View (POV)', value: '(pov shot:1.3), first person perspective' }
     ],
     lens: [
-        { label: 'Standard / Neutral', value: '' },
+        { label: 'Select Lens...', value: '' },
         { label: 'Wide Angle (14mm-24mm)', value: '(wide angle lens:1.3), (14mm:1.1), deep depth of field, expansive' },
         { label: 'Cinematic Prime (35mm-50mm)', value: '(35mm lens:1.2), natural depth of field, storytelling lens' },
         { label: 'Portrait Telephoto (85mm)', value: '(85mm lens:1.2), flattering perspective, soft background' },
@@ -53,6 +56,7 @@ const CINEMATIC_TIERS = {
         { label: 'Fisheye Lens', value: '(fisheye lens:1.3), distorted edges, ultra wide' }
     ],
     lighting: [
+        { label: 'Select Lighting...', value: '' },
         { label: 'Standard / Balanced', value: 'balanced studio lighting, professional exposure' },
         { label: 'Golden Hour', value: '(golden hour:1.3), warm soft lighting, long shadows, sun flare, magic hour' },
         { label: 'Blue Hour', value: '(blue hour:1.3), cold lighting, twilight, moody' },
@@ -68,73 +72,57 @@ const CINEMATIC_TIERS = {
 export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({ 
     hfToken, 
     promptTemplates,
+    dynamicPromptLists,
     onAddAssetToGrid,
     onAddToStoryboard,
     onAddToInspiration
 }) => {
-    const [prompt, setPrompt] = useState('');
+    const [prompt, setPrompt] = useState('masterpiece, high fidelity, highly detailed technical photography, award winning cinematography, movie still');
     const [negativePrompt, setNegativePrompt] = useState('blurry, low quality, text, watermark, bad anatomy, deformed, sketch, cartoon, 3d render, illustration');
     const [width, setWidth] = useState(RATIOS[0].w);
     const [height, setHeight] = useState(RATIOS[0].h);
     const [seed, setSeed] = useState<number | undefined>(undefined);
     
-    // UI State for dropdowns
-    const [framing, setFraming] = useState(CINEMATIC_TIERS.framing[3].value);
-    const [angle, setAngle] = useState(CINEMATIC_TIERS.angle[0].value);
-    const [lens, setLens] = useState(CINEMATIC_TIERS.lens[0].value);
-    const [lighting, setLighting] = useState(CINEMATIC_TIERS.lighting[0].value);
+    // UI State for dropdowns (initially empty to prompt user selection)
+    const [framing, setFraming] = useState('');
+    const [angle, setAngle] = useState('');
+    const [lens, setLens] = useState('');
+    const [lighting, setLighting] = useState('');
     
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState<{ base64: string; mimeType: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Initial Population of Prompt based on defaults
-    useEffect(() => {
-        const parts = [
-            CINEMATIC_TIERS.framing[3].value,
-            CINEMATIC_TIERS.angle[0].value,
-            CINEMATIC_TIERS.lens[0].value,
-            CINEMATIC_TIERS.lighting[0].value
-        ].filter(Boolean);
-        setPrompt(parts.join(', '));
-    }, []);
-
-    // Helper to update prompt when matrix changes
+    // Matrix Injection Logic
     const handleMatrixChange = (category: keyof typeof CINEMATIC_TIERS, newValue: string) => {
-        // 1. Update UI State
+        // 1. Update the UI state for the dropdown
         if (category === 'framing') setFraming(newValue);
         if (category === 'angle') setAngle(newValue);
         if (category === 'lens') setLens(newValue);
         if (category === 'lighting') setLighting(newValue);
 
-        // 2. Update Prompt Text
+        if (!newValue) return;
+
+        // 2. Update the prompt text
         setPrompt(current => {
             let updated = current;
-            const possibleValues = CINEMATIC_TIERS[category].map(o => o.value).filter(v => v);
+            const options = CINEMATIC_TIERS[category];
             
-            // Find if any value from this category exists in the prompt
-            const existingValue = possibleValues.find(v => updated.includes(v));
+            // Try to find if any OTHER option from this category is already in the prompt
+            const existingOption = options.find(opt => opt.value && updated.includes(opt.value));
             
-            if (existingValue) {
-                // Replace existing value
-                updated = updated.replace(existingValue, newValue);
-            } else if (newValue) {
-                // Append if not found and new value exists
-                updated = updated ? `${updated}, ${newValue}` : newValue;
+            if (existingOption) {
+                // Replace the old value with the new one
+                updated = updated.replace(existingOption.value, newValue);
+            } else {
+                // Prepend to the start for higher weight/visibility
+                updated = `${newValue}, ${updated}`;
             }
             
-            // Cleanup commas and spaces
-            return updated.replace(/,\s*,/g, ',').replace(/^,\s*/, '').replace(/,\s*$/, '').trim();
+            // Clean up double commas/spaces
+            return updated.replace(/,\s*,/g, ',').trim();
         });
     };
-
-    const finalPrompt = useMemo(() => {
-        const parts = [];
-        if (prompt.trim()) parts.push(prompt.trim());
-        // Quality tags appended last
-        parts.push("masterpiece, high fidelity, highly detailed technical photography, award winning cinematography, movie still");
-        return parts.join(', ');
-    }, [prompt]);
 
     const handleApplyTemplate = (templateId: string) => {
         const template = promptTemplates.find(t => t.id === templateId);
@@ -146,6 +134,22 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
             if (template.negativePrompt) {
                 setNegativePrompt(n => n ? `${template.negativePrompt}, ${n}` : template.negativePrompt);
             }
+        }
+    };
+
+    const handleApplyNegativeTemplate = (templateId: string) => {
+        const template = promptTemplates.find(t => t.id === templateId);
+        if (template && template.negativePrompt) {
+            setNegativePrompt(n => n ? `${template.negativePrompt}, ${n}` : template.negativePrompt);
+        }
+    };
+
+    const handleInsertDynamic = (listName: string, target: 'positive' | 'negative') => {
+        const insertion = `[${listName}]`;
+        if (target === 'positive') {
+            setPrompt(p => p ? `${p}, ${insertion}` : insertion);
+        } else {
+            setNegativePrompt(n => n ? `${n}, ${insertion}` : insertion);
         }
     };
 
@@ -163,7 +167,7 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
             const usedSeed = seed !== undefined ? seed : Math.floor(Math.random() * 2147483647);
             
             const blob = await generateImageSDXL({
-                prompt: finalPrompt,
+                prompt: prompt,
                 negative_prompt: negativePrompt,
                 width: width,
                 height: height,
@@ -187,7 +191,7 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
                     ...asset, 
                     metadata: { 
                         engine: 'MythOS Docker Core v4.2', 
-                        prompt: finalPrompt, 
+                        prompt: prompt, 
                         seed: usedSeed, 
                         width, 
                         height,
@@ -277,21 +281,51 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
                     </div>
 
                     <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider">Subject Blueprint</label>
-                            <div className="relative group">
-                                <select 
-                                    onChange={(e) => {
-                                        handleApplyTemplate(e.target.value);
-                                        e.target.value = "";
-                                    }} 
-                                    defaultValue="" 
-                                    className="appearance-none bg-neutral-800 border border-neutral-600 rounded px-2 py-0.5 text-[10px] text-blue-300 font-bold outline-none cursor-pointer hover:border-blue-500 pr-6"
-                                >
-                                    <option value="" disabled>+ Load Style</option>
-                                    {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                </select>
-                                <LibraryIcon className="w-3 h-3 text-blue-300 absolute right-2 top-1.5 pointer-events-none" />
+                        <div className="flex flex-col gap-2 mb-2">
+                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider">Subject Blueprint (Positive)</label>
+                            <div className="flex gap-2">
+                                <div className="relative group flex-grow">
+                                    <select 
+                                        onChange={(e) => {
+                                            handleApplyTemplate(e.target.value);
+                                            e.target.value = "";
+                                        }} 
+                                        defaultValue="" 
+                                        className="w-full appearance-none bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-[10px] text-blue-300 font-bold outline-none cursor-pointer hover:border-blue-500 pr-6"
+                                    >
+                                        <option value="" disabled>+ Load Style</option>
+                                        {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                    <LibraryIcon className="w-3 h-3 text-blue-300 absolute right-2 top-1.5 pointer-events-none" />
+                                </div>
+                                <div className="relative group flex-grow">
+                                    <select 
+                                        onChange={(e) => {
+                                            handleInsertDynamic(e.target.value, 'positive');
+                                            e.target.value = "";
+                                        }} 
+                                        defaultValue="" 
+                                        className="w-full appearance-none bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-[10px] text-green-300 font-bold outline-none cursor-pointer hover:border-green-500 pr-6"
+                                    >
+                                        <option value="" disabled>+ Dyn 1</option>
+                                        {dynamicPromptLists.map(l => <option key={l.id} value={l.name}>[{l.name}]</option>)}
+                                    </select>
+                                    <ShuffleIcon className="w-3 h-3 text-green-300 absolute right-2 top-1.5 pointer-events-none" />
+                                </div>
+                                <div className="relative group flex-grow">
+                                    <select 
+                                        onChange={(e) => {
+                                            handleInsertDynamic(e.target.value, 'positive');
+                                            e.target.value = "";
+                                        }} 
+                                        defaultValue="" 
+                                        className="w-full appearance-none bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-[10px] text-green-300 font-bold outline-none cursor-pointer hover:border-green-500 pr-6"
+                                    >
+                                        <option value="" disabled>+ Dyn 2</option>
+                                        {dynamicPromptLists.map(l => <option key={l.id} value={l.name}>[{l.name}]</option>)}
+                                    </select>
+                                    <ShuffleIcon className="w-3 h-3 text-green-300 absolute right-2 top-1.5 pointer-events-none" />
+                                </div>
                             </div>
                         </div>
                         <textarea 
@@ -299,6 +333,62 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
                             onChange={(e) => setPrompt(e.target.value)}
                             placeholder="Describe the physical elements for raw GPU synthesis..." 
                             className="w-full h-32 bg-neutral-900 border border-neutral-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none text-neutral-200 text-sm shadow-inner"
+                        />
+                    </div>
+
+                    <div>
+                        <div className="flex flex-col gap-2 mb-2">
+                            <label className="block text-xs font-bold text-red-400 uppercase tracking-wider">Negative Blueprint (Avoid)</label>
+                            <div className="flex gap-2">
+                                <div className="relative group flex-grow">
+                                    <select 
+                                        onChange={(e) => {
+                                            handleApplyNegativeTemplate(e.target.value);
+                                            e.target.value = "";
+                                        }} 
+                                        defaultValue="" 
+                                        className="w-full appearance-none bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-[10px] text-red-300 font-bold outline-none cursor-pointer hover:border-red-500 pr-6"
+                                    >
+                                        <option value="" disabled>+ Neg Style</option>
+                                        {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                    <LibraryIcon className="w-3 h-3 text-red-300 absolute right-2 top-1.5 pointer-events-none" />
+                                </div>
+                                <div className="relative group flex-grow">
+                                    <select 
+                                        onChange={(e) => {
+                                            handleInsertDynamic(e.target.value, 'negative');
+                                            e.target.value = "";
+                                        }} 
+                                        defaultValue="" 
+                                        className="w-full appearance-none bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-[10px] text-orange-300 font-bold outline-none cursor-pointer hover:border-orange-500 pr-6"
+                                    >
+                                        <option value="" disabled>+ Neg Dyn 1</option>
+                                        {dynamicPromptLists.map(l => <option key={l.id} value={l.name}>[{l.name}]</option>)}
+                                    </select>
+                                    <ShuffleIcon className="w-3 h-3 text-orange-300 absolute right-2 top-1.5 pointer-events-none" />
+                                </div>
+                                <div className="relative group flex-grow">
+                                    <select 
+                                        onChange={(e) => {
+                                            handleInsertDynamic(e.target.value, 'negative');
+                                            e.target.value = "";
+                                        }} 
+                                        defaultValue="" 
+                                        className="w-full appearance-none bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-[10px] text-orange-300 font-bold outline-none cursor-pointer hover:border-orange-500 pr-6"
+                                    >
+                                        <option value="" disabled>+ Neg Dyn 2</option>
+                                        {dynamicPromptLists.map(l => <option key={l.id} value={l.name}>[{l.name}]</option>)}
+                                    </select>
+                                    <ShuffleIcon className="w-3 h-3 text-orange-300 absolute right-2 top-1.5 pointer-events-none" />
+                                </div>
+                            </div>
+                        </div>
+                        <textarea 
+                            value={negativePrompt} 
+                            onChange={(e) => setNegativePrompt(e.target.value)}
+                            placeholder="blurry, low quality, distortion..." 
+                            className="w-full h-20 bg-neutral-900 border border-neutral-600 p-3 rounded-lg focus:ring-2 focus:ring-red-500 outline-none resize-none text-neutral-200 text-sm shadow-inner"
                         />
                     </div>
 
@@ -351,12 +441,7 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
                                 <span className="font-bold uppercase tracking-wider">System Fault</span>
                             </div>
                             <p className="font-mono text-[11px] leading-tight text-red-300">
-                                {error.includes("Engine Cold-Start") ? (
-                                    <>
-                                        Engine Warming Up. Please wake the hardware manually: 
-                                        <a href="https://huggingface.co/spaces/merkmorassi/mythos-engine" target="_blank" className="block text-blue-400 underline mt-1">Initialize Cluster</a>
-                                    </>
-                                ) : error}
+                                {error}
                             </p>
                         </div>
                     )}
