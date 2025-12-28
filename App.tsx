@@ -76,18 +76,16 @@ export const App = () => {
           greenScreenState: { source: null, resultUrl: null },
           backgroundRemovalState: { source: null, result: null },
           qwenImageEditState: { 
-              source: null, 
+              images: [null, null, null, null, null, null], // 6 slots
               result: null, 
-              rotate: 0, 
-              moveForward: 0, 
-              verticalAngle: 0, 
-              wideAngle: false, 
-              seed: 0, 
-              randomizeSeed: true, 
-              guidanceScale: 1, 
-              steps: 4, 
-              height: 1024, 
-              width: 1024 
+              prompt: '',
+              negativePrompt: '',
+              cfgScale: 4.0,
+              seed: 0,
+              randomizeSeed: true,
+              width: 1024,
+              height: 1024,
+              steps: 25
           },
           generativeVideoState: { prompt: '', negativePrompt: '', image: null, lastImage: null, resultUrl: null, engine: 'external', externalUrl: '', steps: 25, duration: 4, guidanceScale: 7.5, guidanceScale2: 1.0, scheduler: 'UniPCMultistep', fps: 16, seed: 42, randomizeSeed: true },
           topazState: { activeMediaType: 'image', source: null, result: null, resultUrl: null, operation: 'enhance', parameters: { scale: 2, strength: 50 }, faceRecovery: true },
