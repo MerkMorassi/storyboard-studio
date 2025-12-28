@@ -24,6 +24,7 @@ import { PhotorealismStudio } from './components/PhotorealismStudio.tsx';
 import { ResizeStudio } from './components/ResizeStudio.tsx';
 import { GreenScreenStudio } from './components/GreenScreenStudio.tsx';
 import { BackgroundRemovalStudio } from './components/BackgroundRemovalStudio.tsx';
+import { QwenImageEditStudio } from './components/QwenImageEditStudio.tsx';
 import { TopazStudio } from './components/TopazStudio.tsx';
 import { ImageGrid } from './components/ImageGrid.tsx';
 import { Storyboard } from './components/Storyboard.tsx';
@@ -74,6 +75,7 @@ export const App = () => {
           resizeState: { source: null, result: null, width: 1024, height: 1024, prompt: '', alignment: 'Middle', overlap: 50, steps: 20, directions: { left: false, right: false, top: false, bottom: false } },
           greenScreenState: { source: null, resultUrl: null },
           backgroundRemovalState: { source: null, result: null },
+          qwenImageEditState: { source: null, instruction: '', result: null },
           generativeVideoState: { prompt: '', negativePrompt: '', image: null, lastImage: null, resultUrl: null, engine: 'external', externalUrl: '', steps: 25, duration: 4, guidanceScale: 7.5, guidanceScale2: 1.0, scheduler: 'UniPCMultistep', fps: 16, seed: 42, randomizeSeed: true },
           topazState: { activeMediaType: 'image', source: null, result: null, resultUrl: null, operation: 'enhance', parameters: { scale: 2, strength: 50 }, faceRecovery: true },
           directorState: { referenceImage: null, analysis: null, chatHistory: [], generatedPreview: null },
@@ -144,6 +146,7 @@ export const App = () => {
           case 'resize': return <ResizeStudio state={project.data.resizeState} onStateUpdate={s => updateProjectData({ resizeState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} hfToken={getHfApiKey() || ''} />;
           case 'green-screen': return <GreenScreenStudio greenScreenState={project.data.greenScreenState} isLoading={false} error={null} onStateUpdate={s => updateProjectData({ greenScreenState: s })} onAddToStoryboard={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} />;
           case 'background-removal': return <BackgroundRemovalStudio state={project.data.backgroundRemovalState} onStateUpdate={s => updateProjectData({ backgroundRemovalState: s })} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} />;
+          case 'qwen-image-edit': return <QwenImageEditStudio state={project.data.qwenImageEditState} onStateUpdate={s => updateProjectData({ qwenImageEditState: s })} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} />;
           case 'topaz': return <TopazStudio topazState={project.data.topazState} isLoading={false} error={null} onStateUpdate={s => updateProjectData({ topazState: s })} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} progress="" />;
           case 'grid': return <ImageGrid images={project.data.images} isLoading={false} error={null} onViewImage={setSelectedImage} gridOverlay={gridOverlay} onGridOverlayChange={setGridOverlay} onEditImage={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onUpscaleImage={() => {}} agents={project.data.agents} onAssignAgentToImage={() => {}} onCreateAgent={() => ({} as Agent)} agentFilter={agentFilter} onAgentFilterChange={setAgentFilter} awaitingExternalGeneration={false} />;
           case 'story': return <Storyboard frames={project.data.storyboard} onUpdateNote={() => {}} onRemove={() => {}} onReorder={() => {}} />;
