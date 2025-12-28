@@ -33,15 +33,42 @@ export const QwenImageEditStudio: React.FC<QwenImageEditStudioProps> = ({
     const [showAdvanced, setShowAdvanced] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // 1. Read locally for display
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = async (e) => {
                 const result = e.target?.result as string;
                 const mimeType = result.split(',')[0].split(':')[1].split(';')[0];
                 const base64 = result.split(',')[1];
-                onStateUpdate({ ...state, source: { base64, mimeType }, result: null });
+                
+                // Update state immediately with image
+                const newState = { ...state, source: { base64, mimeType }, result: null };
+                onStateUpdate(newState);
+
+                // 2. Fetch recommended dimensions from API
+                try {
+                    setProgress('Analyzing image dimensions...');
+                    const blob = await base64ToBlob(base64, mimeType);
+                    const client = await getGradioClient("linoyts/Qwen-Image-Edit-Angles", { hfToken });
+                    
+                    const dimResult = await client.predict("/update_dimensions_on_upload", { image: blob });
+                    
+                    if (dimResult.data && dimResult.data.length >= 2) {
+                        const [newWidth, newHeight] = dimResult.data;
+                        onStateUpdate({ 
+                            ...newState, 
+                            width: newWidth, 
+                            height: newHeight 
+                        });
+                    }
+                } catch (err) {
+                    console.warn("Failed to auto-detect dimensions:", err);
+                    // Non-fatal, keep defaults
+                } finally {
+                    setProgress('');
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -82,35 +109,23 @@ export const QwenImageEditStudio: React.FC<QwenImageEditStudioProps> = ({
             
             setProgress('Transforming perspective...');
             
-            /* 
-               Based on the /infer_and_show_video_button endpoint mapping:
-               param_0: input image
-               param_1: rotate (0)
-               param_2: move forward (0)
-               param_3: vertical (0)
-               param_4: wide (false)
-               param_5: seed (0)
-               param_6: randomize (true)
-               param_7: guidance (1)
-               param_8: steps (4)
-               param_9: height (1024)
-               param_10: width (1024)
-               param_11: input image again
-            */
-            const result = await client.predict("/infer_and_show_video_button", [
-                blob, 
-                state.rotate, 
-                state.moveForward, 
-                state.verticalAngle, 
-                state.wideAngle, 
-                state.seed, 
-                state.randomizeSeed, 
-                state.guidanceScale, 
-                state.steps, 
-                state.height, 
-                state.width,
-                blob // Input image repeated as param_11
-            ]);
+            // Using named parameters mapping as per API specification
+            const payload = {
+                param_0: blob,              // Input Image
+                param_1: state.rotate,      // Rotate Right-Left
+                param_2: state.moveForward, // Move Forward
+                param_3: state.verticalAngle, // Vertical Angle
+                param_4: state.wideAngle,   // Wide-Angle Lens
+                param_5: state.seed,        // Seed
+                param_6: state.randomizeSeed, // Randomize Seed
+                param_7: state.guidanceScale, // True Guidance Scale
+                param_8: state.steps,       // Inference Steps
+                param_9: state.height,      // Height
+                param_10: state.width,      // Width
+                param_11: blob              // Input Image (Secondary/Ref)
+            };
+
+            const result = await client.predict("/infer_and_show_video_button", payload);
 
             if (result && result.data && result.data.length > 0) {
                 // Returns [output_image_path, seed, processed_prompt]
@@ -123,6 +138,14 @@ export const QwenImageEditStudio: React.FC<QwenImageEditStudioProps> = ({
                     resultUrl = output.url;
                 } else if (typeof output === 'object' && output?.image?.url) {
                     resultUrl = output.image.url;
+                }
+
+                // Capture result seed if available (index 1)
+                if (result.data.length > 1 && typeof result.data[1] === 'number') {
+                    // Update seed in state if randomized
+                    if (state.randomizeSeed) {
+                       // We could update state here, but typically we just show the image
+                    }
                 }
 
                 if (resultUrl) {
