@@ -61,7 +61,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'face-repair', type: 'link', label: 'Face Repair', view: 'face-repair', icon: FaceSparkleIcon },
     { id: 'photorealism', type: 'link', label: 'UHD Generator', view: 'photorealism', icon: PhotoRealismIcon },
     { id: 'resize', type: 'link', label: 'Resize/Outpaint', view: 'resize', icon: ExpandIcon },
-    { id: 'qwen-image-edit', type: 'link', label: 'Qwen Edit (Angles)', view: 'qwen-image-edit', icon: EditIcon },
+    { id: 'qwen-image-edit', type: 'link', label: 'Angler (Qwen)', view: 'qwen-image-edit', icon: EditIcon },
     { id: 'green-screen', type: 'link', label: 'Green Screen', view: 'green-screen', icon: ScissorsIcon },
     { id: 'background-removal', type: 'link', label: 'BG Remover (Pro)', view: 'background-removal', icon: LayersIcon },
     { id: 'topaz', type: 'link', label: 'Enhance (Topaz)', view: 'topaz', icon: MagicIcon },

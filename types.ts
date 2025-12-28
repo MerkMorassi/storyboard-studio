@@ -231,8 +231,17 @@ export interface BackgroundRemovalState {
 
 export interface QwenImageEditState {
     source: { base64: string; mimeType: string } | null;
-    instruction: string;
     result: { base64: string; mimeType: string } | null;
+    rotate: number; // -90 to 90
+    moveForward: number; // 0 to 10
+    verticalAngle: number; // -1 to 1
+    wideAngle: boolean;
+    seed: number;
+    randomizeSeed: boolean;
+    guidanceScale: number;
+    steps: number;
+    height: number;
+    width: number;
 }
 
 export interface TopazState {
