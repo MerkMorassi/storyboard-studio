@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { GreenScreenState } from '../types.ts';
-import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, ScissorsIcon, VideoIcon } from './icons.tsx';
+import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, ScissorsIcon, VideoIcon, ImageIcon } from './icons.tsx';
 import { AssetActions } from './AssetActions.tsx';
 import { getGradioClient } from '../services/gradioService';
 
@@ -19,6 +19,8 @@ const base64ToBlob = async (base64: string, mimeType: string): Promise<Blob> => 
     const res = await fetch(`data:${mimeType};base64,${base64}`);
     return await res.blob();
 };
+
+const isVideo = (mimeType: string) => mimeType.startsWith('video/');
 
 export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({ 
     greenScreenState, 
@@ -54,59 +56,140 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
         
         setLocalLoading(true);
         setLocalError(null);
-        setProgress('Connecting to background removal service...');
-
+        
         try {
             const blob = await base64ToBlob(greenScreenState.source.base64, greenScreenState.source.mimeType);
-            
-            // Target the fantaxy/Remove-Video-Background space
-            const client = await getGradioClient("fantaxy/Remove-Video-Background", { hfToken });
-            
-            setProgress('Processing video frames (this may take a minute)...');
-            
-            // The space usually takes a video file path/blob
-            const result = await client.predict("/predict", [blob]);
+            const isSourceVideo = isVideo(greenScreenState.source.mimeType);
 
-            if (result && result.data && result.data.length > 0) {
-                // Usually returns a path to the processed video
-                let videoUrl = '';
-                const output = result.data[0];
+            if (isSourceVideo) {
+                // VIDEO PATH
+                setProgress('Connecting to video background removal service...');
                 
-                if (typeof output === 'string') {
-                    videoUrl = output;
-                } else if (output?.url) {
-                    videoUrl = output.url;
-                } else if (output?.video?.url) {
-                    videoUrl = output.video.url;
-                }
+                // Target the fantaxy/Remove-Video-Background space
+                const client = await getGradioClient("fantaxy/Remove-Video-Background", { hfToken });
+                
+                setProgress('Processing video frames (this may take a minute)...');
+                
+                // The space usually takes a video file path/blob
+                const result = await client.predict("/predict", [blob]);
 
-                if (videoUrl) {
-                    onStateUpdate({ ...greenScreenState, resultUrl: videoUrl });
+                if (result && result.data && result.data.length > 0) {
+                    let videoUrl = '';
+                    const output = result.data[0];
+                    
+                    if (typeof output === 'string') {
+                        videoUrl = output;
+                    } else if (output?.url) {
+                        videoUrl = output.url;
+                    } else if (output?.video?.url) {
+                        videoUrl = output.video.url;
+                    }
+
+                    if (videoUrl) {
+                        onStateUpdate({ ...greenScreenState, resultUrl: videoUrl });
+                    } else {
+                        throw new Error("Could not parse video URL from response.");
+                    }
                 } else {
-                    throw new Error("Could not parse video URL from response.");
+                    throw new Error("API returned no data.");
                 }
             } else {
-                throw new Error("API returned no data.");
+                // IMAGE PATH
+                setProgress('Connecting to image background removal service...');
+                
+                // Switch to BiRefNet (ZhengPeng7/BiRefNet_demo) as it is more stable publicly than briaai/RMBG-1.4
+                // BiRefNet is SOTA for high quality segmentation
+                const client = await getGradioClient("ZhengPeng7/BiRefNet_demo", { hfToken });
+                
+                setProgress('Removing background...');
+                
+                // BiRefNet takes [image]
+                const result = await client.predict("/predict", [blob]);
+
+                if (result && result.data && result.data.length > 0) {
+                    // Result 0 is typically the RGBA image
+                    const resultData = (result.data as any[])[0];
+                    let resultUrl = '';
+                    
+                    if (typeof resultData === 'object' && resultData.url) {
+                        resultUrl = resultData.url;
+                    } else if (typeof resultData === 'string') {
+                        resultUrl = resultData;
+                    }
+
+                    if (resultUrl) {
+                        // Fetch the blob and convert to Data URI for consistent storage
+                        const response = await fetch(resultUrl);
+                        const resultBlob = await response.blob();
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const base64data = reader.result as string;
+                            onStateUpdate({ ...greenScreenState, resultUrl: base64data });
+                            setLocalLoading(false);
+                        };
+                        reader.readAsDataURL(resultBlob);
+                        return; // Async completion handled in onloadend
+                    } else {
+                        throw new Error("API returned invalid data.");
+                    }
+                } else {
+                    throw new Error("No data returned from background removal service.");
+                }
             }
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Green Screen Error:", err);
-            setLocalError(err instanceof Error ? err.message : "Background removal failed.");
+            let errorMessage = "Background removal failed.";
+            
+            if (err instanceof Error) {
+                errorMessage = err.message;
+                if (errorMessage.includes("Space metadata")) {
+                    errorMessage = "Failed to connect to AI Service. The Space may be paused or requires a Hugging Face Token.";
+                }
+            } else if (typeof err === 'string') {
+                errorMessage = err;
+            }
+            
+            setLocalError(errorMessage);
         } finally {
-            setLocalLoading(false);
+            if (greenScreenState.source && !isVideo(greenScreenState.source.mimeType)) {
+               // For image path, handled in reader or error block
+            } else {
+               setLocalLoading(false);
+            }
             setProgress('');
+        }
+        
+        if (!greenScreenState.source || isVideo(greenScreenState.source.mimeType) || localError) {
+             setLocalLoading(false);
         }
     };
 
     const activeLoading = isLoading || localLoading;
     const activeError = error || localError;
 
+    // Helper to determine if result is an image (Data URI) or Video (URL)
+    const isResultImage = (url: string) => url.startsWith('data:image');
+
+    const getResultAsset = () => {
+        if (!greenScreenState.resultUrl) return undefined;
+        if (isResultImage(greenScreenState.resultUrl)) {
+            // Extract base64 and mime for AssetActions
+            const [meta, base64] = greenScreenState.resultUrl.split(',');
+            const mimeType = meta.split(':')[1].split(';')[0];
+            return { type: 'image' as const, base64, mimeType };
+        } else {
+            return { type: 'video' as const, url: greenScreenState.resultUrl };
+        }
+    };
+
+    const resultAsset = getResultAsset();
+
     return (
         <div className="p-6 max-w-7xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
-            {/* Header removed */}
             <div className="flex-shrink-0">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Green Screen Studio</h2>
-                <p className="text-neutral-400">Upload a video to automatically remove the background and generate a transparency mask or green screen compositing layer.</p>
+                <p className="text-neutral-400">Upload a video or image to automatically remove the background and generate a transparency mask.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-grow">
@@ -115,11 +198,19 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
                     <div className="bg-neutral-800/50 p-6 border border-neutral-700 rounded-xl flex-grow flex flex-col items-center justify-center relative min-h-[400px]">
                         {greenScreenState.source ? (
                             <div className="relative w-full h-full flex items-center justify-center bg-black/40 rounded-lg overflow-hidden">
-                                <video 
-                                    src={`data:${greenScreenState.source.mimeType};base64,${greenScreenState.source.base64}`} 
-                                    controls 
-                                    className="max-w-full max-h-[500px] object-contain" 
-                                />
+                                {isVideo(greenScreenState.source.mimeType) ? (
+                                    <video 
+                                        src={`data:${greenScreenState.source.mimeType};base64,${greenScreenState.source.base64}`} 
+                                        controls 
+                                        className="max-w-full max-h-[500px] object-contain" 
+                                    />
+                                ) : (
+                                    <img 
+                                        src={`data:${greenScreenState.source.mimeType};base64,${greenScreenState.source.base64}`} 
+                                        alt="Source"
+                                        className="max-w-full max-h-[500px] object-contain" 
+                                    />
+                                )}
                                 <button 
                                     onClick={() => onStateUpdate({ ...greenScreenState, source: null, resultUrl: null })}
                                     className="absolute top-2 right-2 p-2 bg-black/60 text-white rounded-full hover:bg-red-600 transition-colors"
@@ -132,15 +223,18 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
                                 onClick={() => fileInputRef.current?.click()}
                                 className="text-center cursor-pointer p-8 border-2 border-dashed border-neutral-600 rounded-xl hover:border-neutral-400 hover:bg-neutral-800/50 transition-all w-full h-full flex flex-col items-center justify-center"
                             >
-                                <VideoIcon className="w-16 h-16 text-neutral-600 mb-4" />
-                                <h3 className="text-xl font-bold text-neutral-400">Upload Video</h3>
-                                <p className="text-sm text-neutral-500 mt-2">MP4, MOV, WEBM</p>
+                                <div className="flex gap-4 mb-4">
+                                    <VideoIcon className="w-12 h-12 text-neutral-600" />
+                                    <ImageIcon className="w-12 h-12 text-neutral-600" />
+                                </div>
+                                <h3 className="text-xl font-bold text-neutral-400">Upload Media</h3>
+                                <p className="text-sm text-neutral-500 mt-2">Images (PNG, JPG) or Videos (MP4, MOV)</p>
                             </div>
                         )}
                         <input 
                             ref={fileInputRef} 
                             type="file" 
-                            accept="video/*" 
+                            accept="video/*,image/*" 
                             className="hidden" 
                             onChange={handleUpload} 
                         />
@@ -159,7 +253,7 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
                     </button>
                     
                     {activeError && (
-                        <div className="p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
+                        <div className="p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-red-200 text-xs font-mono break-all whitespace-pre-wrap">
                             {activeError}
                         </div>
                     )}
@@ -179,13 +273,21 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
                             </div>
                         ) : greenScreenState.resultUrl ? (
                             <div className="w-full h-full flex flex-col">
-                                <video 
-                                    src={greenScreenState.resultUrl} 
-                                    controls 
-                                    autoPlay 
-                                    loop 
-                                    className="w-full h-full object-contain bg-transparent"
-                                />
+                                {isResultImage(greenScreenState.resultUrl) ? (
+                                    <img 
+                                        src={greenScreenState.resultUrl} 
+                                        alt="Processed"
+                                        className="w-full h-full object-contain"
+                                    />
+                                ) : (
+                                    <video 
+                                        src={greenScreenState.resultUrl} 
+                                        controls 
+                                        autoPlay 
+                                        loop 
+                                        className="w-full h-full object-contain bg-transparent"
+                                    />
+                                )}
                             </div>
                         ) : (
                             <div className="text-neutral-600 flex flex-col items-center select-none">
@@ -195,11 +297,12 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
                         )}
                     </div>
 
-                    {greenScreenState.resultUrl && !activeLoading && (
+                    {resultAsset && !activeLoading && (
                         <div className="p-4 border-t border-neutral-800 bg-neutral-800/90 backdrop-blur-sm">
                             <AssetActions 
-                                asset={{ type: 'video', url: greenScreenState.resultUrl }}
-                                onSaveToGrid={onAddAssetToGrid ? () => onAddAssetToGrid({ type: 'video', url: greenScreenState.resultUrl! }) : undefined}
+                                asset={resultAsset}
+                                onSaveToGrid={onAddAssetToGrid ? () => onAddAssetToGrid(resultAsset) : undefined}
+                                onSaveToStoryboard={resultAsset.type === 'image' && resultAsset.base64 ? () => onAddToStoryboard(resultAsset.base64!) : undefined}
                             />
                         </div>
                     )}

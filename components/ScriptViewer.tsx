@@ -16,7 +16,7 @@ export const ScriptViewer: React.FC<ScriptViewerProps> = ({ scriptText, onUpload
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (file && file.type === 'text/plain') {
+        if (file) {
             onUpload(file);
         }
         event.target.value = ''; // Reset for re-uploading the same file
@@ -33,14 +33,14 @@ export const ScriptViewer: React.FC<ScriptViewerProps> = ({ scriptText, onUpload
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
-                    accept=".txt"
+                    accept=".txt,.md,.fountain"
                     onChange={handleFileChange}
                 />
                 <button
                     onClick={handleUploadClick}
                     className="bg-neutral-700 text-white font-semibold py-2 px-4 hover:bg-neutral-600 transition duration-300 rounded"
                 >
-                    {scriptText ? 'Replace Script (.txt)' : 'Upload Script (.txt)'}
+                    {scriptText ? 'Replace Script' : 'Upload Script'}
                 </button>
             </div>
             {scriptText ? (

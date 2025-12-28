@@ -115,21 +115,18 @@ export const SceneCompositorStudio: React.FC<SceneCompositorStudioProps> = ({ sc
 
     const handleRemoveBackground = async () => {
         if (!sceneState.character) return;
-        if (!hfToken) {
-            setLocalError("Hugging Face Token is required for background removal. Please set it in Settings.");
-            return;
-        }
-
+        
         setIsRemovingBg(true);
         setLocalError(null);
 
         try {
             const blob = await (await fetch(`data:${sceneState.character.mimeType};base64,${sceneState.character.base64}`)).blob();
             
-            const client = await getGradioClient("briaai/RMBG-1.4", { hfToken });
-            const result = await client.predict("/process", {
-                image: blob,
-            });
+            // Switch to BiRefNet (ZhengPeng7/BiRefNet_demo)
+            const client = await getGradioClient("ZhengPeng7/BiRefNet_demo", { hfToken });
+            
+            // BiRefNet takes [image]
+            const result = await client.predict("/predict", [blob]);
 
             if (result && result.data && (result.data as any[]).length > 0) {
                 // Returns [image, mask] usually. The image (index 0) has the alpha channel.
@@ -148,7 +145,7 @@ export const SceneCompositorStudio: React.FC<SceneCompositorStudioProps> = ({ sc
                     reader.onloadend = () => {
                         const base64data = reader.result as string;
                         const base64 = base64data.split(',')[1];
-                        // RMBG 1.4 returns PNG with alpha
+                        // BiRefNet returns PNG with alpha
                         onUpdateImage('character', base64, 'image/png');
                         setIsRemovingBg(false);
                     };
@@ -162,7 +159,11 @@ export const SceneCompositorStudio: React.FC<SceneCompositorStudioProps> = ({ sc
 
         } catch (err) {
             console.error("Background Removal Error:", err);
-            setLocalError(err instanceof Error ? err.message : "Failed to remove background.");
+            let errMsg = err instanceof Error ? err.message : "Failed to remove background.";
+            if (errMsg.includes("Space metadata")) {
+                errMsg = "Failed to connect to AI Service. Please try again or check your HF Token.";
+            }
+            setLocalError(errMsg);
             setIsRemovingBg(false);
         }
     };

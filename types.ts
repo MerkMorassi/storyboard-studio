@@ -24,6 +24,7 @@ export interface ProjectData {
   photorealismState: PhotorealismState;
   resizeState: ResizeState;
   greenScreenState: GreenScreenState;
+  backgroundRemovalState: BackgroundRemovalState;
   generativeVideoState: GenerativeVideoState;
   topazState: TopazState;
   directorState: DirectorState;
@@ -83,7 +84,7 @@ export interface StoryboardFrame {
   prompt: string;
 }
 
-export type ActiveView = 'projects' | 'dashboard' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'image-generator' | 'grid' | 'story' | 'inspiration' | 'video' | 'generative-video' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'topaz' | 'agents' | 'lore' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'prompt-library' | 'agent-workspace' | 'script-writer' | 'scripts-bin';
+export type ActiveView = 'projects' | 'dashboard' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'image-generator' | 'grid' | 'story' | 'inspiration' | 'video' | 'generative-video' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'topaz' | 'agents' | 'lore' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'prompt-library' | 'agent-workspace' | 'script-writer' | 'scripts-bin';
 
 export interface InspirationImage {
   id: string;
@@ -220,6 +221,11 @@ export interface ResizeState {
 export interface GreenScreenState {
     source: { base64: string; mimeType: string } | null;
     resultUrl: string | null;
+}
+
+export interface BackgroundRemovalState {
+    source: { base64: string; mimeType: string } | null;
+    result: { base64: string; mimeType: string } | null;
 }
 
 export interface TopazState {

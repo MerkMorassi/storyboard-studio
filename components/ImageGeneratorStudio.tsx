@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { PromptTemplate, DynamicPromptList, Agent } from '../types.ts';
 import { generateImageSDXL } from '../services/huggingFaceService';
@@ -270,15 +271,12 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
         });
     };
 
-    const handleApplyTemplate = (templateId: string) => {
+    const handleInsertPositiveFromTemplate = (templateId: string) => {
         const template = promptTemplates.find(t => t.id === templateId);
         if (template) {
             const cleanContent = template.positivePrompt.replace('{{ANALYSIS_TEXT}}', '').trim();
             if (cleanContent) {
                 setPrompt(p => p ? `${p}, ${cleanContent}` : cleanContent);
-            }
-            if (template.negativePrompt) {
-                setNegativePrompt(n => n ? `${n}, ${template.negativePrompt}` : template.negativePrompt);
             }
         }
     };
@@ -287,7 +285,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
         setPrompt(p => `${p} [${listName}]`);
     };
 
-    const handleApplyNegativeTemplate = (templateId: string) => {
+    const handleInsertNegativeFromTemplate = (templateId: string) => {
         const template = promptTemplates.find(t => t.id === templateId);
         if (template && template.negativePrompt) {
             setNegativePrompt(n => n ? `${n}, ${template.negativePrompt}` : template.negativePrompt);
@@ -511,12 +509,12 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                             />
                         </FormField>
                         <div className="flex gap-2">
-                            <select onChange={(e) => handleApplyTemplate(e.target.value)} value="" className="flex-1 bg-neutral-900 border border-neutral-600 rounded p-1.5 text-xs text-neutral-300 outline-none">
-                                <option value="" disabled>Apply Style Template...</option>
+                            <select onChange={(e) => handleInsertPositiveFromTemplate(e.target.value)} value="" className="flex-1 bg-neutral-900 border border-neutral-600 rounded p-1.5 text-xs text-neutral-300 outline-none">
+                                <option value="" disabled>+ Add Positive from Template...</option>
                                 {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                             </select>
                             <select onChange={(e) => handleInsertDynamic(e.target.value)} value="" className="flex-1 bg-neutral-900 border border-neutral-600 rounded p-1.5 text-xs text-neutral-300 outline-none">
-                                <option value="" disabled>Insert List...</option>
+                                <option value="" disabled>+ Insert Dynamic List...</option>
                                 {dynamicPromptLists.map(l => <option key={l.id} value={l.name}>[{l.name}]</option>)}
                             </select>
                         </div>
@@ -532,12 +530,12 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                             />
                         </FormField>
                         <div className="flex gap-2 mb-4">
-                            <select onChange={(e) => handleApplyNegativeTemplate(e.target.value)} value="" className="flex-1 bg-neutral-900 border border-neutral-600 rounded p-1.5 text-xs text-neutral-300 outline-none">
-                                <option value="" disabled>Apply Negative Style Template...</option>
+                            <select onChange={(e) => handleInsertNegativeFromTemplate(e.target.value)} value="" className="flex-1 bg-neutral-900 border border-neutral-600 rounded p-1.5 text-xs text-neutral-300 outline-none">
+                                <option value="" disabled>+ Add Negative from Template...</option>
                                 {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                             </select>
                             <select onChange={(e) => handleInsertDynamicNegative(e.target.value)} value="" className="flex-1 bg-neutral-900 border border-neutral-600 rounded p-1.5 text-xs text-neutral-300 outline-none">
-                                <option value="" disabled>Insert List...</option>
+                                <option value="" disabled>+ Insert Negative List...</option>
                                 {dynamicPromptLists.map(l => <option key={l.id} value={l.name}>[{l.name}]</option>)}
                             </select>
                         </div>

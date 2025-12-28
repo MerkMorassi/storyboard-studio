@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { generateImageSDXL } from '../services/huggingFaceService';
 import { CameraLensIcon, MagicIcon, LoadingSpinner, LibraryIcon, ShuffleIcon } from './icons.tsx';
@@ -124,20 +125,17 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
         });
     };
 
-    const handleApplyTemplate = (templateId: string) => {
+    const handleInsertPositiveFromTemplate = (templateId: string) => {
         const template = promptTemplates.find(t => t.id === templateId);
         if (template) {
             const cleanContent = template.positivePrompt.replace('{{ANALYSIS_TEXT}}', '').trim();
             if (cleanContent) {
                 setPrompt(p => p ? `${cleanContent}, ${p}` : cleanContent);
             }
-            if (template.negativePrompt) {
-                setNegativePrompt(n => n ? `${template.negativePrompt}, ${n}` : template.negativePrompt);
-            }
         }
     };
 
-    const handleApplyNegativeTemplate = (templateId: string) => {
+    const handleInsertNegativeFromTemplate = (templateId: string) => {
         const template = promptTemplates.find(t => t.id === templateId);
         if (template && template.negativePrompt) {
             setNegativePrompt(n => n ? `${template.negativePrompt}, ${n}` : template.negativePrompt);
@@ -287,13 +285,13 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
                                 <div className="relative group flex-grow">
                                     <select 
                                         onChange={(e) => {
-                                            handleApplyTemplate(e.target.value);
+                                            handleInsertPositiveFromTemplate(e.target.value);
                                             e.target.value = "";
                                         }} 
                                         defaultValue="" 
                                         className="w-full appearance-none bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-[10px] text-blue-300 font-bold outline-none cursor-pointer hover:border-blue-500 pr-6"
                                     >
-                                        <option value="" disabled>+ Load Style</option>
+                                        <option value="" disabled>+ Add Positive from Template...</option>
                                         {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                     </select>
                                     <LibraryIcon className="w-3 h-3 text-blue-300 absolute right-2 top-1.5 pointer-events-none" />
@@ -343,13 +341,13 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
                                 <div className="relative group flex-grow">
                                     <select 
                                         onChange={(e) => {
-                                            handleApplyNegativeTemplate(e.target.value);
+                                            handleInsertNegativeFromTemplate(e.target.value);
                                             e.target.value = "";
                                         }} 
                                         defaultValue="" 
                                         className="w-full appearance-none bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-[10px] text-red-300 font-bold outline-none cursor-pointer hover:border-red-500 pr-6"
                                     >
-                                        <option value="" disabled>+ Neg Style</option>
+                                        <option value="" disabled>+ Add Negative from Template...</option>
                                         {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                     </select>
                                     <LibraryIcon className="w-3 h-3 text-red-300 absolute right-2 top-1.5 pointer-events-none" />

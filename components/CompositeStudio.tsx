@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { CompositeState } from '../types.ts';
-import { LoadingSpinner, PuzzleIcon, ClapperboardIcon, ChevronDownIcon, ImageIcon, LayersIcon } from './icons.tsx';
+import { LoadingSpinner, PuzzleIcon, ClapperboardIcon, ChevronDownIcon, ImageIcon, LayersIcon, DownloadIcon, AddToStoryIcon, PinIcon, GridIcon } from './icons.tsx';
 import { AssetActions } from './AssetActions';
 import { getGradioClient } from '../services/gradioService';
 
@@ -15,10 +15,10 @@ interface CompositeStudioProps {
 }
 
 const TASKS = [
-    { value: 'ip', label: 'Image Prompt (Content)' },
+    { value: 'ip', label: 'Image Prompt' },
     { value: 'style', label: 'Style Transfer' },
     { value: 'id', label: 'Identity (Face)' },
-    { value: 'structure', label: 'Structure / Depth' },
+    { value: 'structure', label: 'Structure' },
 ];
 
 const base64ToBlob = async (base64: string, mimeType: string): Promise<Blob> => {
@@ -177,21 +177,21 @@ export const CompositeStudio: React.FC<CompositeStudioProps> = ({
             </div>
 
             {/* Main Workspace - 3 Equal Columns */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow min-h-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow min-h-0 items-start">
                 
                 {/* Reference 1 Box */}
-                <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl flex flex-col h-[600px] shadow-lg">
-                    <div className="p-4 border-b border-neutral-700 bg-neutral-900/30 flex justify-between items-center rounded-t-xl">
+                <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl flex flex-col shadow-lg overflow-hidden h-full">
+                    <div className="h-14 px-4 border-b border-neutral-700 bg-neutral-900/30 flex justify-between items-center shrink-0">
                         <h3 className="text-sm font-bold text-blue-300 uppercase tracking-wider">Reference 1</h3>
                         <select 
                             value={state.task1} 
                             onChange={(e) => onStateUpdate({ ...state, task1: e.target.value as any })}
-                            className="bg-neutral-900 border border-neutral-600 text-xs rounded p-1 text-white focus:ring-1 focus:ring-blue-500 outline-none max-w-[120px]"
+                            className="bg-neutral-900 border border-neutral-600 text-[10px] uppercase font-bold rounded p-1 text-white focus:ring-1 focus:ring-blue-500 outline-none max-w-[120px]"
                         >
                             {TASKS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                     </div>
-                    <div className="flex-grow p-4 flex flex-col justify-center">
+                    <div className="p-4 flex flex-col justify-start bg-neutral-900/20 flex-grow">
                         <div 
                             onClick={() => fileInputRef1.current?.click()}
                             className="w-full aspect-square bg-neutral-900 border-2 border-dashed border-neutral-700 rounded-lg flex items-center justify-center cursor-pointer hover:bg-neutral-800 transition-all relative overflow-hidden group"
@@ -207,24 +207,24 @@ export const CompositeStudio: React.FC<CompositeStudioProps> = ({
                             <input ref={fileInputRef1} type="file" className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleUpload(1, e.target.files[0])} />
                         </div>
                     </div>
-                    <div className="p-4 border-t border-neutral-700 bg-neutral-900/30 rounded-b-xl">
+                    <div className="h-16 px-4 border-t border-neutral-700 bg-neutral-900/30 flex items-center justify-center shrink-0">
                         <p className="text-[10px] text-neutral-500 text-center">Drag & Drop or Click to Upload</p>
                     </div>
                 </div>
 
                 {/* Reference 2 Box */}
-                <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl flex flex-col h-[600px] shadow-lg">
-                    <div className="p-4 border-b border-neutral-700 bg-neutral-900/30 flex justify-between items-center rounded-t-xl">
+                <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl flex flex-col shadow-lg overflow-hidden h-full">
+                    <div className="h-14 px-4 border-b border-neutral-700 bg-neutral-900/30 flex justify-between items-center shrink-0">
                         <h3 className="text-sm font-bold text-purple-300 uppercase tracking-wider">Reference 2</h3>
                         <select 
                             value={state.task2} 
                             onChange={(e) => onStateUpdate({ ...state, task2: e.target.value as any })}
-                            className="bg-neutral-900 border border-neutral-600 text-xs rounded p-1 text-white focus:ring-1 focus:ring-purple-500 outline-none max-w-[120px]"
+                            className="bg-neutral-900 border border-neutral-600 text-[10px] uppercase font-bold rounded p-1 text-white focus:ring-1 focus:ring-purple-500 outline-none max-w-[120px]"
                         >
                             {TASKS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                     </div>
-                    <div className="flex-grow p-4 flex flex-col justify-center">
+                    <div className="p-4 flex flex-col justify-start bg-neutral-900/20 flex-grow">
                         <div 
                             onClick={() => fileInputRef2.current?.click()}
                             className="w-full aspect-square bg-neutral-900 border-2 border-dashed border-neutral-700 rounded-lg flex items-center justify-center cursor-pointer hover:bg-neutral-800 transition-all relative overflow-hidden group"
@@ -240,21 +240,21 @@ export const CompositeStudio: React.FC<CompositeStudioProps> = ({
                             <input ref={fileInputRef2} type="file" className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleUpload(2, e.target.files[0])} />
                         </div>
                     </div>
-                    <div className="p-4 border-t border-neutral-700 bg-neutral-900/30 rounded-b-xl flex justify-between items-center">
+                    <div className="h-16 px-4 border-t border-neutral-700 bg-neutral-900/30 flex justify-between items-center shrink-0">
                        <p className="text-[10px] text-neutral-500">Inputs Ready</p>
                        <div className={`w-2 h-2 rounded-full ${state.refImage1 && state.refImage2 ? 'bg-green-500' : 'bg-red-500'}`}></div>
                     </div>
                 </div>
 
                 {/* Result Box */}
-                <div className="bg-neutral-900 border border-neutral-800 rounded-xl flex flex-col h-[600px] shadow-xl relative overflow-hidden">
-                    <div className="p-4 border-b border-neutral-800 bg-black/40 flex justify-between items-center">
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl flex flex-col shadow-xl overflow-hidden relative h-full">
+                    <div className="h-14 px-4 border-b border-neutral-800 bg-black/40 flex justify-between items-center shrink-0">
                         <h3 className="text-sm font-bold text-green-400 uppercase tracking-wider">Composite Result</h3>
                         {isLoading && <LoadingSpinner className="w-4 h-4 text-green-500" />}
                     </div>
                     
-                    <div className="flex-grow p-4 flex flex-col justify-center bg-black/20">
-                        <div className="w-full aspect-square bg-black rounded-lg flex items-center justify-center relative overflow-hidden border border-neutral-800">
+                    <div className="p-4 flex flex-col justify-start bg-black/20 flex-grow">
+                        <div className="w-full aspect-square bg-black rounded-lg flex items-center justify-center relative overflow-hidden border border-neutral-800 group">
                             {state.resultImage ? (
                                 <img src={`data:${state.resultImage.mimeType};base64,${state.resultImage.base64}`} className="w-full h-full object-contain" />
                             ) : (
@@ -264,22 +264,22 @@ export const CompositeStudio: React.FC<CompositeStudioProps> = ({
                                 </div>
                             )}
                             
-                            {/* Overlay Controls for Result */}
+                            {/* Hover Overlay for Quick Actions */}
                             {state.resultImage && !isLoading && (
-                                <div className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
-                                    <AssetActions 
-                                        asset={{ type: 'image', base64: state.resultImage.base64, mimeType: state.resultImage.mimeType }}
-                                        onSaveToGrid={() => onAddAssetToGrid({ type: 'image', base64: state.resultImage!.base64, mimeType: state.resultImage!.mimeType })}
-                                        onSaveToStoryboard={() => onAddToStoryboard(state.resultImage!.base64)}
-                                        onSaveToInspiration={() => onAddToInspiration(state.resultImage!.base64)}
-                                    />
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
+                                    <button 
+                                        onClick={() => onAddAssetToGrid({ type: 'image', base64: state.resultImage!.base64, mimeType: state.resultImage!.mimeType })} 
+                                        className="p-2 bg-neutral-800 rounded-full hover:bg-neutral-700 text-white shadow-lg" title="Save to Grid"
+                                    >
+                                        <GridIcon className="w-5 h-5" />
+                                    </button>
                                 </div>
                             )}
                         </div>
                     </div>
 
                     {/* Action Footer */}
-                    <div className="p-4 border-t border-neutral-800 bg-neutral-900 space-y-3">
+                    <div className="p-4 border-t border-neutral-800 bg-neutral-900 space-y-3 shrink-0">
                         <div className="flex gap-2">
                             <input 
                                 type="text" 
@@ -296,6 +296,37 @@ export const CompositeStudio: React.FC<CompositeStudioProps> = ({
                                 {isLoading ? 'Busy' : 'Fuse'}
                             </button>
                         </div>
+                        
+                        {/* Explicit Save Buttons Row */}
+                        {state.resultImage && (
+                            <div className="flex justify-between items-center pt-2 border-t border-neutral-800">
+                                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Save To:</span>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => onAddAssetToGrid({ type: 'image', base64: state.resultImage!.base64, mimeType: state.resultImage!.mimeType })}
+                                        className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-md text-neutral-300 hover:text-white transition-colors"
+                                        title="Project Gallery"
+                                    >
+                                        <GridIcon className="w-4 h-4" />
+                                    </button>
+                                    <button 
+                                        onClick={() => onAddToStoryboard(state.resultImage!.base64)}
+                                        className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-md text-neutral-300 hover:text-white transition-colors"
+                                        title="Storyboard"
+                                    >
+                                        <AddToStoryIcon className="w-4 h-4" />
+                                    </button>
+                                    <button 
+                                        onClick={() => onAddToInspiration(state.resultImage!.base64)}
+                                        className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-md text-neutral-300 hover:text-white transition-colors"
+                                        title="Inspiration"
+                                    >
+                                        <PinIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {error && <p className="text-[10px] text-red-400 truncate">{error}</p>}
                         {progress && <p className="text-[10px] text-green-400 animate-pulse">{progress}</p>}
                     </div>
