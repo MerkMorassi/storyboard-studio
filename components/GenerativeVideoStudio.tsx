@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GenerativeVideoState } from '../types.ts';
 import { LoadingSpinner, ClapperboardIcon, ChevronDownIcon, CameraLensIcon } from './icons.tsx';
@@ -61,7 +60,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
     videoState, 
     onStateUpdate, 
     onAddImageToGrid, 
-    onAddToStoryboard,
+    onAddToStoryboard, 
     onAddAssetToGrid
 }) => {
     const [isLoading, setIsLoading] = useState(false);
@@ -71,6 +70,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
     const [usedFallback, setUsedFallback] = useState(false); // Track if fallback was used
     const [cameraMovement, setCameraMovement] = useState<string>(''); // Local state for camera movement
     const [movementSpeed, setMovementSpeed] = useState<string>(SPEED_OPTIONS[1].value); // Default Medium
+    const [lastInjectedCamera, setLastInjectedCamera] = useState<string>('');
     const [fallbackWarning, setFallbackWarning] = useState<string | null>(null);
     
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -90,10 +90,6 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
             randomizeSeed: videoState.randomizeSeed === undefined ? true : videoState.randomizeSeed,
             scheduler: videoState.scheduler === undefined ? 'UniPCMultistep' : videoState.scheduler,
             fps: videoState.fps === undefined ? 16 : videoState.fps,
-            // Explicitly set these to undefined if they were lingering, as they are not used by this model
-            // For a more robust solution, these should be removed from types.ts
-            // quality: undefined, 
-            // flowShift: undefined,
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -127,6 +123,47 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
         else onStateUpdate({ ...videoState, lastImage: null });
     };
 
+    const updatePromptWithCamera = (speed: string, movement: string) => {
+        // Construct the movement string to inject. If no movement is selected, it will be empty.
+        let textToInject = "";
+        if (movement) {
+             // Combine speed and movement with a comma for better prompt structure.
+             textToInject = `${speed}, ${movement}`;
+        }
+        
+        textToInject = textToInject.trim();
+
+        let currentPrompt = videoState.prompt || "";
+        
+        // If a camera movement was previously injected, replace it with the new one (which could be empty).
+        if (lastInjectedCamera && currentPrompt.includes(lastInjectedCamera)) {
+            currentPrompt = currentPrompt.replace(lastInjectedCamera, textToInject);
+        } else if (textToInject) {
+            // Otherwise, if there is new text to inject, append it.
+            currentPrompt = currentPrompt ? `${currentPrompt}, ${textToInject}` : textToInject;
+        }
+        
+        // Robustly clean up the entire prompt string to handle extra commas and spaces.
+        currentPrompt = currentPrompt
+            .split(',')
+            .map(p => p.trim())
+            .filter(Boolean) // Remove any empty parts that result from replacements.
+            .join(', ');
+
+        onStateUpdate({ ...videoState, prompt: currentPrompt });
+        setLastInjectedCamera(textToInject); // Store the newly injected text for the next update.
+    };
+
+    const handleSpeedChange = (val: string) => {
+        setMovementSpeed(val);
+        updatePromptWithCamera(val, cameraMovement);
+    };
+
+    const handleMovementChange = (val: string) => {
+        setCameraMovement(val);
+        updatePromptWithCamera(movementSpeed, val);
+    };
+
     const handleGenerate = async () => {
         if (!videoState.image) {
             setError("Please upload an input image.");
@@ -147,21 +184,8 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
             // Default Negative Prompt (English)
             const DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, static, blurry details, subtitles, bad style, artwork, painting, still image, overall gray, worst quality, low quality, JPEG compression artifacts, ugly, deformed, extra fingers, poorly drawn hands, poorly drawn faces, malformed, disfigured, malformed limbs, fused fingers, motionless image, cluttered background";
 
-            // Combine user prompt with camera movement and speed
-            const basePrompt = videoState.prompt || "make this image come alive, cinematic motion, smooth animation";
-            
-            // Construct movement string: e.g. "slow, cinematic pan camera movement"
-            let movementString = "";
-            if (cameraMovement) {
-                // If specific movement selected: "slow, cinematic pan camera movement"
-                movementString = `${movementSpeed} ${cameraMovement}`;
-            } else {
-                // If no specific movement (static camera), still apply speed to the subject/general motion
-                // e.g. "slow, cinematic motion"
-                movementString = `${movementSpeed} motion`;
-            }
-
-            const finalPrompt = movementString ? `${basePrompt}, ${movementString}` : basePrompt;
+            // Use the prompt from the text area (which now includes camera movement)
+            const finalPrompt = videoState.prompt || "make this image come alive, cinematic motion, smooth animation";
 
             // Define payload for linoyts/wan2-2-i2v-rCM
             const payload: any = { 
@@ -172,10 +196,9 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                 duration_seconds: videoState.duration || 3.5, 		
                 guidance_scale: videoState.guidanceScale || 5, 		
                 guidance_scale_2: videoState.guidanceScale2 || 1, 
-                seed: videoState.randomizeSeed ? Math.floor(Math.random() * 2147483647) : videoState.seed, 		
-                randomize_seed: videoState.randomizeSeed,
-                scheduler: videoState.scheduler || 'UniPCMultistep', // Add scheduler
-                fps: videoState.fps || 16, // Add fps
+                seed: videoState.randomizeSeed ? -1 : (videoState.seed || 42),
+                scheduler: videoState.scheduler || 'UniPCMultistep',
+                fps: videoState.fps || 16,
             };
 
             let result: any;
@@ -199,10 +222,9 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                     fallbackPayload.duration_seconds = FALLBACK_MAX_DURATION;
                 }
                 
-                // Fallback specific adjustments if needed for the 'zerogpu-aoti/wan2-2-fp8da-aoti-faster' pipeline
-                // Based on its Gradio inputs, it also takes scheduler and flow_shift.
+                // Fallback specific adjustments
                 fallbackPayload.scheduler = videoState.scheduler || 'UniPCMultistep'; 
-                fallbackPayload.flow_shift = 3; // Hardcode a default flow_shift for fallback if not in initial payload
+                fallbackPayload.flow_shift = 3; 
 
                 const client = await getGradioClient("zerogpu-aoti/wan2-2-fp8da-aoti-faster", { hfToken });
                 result = await client.predict("/generate_video", fallbackPayload);
@@ -259,7 +281,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
 
     return (
         <div className="p-6 max-w-7xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
-            {/* Header removed */}
+            {/* Header */}
             <div className="flex-shrink-0 flex justify-between items-end">
                 <div>
                     <h2 className="text-3xl font-bold text-neutral-200 mb-2">Video Creator <span className="text-sm font-normal text-neutral-500 bg-neutral-800 px-2 py-1 rounded ml-2">Wan 2.2 I2V Lightning</span></h2>
@@ -316,7 +338,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                             <div className="w-1/3">
                                 <select
                                     value={movementSpeed}
-                                    onChange={(e) => setMovementSpeed(e.target.value)}
+                                    onChange={(e) => handleSpeedChange(e.target.value)}
                                     className="w-full bg-neutral-900 border border-neutral-600 p-2.5 rounded-lg text-sm text-neutral-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer hover:border-neutral-500"
                                 >
                                     {SPEED_OPTIONS.map((speed, i) => (
@@ -328,7 +350,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                             <div className="w-2/3">
                                 <select 
                                     value={cameraMovement}
-                                    onChange={(e) => setCameraMovement(e.target.value)}
+                                    onChange={(e) => handleMovementChange(e.target.value)}
                                     className="w-full bg-neutral-900 border border-neutral-600 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer hover:border-neutral-500"
                                 >
                                     {CAMERA_MOVEMENTS.map((move, i) => (

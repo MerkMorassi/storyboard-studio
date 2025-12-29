@@ -120,6 +120,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
     // Output State
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [wakingError, setWakingError] = useState<string | null>(null);
     const [generatedImage, setGeneratedImage] = useState<{ base64: string; mimeType: string } | null>(null);
     const [metadata, setMetadata] = useState<any>(null);
     const [openSections, setOpenSections] = useState<Set<string>>(new Set(['scene', 'prompt', 'settings']));
@@ -303,6 +304,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
 
         setIsLoading(true);
         setError(null);
+        setWakingError(null);
         setGeneratedImage(null);
         setMetadata(null);
         setProgress('Connecting to MythOS Cinematic Engine...');
@@ -370,8 +372,14 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
 
         } catch (e) {
             console.error("MythOS Gen Error:", e);
-            let msg = e instanceof Error ? e.message : "Image generation failed.";
-            setError(msg);
+            const msg = e instanceof Error ? e.message : "Image generation failed.";
+            if (msg.includes("Hardware Sleeping")) {
+                setWakingError(msg);
+                setError(null);
+            } else {
+                setError(msg);
+                setWakingError(null);
+            }
         } finally {
             setIsLoading(false);
             setProgress('');
@@ -643,7 +651,23 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                             <><MagicIcon /> Generate {numImages > 1 ? `Images (${numImages})` : 'Image'}</>
                         )}
                     </button>
-                    {error && <p className="text-sm text-red-400 bg-red-900/20 p-3 rounded border border-red-500/30">{error}</p>}
+                     {wakingError && (
+                        <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg text-yellow-200 text-sm flex flex-col gap-3">
+                            <div className="flex items-center gap-2">
+                                <WarningIcon className="w-5 h-5 text-yellow-500" />
+                                <span className="font-bold uppercase tracking-wider">GPU Core is Sleeping</span>
+                            </div>
+                            <p className="font-mono text-[11px] leading-tight text-yellow-300">
+                                The dedicated hardware has entered sleep mode to conserve resources.
+                            </p>
+                            <ol className="text-xs list-decimal list-inside space-y-1 pl-1">
+                                <li><a href="https://merkmorassi-mythos-engine.hf.space" target="_blank" rel="noopener noreferrer" className="font-bold underline hover:text-white">Click here to wake the GPU</a>.</li>
+                                <li>Wait about 60 seconds for it to initialize.</li>
+                                <li>Then, try your generation again.</li>
+                            </ol>
+                        </div>
+                    )}
+                    {error && !wakingError && <p className="text-sm text-red-400 bg-red-900/20 p-3 rounded border border-red-500/30">{error}</p>}
                 </div>
 
                 {/* Preview Column */}

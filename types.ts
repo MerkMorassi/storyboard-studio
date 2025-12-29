@@ -34,6 +34,7 @@ export interface ProjectData {
   dynamicPromptLists: DynamicPromptList[];
   promptTemplates: PromptTemplate[];
   automationConfig: AutomationConfig;
+  mythosPrompt?: string; // For agent preparing the MythOS studio
 }
 
 export interface Project {
@@ -106,6 +107,11 @@ export interface FunctionCall {
 export interface ToolCode {
     id: string;
     functionCall: FunctionCall;
+    status?: 'pending' | 'complete';
+    result?: {
+        image?: { base64: string; mimeType: string };
+        text?: string;
+    };
 }
 
 export type ChatMessage = 

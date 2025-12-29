@@ -1,13 +1,19 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Agent, ChatMessage, FunctionCall } from '../types.ts';
+import { Agent, ChatMessage, FunctionCall, ToolCode } from '../types.ts';
 import { LoadingSpinner, WritersRoomIcon, AgentActionIcon } from './icons.tsx';
+import { createChat, mythosTools } from '../services/geminiService.ts';
+import { Chat as GeminiChat, GenerateContentResponse, Part } from '@google/genai';
+import { AssetActions } from './AssetActions';
+import { WarningIcon } from './icons/WarningIcon.tsx';
 
 interface AgentChatStudioProps {
     agents: Agent[];
     onUploadLore: (agentId: string, loreText: string) => void;
-    onSendMessage: (agentId: string, message: string) => void;
-    isResponding: boolean;
-    error: string | null;
+    onCallTool: (name: string, args: any) => Promise<{ textResult: string; resultData?: any; }>;
+    onAddToStoryboard: (base64Image: string) => void;
+    onAddToInspiration: (base64Image: string) => void;
+    onAddAssetToGrid: (asset: any) => void;
 }
 
 const ChatMessageBubble: React.FC<{ message: { role: 'user' | 'model', text: string }, agentName: string }> = ({ message, agentName }) => {
@@ -28,9 +34,113 @@ const ChatMessageBubble: React.FC<{ message: { role: 'user' | 'model', text: str
     );
 };
 
-const AgentActionBubble: React.FC<{ agentName: string; functionCall: FunctionCall; }> = ({ agentName, functionCall }) => {
-    const { args } = functionCall;
-    const sceneHeading = `${args.sceneType || 'INT'}. ${args.location || 'LOCATION'} - ${args.timeOfDay || 'DAY'}`;
+const AgentActionBubble: React.FC<{
+    agentName: string;
+    toolCode: ToolCode;
+    onAddToStoryboard: (base64: string) => void;
+    onAddToInspiration: (base64: string) => void;
+    onAddAssetToGrid: (asset: any) => void;
+}> = ({ agentName, toolCode, onAddToStoryboard, onAddToInspiration, onAddAssetToGrid }) => {
+    const { functionCall, status, result } = toolCode;
+    const { name, args } = functionCall;
+
+    const isPending = status === 'pending';
+    const isComplete = status === 'complete';
+    const hasImageResult = isComplete && result?.image;
+    const hasTextResult = isComplete && result?.text;
+    const hasError = isComplete && result?.error;
+
+    const renderContent = () => {
+        if (hasError) {
+            if (result.error.includes("Hardware Sleeping")) {
+                return (
+                    <div className="p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg text-yellow-200 text-sm flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                            <WarningIcon className="w-4 h-4 text-yellow-500" />
+                            <span className="font-bold uppercase tracking-wider">GPU Core Sleeping</span>
+                        </div>
+                        <p className="text-xs">The dedicated hardware for image generation is waking up.</p>
+                        <ol className="text-xs list-decimal list-inside space-y-1 pl-1">
+                            <li><a href="https://merkmorassi-mythos-engine.hf.space" target="_blank" rel="noopener noreferrer" className="font-bold underline hover:text-white">Click here to wake it</a>.</li>
+                            <li>Wait ~60 seconds, then try asking me again.</li>
+                        </ol>
+                    </div>
+                );
+            }
+            return (
+                <div className="p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-red-200 text-sm flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                        <WarningIcon className="w-4 h-4 text-red-500" />
+                        <span className="font-bold uppercase tracking-wider">Tool Fault</span>
+                    </div>
+                    <p className="font-mono text-[11px] leading-tight text-red-300">
+                        {result.error}
+                    </p>
+                </div>
+            );
+        }
+
+        if (name === 'generateMythosImage') {
+            return (
+                <div>
+                    <div className="flex flex-col gap-1 text-sm pt-1">
+                        <span className="text-neutral-500 text-[10px] uppercase font-bold">Prompt</span>
+                        <span className="text-neutral-300 italic leading-relaxed bg-black/20 p-2 rounded border border-white/5">{args.prompt}</span>
+                    </div>
+                    {isPending && (
+                        <div className="mt-4 flex items-center gap-2 text-neutral-400">
+                            <LoadingSpinner className="w-4 h-4" />
+                            <span>Generating image...</span>
+                        </div>
+                    )}
+                    {hasImageResult && (
+                        <div className="mt-4 space-y-3">
+                            <div className="aspect-video bg-black rounded-lg overflow-hidden border border-neutral-700">
+                                <img 
+                                    src={`data:${result.image.mimeType};base64,${result.image.base64}`}
+                                    className="w-full h-full object-contain"
+                                    alt="Generated by agent"
+                                />
+                            </div>
+                            <AssetActions 
+                                asset={{ type: 'image', ...result.image }}
+                                onSaveToGrid={() => onAddAssetToGrid({ type: 'image', ...result.image })}
+                                onSaveToStoryboard={() => onAddToStoryboard(result.image.base64)}
+                                onSaveToInspiration={() => onAddToInspiration(result.image.base64)}
+                            />
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Fallback for prepareMythosImageGeneration or other tools
+        return (
+             <div className="space-y-2">
+                <div className="flex flex-col gap-1 text-sm pt-1">
+                    <span className="text-neutral-500 text-[10px] uppercase font-bold">Prompt</span>
+                    <span className="text-neutral-300 italic leading-relaxed bg-black/20 p-2 rounded border border-white/5">{args.prompt || JSON.stringify(args)}</span>
+                </div>
+                 {isPending && (
+                    <div className="mt-2 flex items-center gap-2 text-neutral-400 text-xs">
+                        <LoadingSpinner className="w-3 h-3" />
+                        <span>Executing...</span>
+                    </div>
+                )}
+                {hasTextResult && (
+                    <p className="text-xs text-neutral-400 mt-2 bg-black/20 p-2 rounded border border-white/5">{result.text}</p>
+                )}
+            </div>
+        );
+    };
+    
+    const getActionTitle = () => {
+        switch (name) {
+            case 'generateMythosImage': return status === 'complete' && hasImageResult ? 'Generated an Image' : 'Generating Image';
+            case 'prepareMythosImageGeneration': return 'Prepared a Scene';
+            default: return status === 'pending' ? `Executing: ${name}` : `Executed: ${name}`;
+        }
+    };
 
     return (
         <div className="flex justify-start mb-4 w-full">
@@ -38,34 +148,26 @@ const AgentActionBubble: React.FC<{ agentName: string; functionCall: FunctionCal
                 <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/50"></div>
                 <div className="flex items-center gap-2 mb-3 text-blue-400">
                     <AgentActionIcon />
-                    <span className="font-bold text-xs uppercase tracking-wider">{agentName} prepared a scene</span>
+                    <span className="font-bold text-xs uppercase tracking-wider">{agentName} {getActionTitle()}</span>
                 </div>
-                <div className="space-y-2">
-                    <div className="flex items-baseline gap-2 text-sm border-b border-neutral-700/50 pb-2">
-                        <span className="text-neutral-500 text-[10px] uppercase font-bold w-16">Scene</span>
-                        <span className="text-neutral-200 font-mono font-bold">{sceneHeading}</span>
-                    </div>
-                    {args.cameraAngle && (
-                        <div className="flex items-baseline gap-2 text-sm border-b border-neutral-700/50 pb-2">
-                            <span className="text-neutral-500 text-[10px] uppercase font-bold w-16">Angle</span>
-                            <span className="text-neutral-300">{args.cameraAngle}</span>
-                        </div>
-                    )}
-                    <div className="flex flex-col gap-1 text-sm pt-1">
-                        <span className="text-neutral-500 text-[10px] uppercase font-bold">Prompt</span>
-                        <span className="text-neutral-300 italic leading-relaxed bg-black/20 p-2 rounded border border-white/5">{args.prompt}</span>
-                    </div>
-                </div>
-                <p className="text-[10px] text-neutral-600 mt-3 text-right">Go to Grid View to generate this.</p>
+                {renderContent()}
+                 {name === 'prepareMythosImageGeneration' && (
+                     <p className="text-[10px] text-neutral-600 mt-3 text-right">Go to MythOS Cinematic Studio to generate this.</p>
+                 )}
             </div>
         </div>
     );
 };
 
 
-export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUploadLore, onSendMessage, isResponding, error }) => {
+export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUploadLore, onCallTool, onAddToStoryboard, onAddToInspiration, onAddAssetToGrid }) => {
     const [selectedAgentId, setSelectedAgentId] = useState<string>('');
     const [message, setMessage] = useState('');
+    const [history, setHistory] = useState<ChatMessage[]>([]);
+    const [chatSession, setChatSession] = useState<GeminiChat | null>(null);
+    const [isResponding, setIsResponding] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const userHasScrolledUp = useRef(false);
@@ -79,10 +181,19 @@ export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUplo
     }, [agents, selectedAgentId]);
 
     useEffect(() => {
+        if (selectedAgent) {
+            const newChat = createChat(selectedAgent.systemPrompt, [], mythosTools);
+            setChatSession(newChat);
+            setHistory(selectedAgent.chatHistory || []);
+        }
+    }, [selectedAgent]);
+
+
+    useEffect(() => {
         const node = chatContainerRef.current;
         if (!node) return;
 
-        const lastMessage = selectedAgent?.chatHistory?.[selectedAgent.chatHistory.length - 1];
+        const lastMessage = history[history.length - 1];
         const isUserMessage = lastMessage?.role === 'user';
         const isToolCode = lastMessage?.role === 'tool_code';
 
@@ -92,7 +203,7 @@ export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUplo
                 behavior: 'smooth'
             });
         }
-    }, [selectedAgent?.chatHistory]);
+    }, [history]);
 
     const handleLoreUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (!selectedAgentId) return;
@@ -108,11 +219,61 @@ export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUplo
         event.target.value = ''; // Reset
     };
 
-    const handleSendMessage = (e: React.FormEvent) => {
+    const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (message.trim() && selectedAgentId && !isResponding) {
-            onSendMessage(selectedAgentId, message.trim());
+        if (message.trim() && selectedAgentId && !isResponding && chatSession) {
+            const currentMessage = message.trim();
             setMessage('');
+            setIsResponding(true);
+            setError(null);
+
+            setHistory(prev => [...prev, { role: 'user', text: currentMessage }]);
+
+            try {
+                let response: GenerateContentResponse = await chatSession.sendMessage({ message: currentMessage });
+                
+                while(response.functionCalls && response.functionCalls.length > 0) {
+                    const toolResponseParts: Part[] = [];
+
+                    for(const funcCall of response.functionCalls) {
+                        setHistory(prev => [...prev, { role: 'tool_code', toolCode: { id: funcCall.id, functionCall: funcCall, status: 'pending' } }]);
+                        
+                        const { textResult, resultData } = await onCallTool(funcCall.name, funcCall.args);
+                        
+                        setHistory(prev => prev.map(msg => 
+                            (msg.role === 'tool_code' && msg.toolCode.id === funcCall.id)
+                                ? { ...msg, toolCode: { ...msg.toolCode, status: 'complete', result: resultData } }
+                                : msg
+                        ));
+                        
+                        const isError = !!resultData?.error;
+
+                        toolResponseParts.push({
+                            functionResponse: {
+                                name: funcCall.name,
+                                response: { 
+                                    status: isError ? "ERROR" : "OK",
+                                    summary: textResult 
+                                }
+                            }
+                        });
+                    }
+
+                    // Send tool responses back to the model
+                    response = await chatSession.sendMessage(toolResponseParts);
+                }
+                
+                // Add the final text response from the model
+                if (response.text) {
+                     setHistory(prev => [...prev, { role: 'model', text: response.text }]);
+                }
+
+            } catch (e) {
+                console.error("Chat Error:", e);
+                setError(e instanceof Error ? e.message : "An unknown error occurred.");
+            } finally {
+                setIsResponding(false);
+            }
         }
     };
 
@@ -188,19 +349,26 @@ export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUplo
 
                     {/* Chat Area */}
                     <div id="chat-window" ref={chatContainerRef} onScroll={handleScroll} className="flex-grow overflow-y-auto p-6 bg-neutral-900/50 space-y-6">
-                        {!selectedAgent?.chatHistory || selectedAgent.chatHistory.length === 0 ? (
+                        {!history || history.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-center text-neutral-600 opacity-60">
                                 <WritersRoomIcon />
                                 <p className="mt-4 text-sm font-medium">Start the conversation with {selectedAgent?.name || 'agent'}.</p>
-                                <p className="text-xs mt-1 text-neutral-700">Try asking to "prepare a prompt for a sci-fi scene".</p>
+                                <p className="text-xs mt-1 text-neutral-700">Try asking to "prepare a cinematic shot of a rainy alleyway at night".</p>
                             </div>
                         ) : (
-                            selectedAgent.chatHistory.map((msg, index) => {
+                            history.map((msg, index) => {
                                 if (msg.role === 'tool_code') {
-                                    return <AgentActionBubble key={index} agentName={selectedAgent.name} functionCall={msg.toolCode.functionCall} />;
+                                    return <AgentActionBubble 
+                                        key={index} 
+                                        agentName={selectedAgent?.name || 'Agent'} 
+                                        toolCode={msg.toolCode} 
+                                        onAddToStoryboard={onAddToStoryboard}
+                                        onAddToInspiration={onAddToInspiration}
+                                        onAddAssetToGrid={onAddAssetToGrid}
+                                    />;
                                 }
                                 if (msg.role === 'user' || msg.role === 'model') {
-                                    return <ChatMessageBubble key={index} message={msg} agentName={selectedAgent.name} />;
+                                    return <ChatMessageBubble key={index} message={msg} agentName={selectedAgent?.name || 'Agent'} />;
                                 }
                                 return null;
                             })

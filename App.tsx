@@ -43,6 +43,8 @@ import { GenericAgentStudio } from './components/GenericAgentStudio.tsx';
 import { getAnimAgentsTeam } from './services/agentService.ts';
 import { getTopazApiKey, saveTopazApiKey, getHfApiKey, saveHfApiKey } from './services/apiKeyService.ts';
 import { getPromptTemplates, savePromptTemplate, deletePromptTemplate } from './services/promptTemplateService.ts';
+import { generateImageSDXL } from './services/huggingFaceService.ts';
+import { blobToBase64 } from './utils/imageUtils.ts';
 
 export const App = () => {
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
@@ -112,6 +114,14 @@ export const App = () => {
       updateProjectData({ images: [newImage, ...project.data.images] });
   };
 
+  const handleAddToStoryboard = (base64Image: string) => {
+      // Implementation placeholder
+  };
+  
+  const handleAddToInspiration = (base64Image: string) => {
+      // Implementation placeholder
+  };
+
   // Lore Handlers
   const handleCreateLore = (title: string, content: string, projectId: string) => {
       const newEntry: LoreEntry = {
@@ -120,9 +130,6 @@ export const App = () => {
           title,
           content
       };
-      // For now, we only update the active project's lore list. 
-      // In a multi-project DB system, this would save to the specific project ID.
-      // Here, we assume the user is adding to the current project context.
       updateProjectData({ lore: [newEntry, ...project.data.lore] });
   };
 
@@ -134,9 +141,50 @@ export const App = () => {
       updateProjectData({ lore: project.data.lore.filter(l => l.id !== id) });
   };
 
+  const handleCallTool = async (name: string, args: any): Promise<{ textResult: string; resultData?: any; }> => {
+    try {
+        switch (name) {
+            case 'prepareMythosImageGeneration': {
+                updateProjectData({ mythosPrompt: args.prompt });
+                setActiveView('mythos-cinematic-engine');
+                return {
+                    textResult: "OK, I've prepared the MythOS Cinematic Studio. The user has been navigated there.",
+                    resultData: { text: args.prompt } // Pass prompt back to bubble for display
+                };
+            }
+            case 'generateMythosImage': {
+                const hfToken = getHfApiKey();
+                if (!hfToken) {
+                    throw new Error("Cannot generate image: Hugging Face Token is missing. Please configure it in Settings.");
+                }
+                const blob = await generateImageSDXL({ prompt: args.prompt, useSuperiorEngine: true }, hfToken);
+                const base64 = await blobToBase64(blob);
+                const imageData = { base64, mimeType: blob.type };
+                
+                handleAddAssetToGrid({ type: 'image', ...imageData, metadata: { engine: 'MythOS/Agent', prompt: args.prompt } });
+
+                return {
+                    textResult: "Image generation complete. The image has been displayed to the user and saved to their main project gallery.",
+                    resultData: { image: imageData }
+                };
+            }
+            default:
+                return { textResult: `Unknown tool: ${name}` };
+        }
+    } catch (error) {
+        console.error(`[Tool Call Error] ${name}:`, error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        // This error will be caught in AgentChatStudio and displayed to the user.
+        // We also return a text result for the model to understand the failure.
+        return { 
+            textResult: `The tool execution failed with the following error: ${errorMessage}`,
+            resultData: { error: errorMessage } 
+        };
+    }
+  };
+
   const getAgentById = (id: string) => project.data.agents.find(a => a.id === id) || project.data.agents[0];
   
-  // Specific agents for shortcuts
   const scribe = getAgentById('agent-scripting');
 
   const renderView = () => {
@@ -167,7 +215,7 @@ export const App = () => {
           case 'design': return <DesignStudio agent={getAgentById('agent-design')} onNavigate={setActiveView} onCallAgent={() => {}} />;
           case 'art': return <ArtStudio agent={getAgentById('agent-art')} onNavigate={setActiveView} onCallAgent={() => {}} />;
           case 'director': return <DirectorStudio onNavigate={setActiveView} />;
-          case 'mythos-cinematic-engine': return <MythosCinematicStudio hfToken={getHfApiKey() || ''} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} />;
+          case 'mythos-cinematic-engine': return <MythosCinematicStudio hfToken={getHfApiKey() || ''} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} initialPrompt={project.data.mythosPrompt} onClearInitialPrompt={() => updateProjectData({ mythosPrompt: undefined })} />;
           case 'image-generator': return <ImageGeneratorStudio hfToken={getHfApiKey() || ''} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} agents={project.data.agents} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} />;
           case 'generative-video': return <GenerativeVideoStudio apiKey={''} hfToken={getHfApiKey() || ''} videoState={project.data.generativeVideoState} onStateUpdate={s => updateProjectData({ generativeVideoState: s })} onAddImageToGrid={() => {}} onAddToStoryboard={() => {}} onAddAssetToGrid={handleAddAssetToGrid} />;
           case 'blender': return <BlenderStudio sourceImages={project.data.blenderImages} resultImage={project.data.blenderResult} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} hfToken={getHfApiKey() || ''} />;
@@ -190,7 +238,7 @@ export const App = () => {
           case 'lore': return <LoreStudio lore={project.data.lore} projects={[{ id: project.id, name: project.name }]} onCreate={handleCreateLore} onUpdate={handleUpdateLore} onDelete={handleDeleteLore} />;
           case 'prompt-library': return <PromptLibraryStudio templates={project.data.promptTemplates} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
           case 'dynamic-prompts': return <DynamicPromptsStudio lists={project.data.dynamicPromptLists} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
-          case 'agent-chat': return <AgentChatStudio agents={project.data.agents} onUploadLore={() => {}} onSendMessage={() => {}} isResponding={false} error={null} />;
+          case 'agent-chat': return <AgentChatStudio agents={project.data.agents} onUploadLore={() => {}} onCallTool={handleCallTool} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onAddAssetToGrid={handleAddAssetToGrid} />;
           case 'knowledge': return <KnowledgeView agents={project.data.agents} onUpdateAgent={() => {}} />;
           case 'automation': return <AutomationStudio config={project.data.automationConfig} onSave={() => {}} onTestWebhook={async () => true} />;
           case 'agent-workspace': return <GenericAgentStudio agent={getAgentById(activeAgentId)} onNavigate={setActiveView} onCallAgent={() => {}} />;

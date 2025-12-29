@@ -1,6 +1,6 @@
+
 import React, { useState } from 'react';
 import { ActiveView, Project, ImageState } from '../types.ts';
-// Fix: Added ImageIcon to the imported icons from icons.tsx to resolve the "Cannot find name 'ImageIcon'" error.
 import { StoryboardIcon, CharacterIcon, LoreIcon, PinIcon, ShuffleIcon, GridIcon, LibraryIcon, DashboardIcon, EditIcon, CheckIcon, ScriptIcon, ImageIcon } from './icons.tsx';
 
 interface DashboardStudioProps {
@@ -207,7 +207,6 @@ export const DashboardStudio: React.FC<DashboardStudioProps> = ({ project, onUpd
                     </div>
                 ) : (
                     <div className="h-40 flex flex-col items-center justify-center bg-black/20 rounded-xl border border-dashed border-neutral-800 text-neutral-600 text-sm py-10">
-                        {/* Fix: ImageIcon is now properly imported and can be used in this file. */}
                         <ImageIcon className="w-8 h-8 mb-3 opacity-20" />
                         <span className="font-bold uppercase tracking-widest text-[10px]">No visual assets detected in project buffer</span>
                     </div>

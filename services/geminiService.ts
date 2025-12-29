@@ -1,4 +1,5 @@
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Content, Type, Modality } from "@google/genai";
+
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Content, Type, Modality, FunctionDeclaration } from "@google/genai";
 import { MythosData } from './mythosData';
 import { CONTENT_GUIDELINES } from './contentGuidelines';
 
@@ -12,6 +13,37 @@ const safetySettings = [
 const getClient = () => {
     return new GoogleGenAI({ apiKey: process.env.API_KEY });
 }
+
+export const mythosTools: FunctionDeclaration[] = [
+    {
+        name: 'prepareMythosImageGeneration',
+        description: 'Prepares the MythOS Cinematic image generation engine with a specific, highly detailed prompt. This navigates the user to the correct studio to execute the generation.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                prompt: {
+                    type: Type.STRING,
+                    description: 'A detailed, comma-separated text prompt for the image generator, including subject, action, environment, and specific cinematic style keywords.'
+                }
+            },
+            required: ['prompt']
+        }
+    },
+    {
+        name: 'generateMythosImage',
+        description: 'Generates a high-quality cinematic image using the MythOS engine and displays it directly to the user in the chat. Use this when the user explicitly asks to create, make, show, or generate an image.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                prompt: {
+                    type: Type.STRING,
+                    description: 'A detailed, comma-separated text prompt for the image generator, describing the desired visual in cinematic terms.'
+                }
+            },
+            required: ['prompt']
+        }
+    }
+];
 
 const apiCallWithRetry = async <T>(apiFunction: () => Promise<T>, maxRetries = 3): Promise<T> => {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -272,14 +304,15 @@ export const generateSpeech = async (text: string, voice: string, rate: number) 
     });
 };
 
-export const createChat = (systemPrompt?: string, history?: Content[]) => {
+export const createChat = (systemPrompt?: string, history?: Content[], tools?: any[]) => {
     const ai = getClient();
     return ai.chats.create({ 
         model: 'gemini-3-pro-preview', 
         history, 
         config: { 
             systemInstruction: systemPrompt,
-            safetySettings 
+            safetySettings,
+            tools: tools ? [{ functionDeclarations: tools }] : undefined
         } 
     });
 };

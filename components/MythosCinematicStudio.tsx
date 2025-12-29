@@ -13,6 +13,8 @@ interface MythosCinematicStudioProps {
     onAddAssetToGrid: (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string; metadata?: any }) => void;
     onAddToStoryboard: (base64: string) => void;
     onAddToInspiration: (base64: string) => void;
+    initialPrompt?: string;
+    onClearInitialPrompt: () => void;
 }
 
 const RATIOS = [
@@ -76,7 +78,9 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
     dynamicPromptLists,
     onAddAssetToGrid,
     onAddToStoryboard,
-    onAddToInspiration
+    onAddToInspiration,
+    initialPrompt,
+    onClearInitialPrompt
 }) => {
     const [prompt, setPrompt] = useState('masterpiece, high fidelity, highly detailed technical photography, award winning cinematography, movie still');
     const [negativePrompt, setNegativePrompt] = useState('blurry, low quality, text, watermark, bad anatomy, deformed, sketch, cartoon, 3d render, illustration');
@@ -84,7 +88,6 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
     const [height, setHeight] = useState(RATIOS[0].h);
     const [seed, setSeed] = useState<number | undefined>(undefined);
     
-    // UI State for dropdowns (initially empty to prompt user selection)
     const [framing, setFraming] = useState('');
     const [angle, setAngle] = useState('');
     const [lens, setLens] = useState('');
@@ -93,10 +96,16 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState<{ base64: string; mimeType: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [wakingError, setWakingError] = useState<string | null>(null);
 
-    // Matrix Injection Logic
+    useEffect(() => {
+        if (initialPrompt) {
+            setPrompt(initialPrompt);
+            onClearInitialPrompt();
+        }
+    }, [initialPrompt, onClearInitialPrompt]);
+
     const handleMatrixChange = (category: keyof typeof CINEMATIC_TIERS, newValue: string) => {
-        // 1. Update the UI state for the dropdown
         if (category === 'framing') setFraming(newValue);
         if (category === 'angle') setAngle(newValue);
         if (category === 'lens') setLens(newValue);
@@ -104,23 +113,18 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
 
         if (!newValue) return;
 
-        // 2. Update the prompt text
         setPrompt(current => {
             let updated = current;
             const options = CINEMATIC_TIERS[category];
             
-            // Try to find if any OTHER option from this category is already in the prompt
             const existingOption = options.find(opt => opt.value && updated.includes(opt.value));
             
             if (existingOption) {
-                // Replace the old value with the new one
                 updated = updated.replace(existingOption.value, newValue);
             } else {
-                // Prepend to the start for higher weight/visibility
                 updated = `${newValue}, ${updated}`;
             }
             
-            // Clean up double commas/spaces
             return updated.replace(/,\s*,/g, ',').trim();
         });
     };
@@ -147,7 +151,7 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
         if (target === 'positive') {
             setPrompt(p => p ? `${p}, ${insertion}` : insertion);
         } else {
-            setNegativePrompt(n => n ? `${n}, ${insertion}` : insertion);
+            setNegativePrompt(n => n ? `${n}, ${insertion}` : `[${listName}]`);
         }
     };
 
@@ -159,6 +163,7 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
         
         setIsLoading(true);
         setError(null);
+        setWakingError(null);
         setResult(null);
 
         try {
@@ -205,7 +210,14 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
 
         } catch (e) {
             console.error("MythOS Core Error:", e);
-            setError(e instanceof Error ? e.message : "Proprietary GPU Link Refused.");
+            const msg = e instanceof Error ? e.message : "Proprietary GPU Link Refused.";
+            if (msg.includes("Hardware Sleeping")) {
+                setWakingError(msg);
+                setError(null);
+            } else {
+                setError(msg);
+                setWakingError(null);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -432,7 +444,24 @@ export const MythosCinematicStudio: React.FC<MythosCinematicStudioProps> = ({
                         )}
                     </button>
 
-                    {error && (
+                    {wakingError && (
+                        <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg text-yellow-200 text-sm flex flex-col gap-3">
+                            <div className="flex items-center gap-2">
+                                <WarningIcon className="w-5 h-5 text-yellow-500" />
+                                <span className="font-bold uppercase tracking-wider">GPU Core is Sleeping</span>
+                            </div>
+                            <p className="font-mono text-[11px] leading-tight text-yellow-300">
+                                The dedicated hardware has entered sleep mode to conserve resources.
+                            </p>
+                            <ol className="text-xs list-decimal list-inside space-y-1 pl-1">
+                                <li><a href="https://merkmorassi-mythos-engine.hf.space" target="_blank" rel="noopener noreferrer" className="font-bold underline hover:text-white">Click here to wake the GPU</a>.</li>
+                                <li>Wait about 60 seconds for it to initialize.</li>
+                                <li>Then, try your generation again.</li>
+                            </ol>
+                        </div>
+                    )}
+
+                    {error && !wakingError && (
                         <div className="p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-red-200 text-sm flex flex-col gap-2">
                             <div className="flex items-center gap-2">
                                 <WarningIcon className="w-4 h-4 text-red-500" />
