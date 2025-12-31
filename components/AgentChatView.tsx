@@ -53,6 +53,12 @@ const retrieveContext = async (agentId: string, query: string): Promise<{ text: 
             return null;
         }
 
+        // Dimension Check: Ensure the stored vectors match the current embedding model
+        if (vectors[0].vector.length !== queryVector.length) {
+            console.error(`[RAG] Dimension Mismatch! Stored: ${vectors[0].vector.length}, Query: ${queryVector.length}. The Knowledge Base JSON might have been embedded with a different model.`);
+            return null;
+        }
+
         const scored = vectors.map(v => ({
             ...v,
             score: cosineSimilarity(queryVector, v.vector)
@@ -63,8 +69,8 @@ const retrieveContext = async (agentId: string, query: string): Promise<{ text: 
         // Log top score
         console.log(`[RAG] Top match score: ${scored[0]?.score}`);
 
-        // Strict relevance filter
-        const relevant = scored.slice(0, 5).filter(v => v.score > 0.55);
+        // Lowered threshold to 0.45 to catch more relevant but loosely phrased context
+        const relevant = scored.slice(0, 5).filter(v => v.score > 0.45);
         
         console.log(`[RAG] Relevant chunks found: ${relevant.length}`);
 
@@ -249,7 +255,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
       if (agent.enableLocalRag && currentMessage.trim()) {
           const contextResult = await retrieveContext(agent.id, currentMessage);
           if (contextResult) {
-              messageToSend = `Use the following context from your knowledge base to answer the user's question. If the context isn't relevant to the specific question, ignore it and answer based on your general knowledge.\n\n<CONTEXT>\n${contextResult.text}\n</CONTEXT>\n\nUser Query: ${currentMessage}`;
+              messageToSend = `CRITICAL: You have access to the following Knowledge Base context. You MUST use this information to answer the user's question if relevant. If the context is not relevant, ignore it.\n\n<KNOWLEDGE_BASE_CONTEXT>\n${contextResult.text}\n</KNOWLEDGE_BASE_CONTEXT>\n\nUser Query: ${currentMessage}`;
               ragNote = `\n\n*(Used context from: ${contextResult.sources.join(', ')})*`;
           }
       }

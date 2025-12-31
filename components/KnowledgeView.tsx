@@ -148,19 +148,34 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
             const filesAndChunks = await Promise.all(files.map(async (file: File) => {
                 if (signal.aborted) return null;
                 let text = await file.text();
+                
+                // Handle JSON Logic
                 if(file.name.toLowerCase().endsWith('.json')) {
                    try {
                      const jsonData = JSON.parse(text);
+                      
+                      // PRE-EMBEDDED RESTORE PATH
                       if (Array.isArray(jsonData) && jsonData.length > 0 && jsonData[0]?.vector) {
-                         setStatusMessage(`Restoring backup: ${file.name}`);
-                         // When restoring, we map these to the current agent
-                         const mappedVectors = (jsonData as VectorRecord[]).map(v => ({
-                             ...v,
-                             agentId: selectedAgentId // Override agentId
+                         setStatusMessage(`Restoring pre-embedded vectors from: ${file.name}`);
+                         
+                         // Re-map to current agent AND ensure all fields are valid for this DB schema
+                         const mappedVectors = (jsonData as any[]).map(v => ({
+                             id: v.id || crypto.randomUUID(),
+                             text: v.text || "",
+                             vector: v.vector,
+                             source: v.source || file.name,
+                             timestamp: v.timestamp || Date.now(),
+                             agentId: selectedAgentId // FORCE ownership to current agent
                          }));
+                         
                          await vectorDb.addVectors(mappedVectors);
+                         
+                         // Short-circuit the embedding loop for this file
+                         setStatusMessage(`Successfully restored ${mappedVectors.length} memory vectors.`);
                          return null; 
                       }
+                      
+                      // Otherwise, treat as normal structured text
                       text = processJsonContent(jsonData);
                    } catch(e) { /* treat as text */ }
                 }
@@ -209,7 +224,8 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
             
             if (!signal.aborted) {
                 await refreshStats(selectedAgentId);
-                setStatusMessage('CorePack Ingestion complete!');
+                // Keep the success message visible for a moment
+                setTimeout(() => setStatusMessage('CorePack Ingestion complete!'), 500);
             }
         } catch (error) {
             if ((error as Error).message === "Aborted") {
