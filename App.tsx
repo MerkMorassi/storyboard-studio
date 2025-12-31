@@ -104,6 +104,12 @@ export const App = () => {
       }
   });
 
+  // Project List including "Generic Bin" for unassigned assets
+  const projectList = [
+      { id: project.id, name: project.name },
+      { id: 'unassigned', name: 'Generic Bin (Unassigned)' }
+  ];
+
   // Load persistent data from IndexedDB on startup
   useEffect(() => {
       const loadPersistentData = async () => {
@@ -209,13 +215,16 @@ export const App = () => {
   const handleUpdateCharacter = (id: string, u: Partial<Character>) => updateProjectData({ characters: project.data.characters.map(c => c.id === id ? { ...c, ...u } : c) });
 
 
-  const handleAddAssetToGrid = (asset: any) => {
+  const handleAddAssetToGrid = (asset: any, targetProjectId?: string) => {
       const newImage: ImageState = {
           id: `img_${Date.now()}`,
           ...asset,
           isUpscaling: false,
-          agentId: activeAgentId
+          agentId: activeAgentId,
+          projectId: targetProjectId || project.id // Default to current if undefined, or passed ID (e.g. 'unassigned')
       };
+      // We still store it in the 'images' array, but the projectId metadata allows filtering
+      // The dashboard 'Recent Visual Data' will show all for now, but a sophisticated grid would filter.
       updateProjectData({ images: [newImage, ...project.data.images] });
   };
 
@@ -266,7 +275,8 @@ export const App = () => {
                 const base64 = await blobToBase64(blob);
                 const imageData = { base64, mimeType: blob.type };
                 
-                handleAddAssetToGrid({ type: 'image', ...imageData, metadata: { engine: 'MythOS/Agent', prompt: args.prompt } });
+                // Agents save to active project by default
+                handleAddAssetToGrid({ type: 'image', ...imageData, metadata: { engine: 'MythOS/Agent', prompt: args.prompt } }, project.id);
 
                 return {
                     textResult: "Image generation complete. The image has been displayed to the user and saved to their main project gallery.",
@@ -318,32 +328,53 @@ export const App = () => {
           case 'design': return <DesignStudio agent={getAgentById('agent-design')} onNavigate={setActiveView} onCallAgent={() => {}} />;
           case 'art': return <ArtStudio agent={getAgentById('agent-art')} onNavigate={setActiveView} onCallAgent={() => {}} />;
           case 'director': return <DirectorStudio onNavigate={setActiveView} />;
-          case 'mythos-cinematic-engine': return <MythosCinematicStudio hfToken={getHfApiKey() || ''} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} initialPrompt={project.data.mythosPrompt} onClearInitialPrompt={() => updateProjectData({ mythosPrompt: undefined })} />;
-          case 'image-generator': return <ImageGeneratorStudio hfToken={getHfApiKey() || ''} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} agents={project.data.agents} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} />;
-          case 'generative-video': return <GenerativeVideoStudio apiKey={''} hfToken={getHfApiKey() || ''} videoState={project.data.generativeVideoState} onStateUpdate={s => updateProjectData({ generativeVideoState: s })} onAddImageToGrid={() => {}} onAddToStoryboard={() => {}} onAddAssetToGrid={handleAddAssetToGrid} />;
+          case 'mythos-cinematic-engine': 
+            return <MythosCinematicStudio 
+                hfToken={getHfApiKey() || ''} 
+                promptTemplates={project.data.promptTemplates} 
+                dynamicPromptLists={project.data.dynamicPromptLists} 
+                onAddAssetToGrid={handleAddAssetToGrid} 
+                onAddToStoryboard={() => {}} 
+                onAddToInspiration={() => {}} 
+                initialPrompt={project.data.mythosPrompt} 
+                onClearInitialPrompt={() => updateProjectData({ mythosPrompt: undefined })} 
+            />;
+          case 'image-generator': 
+            return <ImageGeneratorStudio 
+                hfToken={getHfApiKey() || ''} 
+                promptTemplates={project.data.promptTemplates} 
+                dynamicPromptLists={project.data.dynamicPromptLists} 
+                agents={project.data.agents} 
+                onAddAssetToGrid={handleAddAssetToGrid} 
+                onAddToStoryboard={() => {}} 
+                onAddToInspiration={() => {}}
+                projects={projectList}
+                activeProjectId={project.id}
+            />;
+          case 'generative-video': return <GenerativeVideoStudio apiKey={''} hfToken={getHfApiKey() || ''} videoState={project.data.generativeVideoState} onStateUpdate={s => updateProjectData({ generativeVideoState: s })} onAddImageToGrid={() => {}} onAddToStoryboard={() => {}} onAddAssetToGrid={handleAddAssetToGrid} projects={projectList} activeProjectId={project.id} />;
           case 'blender': return <BlenderStudio sourceImages={project.data.blenderImages} resultImage={project.data.blenderResult} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} hfToken={getHfApiKey() || ''} />;
           case 'scene-compositor': return <SceneCompositorStudio sceneState={project.data.sceneCompositorState} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} hfToken={getHfApiKey() || ''} onUpdateImage={() => {}} />;
-          case 'composite': return <CompositeStudio state={project.data.compositeState} onStateUpdate={s => updateProjectData({ compositeState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} hfToken={getHfApiKey() || ''} />;
+          case 'composite': return <CompositeStudio state={project.data.compositeState} onStateUpdate={s => updateProjectData({ compositeState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} hfToken={getHfApiKey() || ''} projects={projectList} activeProjectId={project.id} />;
           case 'face-swap': return <FaceSwapStudio faceSwapState={project.data.faceSwapState} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} hfToken={getHfApiKey() || ''} />;
           case 'face-repair': return <FaceRepairStudio faceRepairState={project.data.faceRepairState} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} hfToken={getHfApiKey() || ''} />;
-          case 'photorealism': return <PhotorealismStudio photorealismState={project.data.photorealismState} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onPromptChange={() => {}} hfToken={getHfApiKey() || ''} onAddAssetToGrid={handleAddAssetToGrid} />;
-          case 'resize': return <ResizeStudio state={project.data.resizeState} onStateUpdate={s => updateProjectData({ resizeState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} hfToken={getHfApiKey() || ''} />;
-          case 'green-screen': return <GreenScreenStudio greenScreenState={project.data.greenScreenState} isLoading={false} error={null} onStateUpdate={s => updateProjectData({ greenScreenState: s })} onAddToStoryboard={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} />;
-          case 'background-removal': return <BackgroundRemovalStudio state={project.data.backgroundRemovalState} onStateUpdate={s => updateProjectData({ backgroundRemovalState: s })} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} />;
-          case 'qwen-image-edit': return <QwenImageEditStudio state={project.data.qwenImageEditState} onStateUpdate={s => updateProjectData({ qwenImageEditState: s })} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} />;
-          case 'topaz': return <TopazStudio topazState={project.data.topazState} isLoading={false} error={null} onStateUpdate={s => updateProjectData({ topazState: s })} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} progress="" />;
+          case 'photorealism': return <PhotorealismStudio photorealismState={project.data.photorealismState} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onPromptChange={() => {}} hfToken={getHfApiKey() || ''} onAddAssetToGrid={handleAddAssetToGrid} projects={projectList} activeProjectId={project.id} />;
+          case 'resize': return <ResizeStudio state={project.data.resizeState} onStateUpdate={s => updateProjectData({ resizeState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} hfToken={getHfApiKey() || ''} projects={projectList} activeProjectId={project.id} />;
+          case 'green-screen': return <GreenScreenStudio greenScreenState={project.data.greenScreenState} isLoading={false} error={null} onStateUpdate={s => updateProjectData({ greenScreenState: s })} onAddToStoryboard={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} projects={projectList} activeProjectId={project.id} />;
+          case 'background-removal': return <BackgroundRemovalStudio state={project.data.backgroundRemovalState} onStateUpdate={s => updateProjectData({ backgroundRemovalState: s })} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} projects={projectList} activeProjectId={project.id} />;
+          case 'qwen-image-edit': return <QwenImageEditStudio state={project.data.qwenImageEditState} onStateUpdate={s => updateProjectData({ qwenImageEditState: s })} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} projects={projectList} activeProjectId={project.id} />;
+          case 'topaz': return <TopazStudio topazState={project.data.topazState} isLoading={false} error={null} onStateUpdate={s => updateProjectData({ topazState: s })} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} progress="" projects={projectList} activeProjectId={project.id} />;
           case 'grid': return <ImageGrid images={project.data.images} isLoading={false} error={null} onViewImage={setSelectedImage} gridOverlay={gridOverlay} onGridOverlayChange={setGridOverlay} onEditImage={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onUpscaleImage={() => {}} agents={project.data.agents} onAssignAgentToImage={() => {}} onCreateAgent={handleCreateAgent} agentFilter={agentFilter} onAgentFilterChange={setAgentFilter} awaitingExternalGeneration={false} />;
           case 'story': return <Storyboard frames={project.data.storyboard} onUpdateNote={() => {}} onRemove={() => {}} onReorder={() => {}} />;
           case 'inspiration': return <InspirationBoard images={project.data.inspirationImages} onUpload={() => {}} onRemove={() => {}} onUseAsGuide={() => {}} />;
           case 'scripts-bin': return <ScriptingStudio agent={scribe} scriptText={project.data.scriptText} scriptsBin={project.data.scriptsBin} onScriptUpload={(file) => { const reader = new FileReader(); reader.onload = (e) => updateProjectData({ scriptText: e.target?.result as string }); reader.readAsText(file); }} onDeleteScript={(id) => updateProjectData({ scriptsBin: project.data.scriptsBin.filter(s => s.id !== id) })} onNavigate={setActiveView} onCallAgent={() => { setActiveAgentId(scribe.id); setActiveView('agent-chat'); }} defaultTab='bin' />;
-          case 'script-writer': return <ScriptWriterStudio onSendToScriptsBin={(s) => updateProjectData({ scriptsBin: [...project.data.scriptsBin, { ...s, id: `script_${Date.now()}`, date: new Date().toLocaleDateString() }] })} onNavigate={setActiveView} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} />;
+          case 'script-writer': return <ScriptWriterStudio onSendToScriptsBin={(s) => updateProjectData({ scriptsBin: [...project.data.scriptsBin, { ...s, id: `script_${Date.now()}`, date: new Date().toLocaleDateString(), projectId: project.id }] })} onNavigate={setActiveView} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} />;
           case 'agents': return <RosterStudio rosterType="ai" agents={project.data.agents} images={project.data.images} onCreateEntity={handleCreateAgent} onViewImage={setSelectedImage} onUpdateEntity={handleUpdateAgent} onDeleteEntity={handleDeleteAgent} onImageUpload={() => {}} onCallEntity={() => {}} />;
           case 'studio-players': return <RosterStudio rosterType="player" agents={project.data.studioPlayers} images={project.data.studioPlayers} onCreateEntity={handleCreatePlayer} onViewImage={setSelectedImage} onUpdateEntity={handleUpdatePlayer} onDeleteEntity={handleDeletePlayer} onImageUpload={() => {}} onCallEntity={() => {}} />;
           case 'characters': return <CharactersStudio characters={project.data.characters} onCreate={handleCreateCharacter} onUpdate={handleUpdateCharacter} onDelete={handleDeleteCharacter} />;
           case 'lore': return <LoreStudio lore={project.data.lore} projects={[{ id: project.id, name: project.name }]} onCreate={handleCreateLore} onUpdate={handleUpdateLore} onDelete={handleDeleteLore} />;
           case 'prompt-library': return <PromptLibraryStudio templates={project.data.promptTemplates} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
           case 'dynamic-prompts': return <DynamicPromptsStudio lists={project.data.dynamicPromptLists} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
-          case 'agent-chat': return <AgentChatStudio agents={project.data.agents} onUploadLore={() => {}} onCallTool={handleCallTool} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onAddAssetToGrid={handleAddAssetToGrid} />;
+          case 'agent-chat': return <AgentChatStudio agents={project.data.agents} onUploadLore={() => {}} onCallTool={handleCallTool} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onAddAssetToGrid={(asset) => handleAddAssetToGrid(asset, project.id)} />;
           case 'knowledge': return <KnowledgeView agents={project.data.agents} onUpdateAgent={handleUpdateAgent} onCallAgent={(agent) => { setActiveAgentId(agent.id); setActiveView('agent-chat'); }} />;
           case 'automation': return <AutomationStudio config={project.data.automationConfig} onSave={() => {}} onTestWebhook={async () => true} />;
           case 'agent-workspace': return <GenericAgentStudio agent={getAgentById(activeAgentId)} onNavigate={setActiveView} onCallAgent={() => {}} />;

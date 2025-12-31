@@ -9,9 +9,11 @@ interface AssetActionsProps {
         url?: string;
         mimeType?: string;
     };
-    onSaveToGrid?: () => void;
+    onSaveToGrid?: (targetProjectId: string) => void;
     onSaveToStoryboard?: () => void;
     onSaveToInspiration?: () => void;
+    projects?: { id: string; name: string }[];
+    activeProjectId?: string;
     className?: string;
 }
 
@@ -20,9 +22,12 @@ export const AssetActions: React.FC<AssetActionsProps> = ({
     onSaveToGrid, 
     onSaveToStoryboard, 
     onSaveToInspiration,
+    projects = [],
+    activeProjectId,
     className = ""
 }) => {
     const [feedback, setFeedback] = useState<string | null>(null);
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(activeProjectId || (projects[0]?.id) || 'unassigned');
 
     const showFeedback = (msg: string) => {
         setFeedback(msg);
@@ -56,6 +61,14 @@ export const AssetActions: React.FC<AssetActionsProps> = ({
         };
     };
 
+    const handleSaveToGrid = () => {
+        if (onSaveToGrid) {
+            onSaveToGrid(selectedProjectId);
+            const projName = projects.find(p => p.id === selectedProjectId)?.name || 'Bin';
+            showFeedback(`Saved to ${projName}`);
+        }
+    };
+
     return (
         <div className={`flex items-center gap-2 ${className}`}>
             <button 
@@ -67,13 +80,31 @@ export const AssetActions: React.FC<AssetActionsProps> = ({
             </button>
 
             {onSaveToGrid && (
-                <button 
-                    onClick={wrapAction(onSaveToGrid, "Saved to Grid")} 
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition rounded shadow-sm"
-                    title="Save to Project Gallery"
-                >
-                    <GridIcon /> <span className="hidden sm:inline">To Grid</span>
-                </button>
+                <div className="flex bg-neutral-700 rounded shadow-sm">
+                    {projects.length > 0 && (
+                        <div className="border-r border-neutral-600 relative">
+                            <select 
+                                value={selectedProjectId}
+                                onChange={(e) => setSelectedProjectId(e.target.value)}
+                                className="h-full bg-transparent text-xs text-neutral-300 pl-2 pr-1 outline-none cursor-pointer appearance-none hover:text-white max-w-[100px] truncate"
+                                title="Select Active Project or Bin"
+                            >
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id} className="bg-neutral-800 text-white">
+                                        {p.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    <button 
+                        onClick={handleSaveToGrid} 
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-600 transition rounded-r"
+                        title="Save Output"
+                    >
+                        <GridIcon /> <span className="hidden sm:inline">Save</span>
+                    </button>
+                </div>
             )}
 
             {onSaveToStoryboard && (
@@ -97,7 +128,7 @@ export const AssetActions: React.FC<AssetActionsProps> = ({
             )}
 
             {feedback && (
-                <span className="text-xs text-brand animate-fade-in font-bold ml-2">
+                <span className="text-xs text-brand animate-fade-in font-bold ml-2 whitespace-nowrap">
                     {feedback}
                 </span>
             )}

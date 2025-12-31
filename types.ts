@@ -1,5 +1,4 @@
 
-
 export type RAGProvider = 'cloud' | 'localhost' | 'browser';
 
 export interface ScriptFile {
@@ -8,6 +7,7 @@ export interface ScriptFile {
   content: string;
   type: 'outline' | 'screenplay' | 'blueprint';
   date: string;
+  projectId?: string;
 }
 
 export interface ProjectData {
@@ -173,6 +173,7 @@ export interface ImageState {
   mimeType?: string;
   isUpscaling: boolean;
   agentId?: string;
+  projectId?: string;
   metadata?: any;
 }
 

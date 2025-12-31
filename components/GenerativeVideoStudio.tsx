@@ -13,8 +13,10 @@ interface GenerativeVideoStudioProps {
     onStateUpdate: (newState: GenerativeVideoState) => void;
     onAddImageToGrid: (base64: string) => void;
     onAddToStoryboard: (base64: string) => void;
-    onAddAssetToGrid?: (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string }) => void;
+    onAddAssetToGrid?: (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string }, targetProjectId?: string) => void;
     defaultWebhookUrl?: string;
+    projects: { id: string; name: string }[];
+    activeProjectId?: string;
 }
 
 const base64ToBlob = async (base64: string, mimeType: string): Promise<Blob> => {
@@ -61,7 +63,9 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
     onStateUpdate, 
     onAddImageToGrid, 
     onAddToStoryboard, 
-    onAddAssetToGrid
+    onAddAssetToGrid,
+    projects,
+    activeProjectId
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -361,6 +365,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                         </div>
                     </div>
 
+                    {/* ... (Rest of existing controls) ... */}
                     <div>
                         <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Prompt</label>
                         <textarea
@@ -517,7 +522,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                         )}
                     </div>
 
-                    {/* Action Bar - Replaced with AssetActions */}
+                    {/* Action Bar */}
                     {videoState.resultUrl && !isLoading && (
                         <div className="p-4 border-t border-accent bg-secondary/90 backdrop-blur-sm flex justify-between items-center">
                             <div className="text-xs text-neutral-500 font-mono truncate max-w-xs px-2 hidden sm:block" title={videoState.resultUrl}>
@@ -525,8 +530,10 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                             </div>
                             <AssetActions 
                                 asset={{ type: 'video', url: videoState.resultUrl }}
-                                onSaveToGrid={onAddAssetToGrid ? () => onAddAssetToGrid({ type: 'video', url: videoState.resultUrl! }) : undefined}
+                                onSaveToGrid={onAddAssetToGrid ? (pid) => onAddAssetToGrid!({ type: 'video', url: videoState.resultUrl! }, pid) : undefined}
                                 onSaveToStoryboard={() => extractThumbnail(onAddToStoryboard)}
+                                projects={projects}
+                                activeProjectId={activeProjectId}
                             />
                         </div>
                     )}

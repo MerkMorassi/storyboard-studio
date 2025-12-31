@@ -11,9 +11,11 @@ interface ImageGeneratorStudioProps {
     promptTemplates: PromptTemplate[];
     dynamicPromptLists: DynamicPromptList[];
     agents: Agent[];
-    onAddAssetToGrid: (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string; metadata?: any }) => void;
+    onAddAssetToGrid: (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string; metadata?: any }, targetProjectId?: string) => void;
     onAddToStoryboard: (base64: string) => void;
     onAddToInspiration: (base64: string) => void;
+    projects: { id: string; name: string }[];
+    activeProjectId?: string;
 }
 
 const FormField: React.FC<{ label: string; children: React.ReactNode, className?: string, disabled?: boolean }> = ({ label, children, className = '', disabled=false }) => (
@@ -77,7 +79,9 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
     agents,
     onAddAssetToGrid,
     onAddToStoryboard,
-    onAddToInspiration
+    onAddToInspiration,
+    projects,
+    activeProjectId
 }) => {
     // Scene Builder State
     const [sceneType, setSceneType] = useState<'INT' | 'EXT'>('INT');
@@ -359,7 +363,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                 setMetadata(meta);
 
                 if (numImages > 1) {
-                    onAddAssetToGrid({ type: 'image', ...asset, metadata: meta });
+                    onAddAssetToGrid({ type: 'image', ...asset, metadata: meta }, activeProjectId);
                 }
             }
             
@@ -402,6 +406,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                     </div>
 
                     <AccordionSection title="1. SCENE BUILDER" sectionId="scene" isOpen={openSections.has('scene')} onToggle={() => toggleSection('scene')}>
+                        {/* ... (Existing Scene Builder Controls) ... */}
                         <div className="grid grid-cols-2 gap-3">
                             <FormField label="Scene Type">
                                 <select value={sceneType} onChange={(e) => handleSceneTypeChange(e.target.value as any)} className="w-full bg-secondary border border-accent rounded p-2 text-sm focus:ring-1 focus:ring-brand outline-none">
@@ -542,6 +547,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                                 className="w-full h-16 bg-secondary border border-accent rounded p-2 text-sm focus:ring-1 focus:ring-brand outline-none resize-y" 
                             />
                         </FormField>
+                        {/* ... (Existing Settings Controls) ... */}
                         <div className="flex gap-2 mb-4">
                             <select onChange={(e) => handleInsertNegativeFromTemplate(e.target.value)} value="" className="flex-1 bg-secondary border border-accent rounded p-1.5 text-xs text-neutral-300 outline-none">
                                 <option value="" disabled>+ Add Negative from Template...</option>
@@ -706,9 +712,11 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                             <div className="p-4 border-t border-accent bg-secondary/90 backdrop-blur-sm flex justify-center">
                                 <AssetActions 
                                     asset={{ type: 'image', base64: generatedImage.base64, mimeType: generatedImage.mimeType }}
-                                    onSaveToGrid={() => onAddAssetToGrid({ type: 'image', base64: generatedImage.base64, mimeType: generatedImage.mimeType, metadata: metadata })}
+                                    onSaveToGrid={(pid) => onAddAssetToGrid({ type: 'image', base64: generatedImage.base64, mimeType: generatedImage.mimeType, metadata: metadata }, pid)}
                                     onSaveToStoryboard={() => onAddToStoryboard(generatedImage.base64)}
                                     onSaveToInspiration={() => onAddToInspiration(generatedImage.base64)}
+                                    projects={projects}
+                                    activeProjectId={activeProjectId}
                                 />
                             </div>
                         )}
