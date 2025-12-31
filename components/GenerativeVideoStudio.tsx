@@ -8,7 +8,7 @@ import { getGradioClient } from '../services/gradioService';
 
 interface GenerativeVideoStudioProps {
     apiKey: string;
-    hfToken: string; // New prop for HF token
+    hfToken: string;
     videoState: GenerativeVideoState;
     onStateUpdate: (newState: GenerativeVideoState) => void;
     onAddImageToGrid: (base64: string) => void;
@@ -284,7 +284,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
             {/* Header */}
             <div className="flex-shrink-0 flex justify-between items-end">
                 <div>
-                    <h2 className="text-3xl font-bold text-neutral-200 mb-2">Video Creator <span className="text-sm font-normal text-neutral-500 bg-neutral-800 px-2 py-1 rounded ml-2">Wan 2.2 I2V Lightning</span></h2>
+                    <h2 className="text-3xl font-bold text-neutral-200 mb-2">Video Creator <span className="text-sm font-normal text-neutral-500 bg-surface px-2 py-1 rounded ml-2">Wan 2.2 I2V Lightning</span></h2>
                     <p className="text-neutral-400">Generate cinematic videos from images using the Wan 2.2 I2V Lightning model.</p>
                 </div>
                 {!hfToken && (
@@ -297,10 +297,10 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Controls Column */}
-                <div className="lg:col-span-1 bg-neutral-800/50 p-6 border border-neutral-700 rounded-lg space-y-6 h-fit">
+                <div className="lg:col-span-1 bg-surface p-6 border border-accent rounded-lg space-y-6 h-fit">
                     
                     {/* HF Token Status */}
-                    <div className="flex items-center justify-between text-xs border border-neutral-700 bg-neutral-900 rounded p-2">
+                    <div className="flex items-center justify-between text-xs border border-accent bg-secondary rounded p-2">
                         <span className="text-neutral-400 font-bold uppercase tracking-wider">Auth Status</span>
                         {hfToken ? (
                             <span className="text-green-400 flex items-center gap-1">● Token Loaded</span>
@@ -313,14 +313,14 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                     <div className="space-y-2">
                         <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider">Input Image *</label>
                         {videoState.image ? (
-                            <div className="relative group rounded-lg overflow-hidden border border-neutral-600 bg-black/20 aspect-video">
+                            <div className="relative group rounded-lg overflow-hidden border border-accent bg-primary/20 aspect-video">
                                 <img src={`data:${videoState.image.mimeType};base64,${videoState.image.base64}`} alt="Reference" className="w-full h-full object-cover" />
                                 <button onClick={() => handleClearImage('main')} className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded hover:bg-red-600 transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                 </button>
                             </div>
                         ) : (
-                            <div onClick={() => handleUploadClick('main')} className="w-full aspect-video border-2 border-dashed border-neutral-700 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-800/50 hover:border-neutral-500 transition-all text-neutral-500 hover:text-neutral-300">
+                            <div onClick={() => handleUploadClick('main')} className="w-full aspect-video border-2 border-dashed border-accent rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-secondary/50 hover:border-neutral-500 transition-all text-neutral-500 hover:text-neutral-300">
                                 <input type="file" ref={imageInputRef} onChange={(e) => handleFileChange(e, 'main')} className="hidden" accept="image/*" />
                                 <span className="text-sm font-medium text-center">Upload Start Frame</span>
                             </div>
@@ -339,7 +339,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                                 <select
                                     value={movementSpeed}
                                     onChange={(e) => handleSpeedChange(e.target.value)}
-                                    className="w-full bg-neutral-900 border border-neutral-600 p-2.5 rounded-lg text-sm text-neutral-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer hover:border-neutral-500"
+                                    className="w-full bg-secondary border border-accent p-2.5 rounded-lg text-sm text-neutral-300 focus:outline-none focus:ring-2 focus:ring-brand transition-all cursor-pointer hover:border-neutral-500"
                                 >
                                     {SPEED_OPTIONS.map((speed, i) => (
                                         <option key={i} value={speed.value}>{speed.label}</option>
@@ -351,7 +351,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                                 <select 
                                     value={cameraMovement}
                                     onChange={(e) => handleMovementChange(e.target.value)}
-                                    className="w-full bg-neutral-900 border border-neutral-600 p-2.5 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer hover:border-neutral-500"
+                                    className="w-full bg-secondary border border-accent p-2.5 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand transition-all cursor-pointer hover:border-neutral-500"
                                 >
                                     {CAMERA_MOVEMENTS.map((move, i) => (
                                         <option key={i} value={move.value}>{move.label}</option>
@@ -367,7 +367,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                             value={videoState.prompt}
                             onChange={(e) => onStateUpdate({ ...videoState, prompt: e.target.value })}
                             placeholder="Describe the motion..."
-                            className="w-full h-24 bg-neutral-900 border border-neutral-600 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none text-neutral-200 text-sm"
+                            className="w-full h-24 bg-secondary border border-accent p-3 rounded-lg focus:ring-2 focus:ring-brand outline-none resize-none text-neutral-200 text-sm"
                         />
                     </div>
 
@@ -376,7 +376,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                         <div>
                             <label className="block text-xs font-bold text-neutral-400 mb-1">Duration (s)</label>
                             <div className="flex items-center gap-2">
-                                <input type="range" min="0.5" max="10" step="0.5" value={videoState.duration || 3.5} onChange={(e) => onStateUpdate({ ...videoState, duration: parseFloat(e.target.value) })} className="w-full accent-blue-500" />
+                                <input type="range" min="0.5" max="10" step="0.5" value={videoState.duration || 3.5} onChange={(e) => onStateUpdate({ ...videoState, duration: parseFloat(e.target.value) })} className="w-full accent-brand" />
                                 <span className="text-xs text-neutral-300 w-8">{videoState.duration}s</span>
                             </div>
                         </div>
@@ -387,13 +387,13 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                                 min="8" max="24" step="1" 
                                 value={videoState.fps || 16} 
                                 onChange={(e) => onStateUpdate({ ...videoState, fps: parseInt(e.target.value) })} 
-                                className="w-full accent-blue-500" 
+                                className="w-full accent-brand" 
                             />
                         </div>
                     </div>
 
                     {/* Advanced Toggle */}
-                    <div className="pt-2 border-t border-neutral-700">
+                    <div className="pt-2 border-t border-accent">
                         <button 
                             onClick={() => setShowAdvanced(!showAdvanced)}
                             className="flex items-center gap-2 text-xs font-bold text-neutral-400 hover:text-white transition-colors uppercase tracking-wider w-full justify-between"
@@ -404,7 +404,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                     </div>
 
                     {showAdvanced && (
-                        <div className="space-y-4 animate-fade-in bg-black/20 p-3 rounded-lg border border-white/5">
+                        <div className="space-y-4 animate-fade-in bg-secondary/50 p-3 rounded-lg border border-accent/50">
                             
                             {/* Negative Prompt */}
                             <div>
@@ -413,29 +413,29 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                                     value={videoState.negativePrompt}
                                     onChange={(e) => onStateUpdate({ ...videoState, negativePrompt: e.target.value })}
                                     placeholder="Elements to avoid"
-                                    className="w-full h-16 bg-neutral-900 border border-neutral-600 p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none text-neutral-400 text-xs"
+                                    className="w-full h-16 bg-secondary border border-accent p-2 rounded-lg focus:ring-2 focus:ring-brand outline-none resize-none text-neutral-400 text-xs"
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <label className="block text-xs text-neutral-400 mb-1">Inference Steps: {videoState.steps}</label>
-                                    <input type="range" min="1" max="30" step="1" value={videoState.steps || 6} onChange={(e) => onStateUpdate({ ...videoState, steps: parseInt(e.target.value) })} className="w-full accent-blue-500" />
+                                    <input type="range" min="1" max="30" step="1" value={videoState.steps || 6} onChange={(e) => onStateUpdate({ ...videoState, steps: parseInt(e.target.value) })} className="w-full accent-brand" />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-neutral-400 mb-1">Guidance (High): {videoState.guidanceScale}</label>
-                                    <input type="range" min="0" max="10" step="0.5" value={videoState.guidanceScale || 5} onChange={(e) => onStateUpdate({ ...videoState, guidanceScale: parseFloat(e.target.value) })} className="w-full accent-blue-500" />
+                                    <input type="range" min="0" max="10" step="0.5" value={videoState.guidanceScale || 5} onChange={(e) => onStateUpdate({ ...videoState, guidanceScale: parseFloat(e.target.value) })} className="w-full accent-brand" />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-neutral-400 mb-1">Guidance (Low): {videoState.guidanceScale2}</label>
-                                    <input type="range" min="0" max="10" step="0.5" value={videoState.guidanceScale2 || 1} onChange={(e) => onStateUpdate({ ...videoState, guidanceScale2: parseFloat(e.target.value) })} className="w-full accent-blue-500" />
+                                    <input type="range" min="0" max="10" step="0.5" value={videoState.guidanceScale2 || 1} onChange={(e) => onStateUpdate({ ...videoState, guidanceScale2: parseFloat(e.target.value) })} className="w-full accent-brand" />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-neutral-400 mb-1">Scheduler</label>
                                     <select
                                         value={videoState.scheduler || 'UniPCMultistep'}
                                         onChange={(e) => onStateUpdate({ ...videoState, scheduler: e.target.value })}
-                                        className="w-full bg-neutral-900 border border-neutral-600 p-2 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer hover:border-neutral-500"
+                                        className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand transition-all cursor-pointer hover:border-neutral-500"
                                     >
                                         {SCHEDULER_OPTIONS.map((opt, i) => (
                                             <option key={i} value={opt.value}>{opt.label}</option>
@@ -449,7 +449,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                                             type="number" 
                                             value={videoState.seed} 
                                             onChange={(e) => onStateUpdate({ ...videoState, seed: parseInt(e.target.value), randomizeSeed: false })} 
-                                            className="w-full bg-neutral-900 border border-neutral-700 rounded px-2 text-xs"
+                                            className="w-full bg-secondary border border-accent rounded px-2 text-xs"
                                             disabled={videoState.randomizeSeed}
                                         />
                                         <label className="flex items-center gap-1 text-xs whitespace-nowrap cursor-pointer select-none text-neutral-400">
@@ -468,7 +468,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                     <button
                         onClick={handleGenerate}
                         disabled={isLoading}
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-brand hover:bg-brand-hover text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {isLoading ? (
                             <>Generating...</>
@@ -480,8 +480,8 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                 </div>
 
                 {/* Preview Column */}
-                <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-lg flex flex-col relative overflow-hidden min-h-[500px]">
-                    <div className="flex-grow flex items-center justify-center bg-black relative">
+                <div className="lg:col-span-2 bg-secondary/30 border border-accent rounded-lg flex flex-col relative overflow-hidden min-h-[500px]">
+                    <div className="flex-grow flex items-center justify-center bg-primary relative">
                         {isLoading ? (
                             <div className="flex flex-col items-center">
                                 <LoadingSpinner />
@@ -519,7 +519,7 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
 
                     {/* Action Bar - Replaced with AssetActions */}
                     {videoState.resultUrl && !isLoading && (
-                        <div className="p-4 border-t border-neutral-800 bg-neutral-800/90 backdrop-blur-sm flex justify-between items-center">
+                        <div className="p-4 border-t border-accent bg-secondary/90 backdrop-blur-sm flex justify-between items-center">
                             <div className="text-xs text-neutral-500 font-mono truncate max-w-xs px-2 hidden sm:block" title={videoState.resultUrl}>
                                 {videoState.resultUrl}
                             </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     EditIcon, 
@@ -283,7 +284,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
         themeColor?: string;
         disabled?: boolean;
     }> = ({ number, title, isOpen, onToggle, onCopy, icon, extra, themeColor = "text-brand", disabled = false }) => (
-        <div className={`w-full flex items-center justify-between px-6 py-4 bg-neutral-800/30 border-b border-neutral-700/50 ${disabled ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+        <div className={`w-full flex items-center justify-between px-6 py-4 bg-secondary border-b border-accent ${disabled ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
             <button onClick={onToggle} className="flex items-center gap-4 flex-grow text-left group">
                 <div className={`${themeColor} p-1 transition-transform group-hover:scale-110`}>{icon}</div>
                 <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">STEP {number}: {title}</h3>
@@ -302,7 +303,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
 
     return (
         <div className="flex flex-col h-full bg-primary overflow-hidden">
-            <div className="flex-shrink-0 flex justify-between items-center h-16 px-6 border-b border-neutral-800 bg-neutral-900/50 z-20">
+            <div className="flex-shrink-0 flex justify-between items-center h-16 px-6 border-b border-accent bg-secondary/50 z-20">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-brand/20 rounded-lg text-brand"><EditIcon className="w-6 h-6" /></div>
                     <div>
@@ -314,17 +315,17 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
             </div>
 
             <div className="flex-grow overflow-y-auto custom-scrollbar p-6 space-y-8 pb-40">
-                <div className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
+                <div className="bg-surface border border-accent rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                     <StepHeader 
                         number={1} title="STUDIO PROTOCOLS" isOpen={isStep1Open} onToggle={() => setIsStep1Open(!isStep1Open)} 
                         onCopy={handleCopyStep1}
                         icon={<BookmarkIcon className="w-5 h-5" />}
                     />
                     {isStep1Open && (
-                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 bg-black/40 animate-fade-in">
+                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 bg-secondary animate-fade-in">
                             <div>
                                 <label className="text-[10px] font-black text-neutral-500 uppercase mb-2 block tracking-widest">Production Rating Standard</label>
-                                <select value={rating} onChange={(e) => handleApplyRating(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-sm text-brand font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer">
+                                <select value={rating} onChange={(e) => handleApplyRating(e.target.value)} className="w-full bg-primary border border-accent p-4 rounded-lg text-sm text-brand font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer">
                                     <option value="none">- NONE (Unrestricted) -</option>
                                     {Object.entries(CONTENT_GUIDELINES.RATINGS).map(([key, val]) => (
                                         <option key={key} value={key}>{val.name}</option>
@@ -333,7 +334,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                             </div>
                             <div>
                                 <label className="text-[10px] font-black text-neutral-500 uppercase mb-2 block tracking-widest">Target Format</label>
-                                <select value={format} onChange={(e) => setFormat(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-sm text-blue-400 font-black outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-10 cursor-pointer">
+                                <select value={format} onChange={(e) => setFormat(e.target.value)} className="w-full bg-primary border border-accent p-4 rounded-lg text-sm text-blue-400 font-black outline-none focus:ring-2 focus:ring-brand appearance-none pr-10 cursor-pointer">
                                     <option value="Feature_Film">Feature Film (Standard)</option>
                                     <option value="Netflix_Limited">Netflix Series (Binge)</option>
                                     <option value="AppleTV_Prestige">Apple TV+ (Prestige)</option>
@@ -342,34 +343,34 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                     <option value="Short_Film">Short Film</option>
                                 </select>
                             </div>
-                            <textarea value={positiveConstraints} onChange={(e) => setPositiveConstraints(e.target.value)} placeholder="Must Include..." className="w-full h-32 bg-black border border-neutral-800 rounded-lg text-sm text-neutral-100 p-4" />
-                            <textarea value={negativeConstraints} onChange={(e) => setNegativeConstraints(e.target.value)} placeholder="Forbidden..." className="w-full h-32 bg-black border border-neutral-800 rounded-lg text-sm text-neutral-100 p-4" />
+                            <textarea value={positiveConstraints} onChange={(e) => setPositiveConstraints(e.target.value)} placeholder="Must Include..." className="w-full h-32 bg-primary border border-accent rounded-lg text-sm text-neutral-100 p-4" />
+                            <textarea value={negativeConstraints} onChange={(e) => setNegativeConstraints(e.target.value)} placeholder="Forbidden..." className="w-full h-32 bg-primary border border-accent rounded-lg text-sm text-neutral-100 p-4" />
                         </div>
                     )}
                 </div>
 
-                <div className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
+                <div className="bg-surface border border-accent rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                     <StepHeader 
                         number={2} title="PRODUCTION BLUEPRINT" isOpen={isStep2Open} onToggle={() => setIsStep2Open(!isStep2Open)} 
                         onCopy={handleCopyStep2} icon={<ScriptIcon className="w-6 h-6" />} themeColor="text-blue-400"
                         extra={<button onClick={handleRandomize} className="px-3 py-1.5 bg-brand/10 hover:bg-brand text-brand hover:text-white rounded-lg flex items-center gap-2 border border-brand/20 font-black uppercase text-[9px] tracking-widest transition-all"><ShuffleIcon className="w-3.5 h-3.5" /> Re-Roll</button>}
                     />
                     {isStep2Open && (
-                        <div className="p-8 space-y-10 animate-fade-in bg-black/40">
+                        <div className="p-8 space-y-10 animate-fade-in bg-secondary">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                                <input type="text" value={initialTitle} onChange={(e) => setInitialTitle(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-black" placeholder="Title" />
-                                <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none">
+                                <input type="text" value={initialTitle} onChange={(e) => setInitialTitle(e.target.value)} className="w-full bg-primary border border-accent p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none font-black" placeholder="Title" />
+                                <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full bg-primary border border-accent p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none">
                                     {Object.keys(genresData).map(g => <option key={g} value={g}>{g.replace(/_/g, ' ').toUpperCase()}</option>)}
                                 </select>
-                                <input type="text" value={theme} onChange={(e) => setTheme(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none" placeholder="Theme" />
-                                <input type="text" value={setting} onChange={(e) => setSetting(e.target.value)} className="w-full bg-black border border-neutral-800 p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none" placeholder="Setting" />
+                                <input type="text" value={theme} onChange={(e) => setTheme(e.target.value)} className="w-full bg-primary border border-accent p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none" placeholder="Theme" />
+                                <input type="text" value={setting} onChange={(e) => setSetting(e.target.value)} className="w-full bg-primary border border-accent p-4 rounded-lg text-base text-white focus:ring-2 focus:ring-brand outline-none" placeholder="Setting" />
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                                <textarea value={cast} onChange={(e) => setCast(e.target.value)} className="w-full h-64 bg-black border border-neutral-800 p-6 rounded-xl text-sm text-neutral-300 font-mono" placeholder="Cast" />
-                                <textarea value={beatSheet} onChange={(e) => setBeatSheet(e.target.value)} className="w-full h-64 bg-black border border-neutral-800 p-6 rounded-xl text-sm text-neutral-300 font-mono" placeholder="Beats" />
+                                <textarea value={cast} onChange={(e) => setCast(e.target.value)} className="w-full h-64 bg-primary border border-accent p-6 rounded-xl text-sm text-neutral-300 font-mono" placeholder="Cast" />
+                                <textarea value={beatSheet} onChange={(e) => setBeatSheet(e.target.value)} className="w-full h-64 bg-primary border border-accent p-6 rounded-xl text-sm text-neutral-300 font-mono" placeholder="Beats" />
                             </div>
                             <div className="pt-8 flex justify-center">
-                                <button onClick={handleExecuteOutlineProtocol} disabled={isGeneratingOutline} className="px-16 py-6 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-xs tracking-[0.5em] rounded-xl transition-all flex items-center justify-center gap-4 shadow-2xl active:scale-95 disabled:opacity-50">
+                                <button onClick={handleExecuteOutlineProtocol} disabled={isGeneratingOutline} className="px-16 py-6 bg-brand hover:bg-brand-hover text-white font-black uppercase text-xs tracking-[0.5em] rounded-xl transition-all flex items-center justify-center gap-4 shadow-2xl active:scale-95 disabled:opacity-50">
                                     {isGeneratingOutline ? <LoadingSpinner className="w-6 h-6 text-white" /> : <><WandIcon className="w-6 h-6" /> Execute Protocol</>}
                                 </button>
                             </div>
@@ -378,13 +379,13 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 </div>
 
                 {(generatedOutline || isGeneratingOutline) && (
-                    <div id="step-3-outline" className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
+                    <div id="step-3-outline" className="bg-surface border border-accent rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                         <StepHeader 
                             number={3} title="AI SYNTHESIZED OUTLINE" isOpen={isStep3Open} onToggle={() => setIsStep3Open(!isStep3Open)} 
                             onCopy={handleCopyStep3} icon={<AutomationIcon className="w-5 h-5" />} themeColor="text-blue-500"
                         />
                         {isStep3Open && (
-                            <div className="p-8 space-y-8 animate-fade-in bg-black/40">
+                            <div className="p-8 space-y-8 animate-fade-in bg-secondary">
                                 {isGeneratingOutline ? (
                                     <div className="py-24 flex flex-col items-center justify-center gap-6 text-neutral-500">
                                         <LoadingSpinner className="w-12 h-12" />
@@ -392,30 +393,30 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                     </div>
                                 ) : (
                                     <div className="space-y-8 max-w-5xl mx-auto">
-                                        <div className="border-b border-neutral-800 pb-8">
+                                        <div className="border-b border-accent pb-8">
                                             <h3 className="text-4xl font-black text-blue-400 tracking-tighter uppercase">{cleanLiteralNewlines(workingTitle)}</h3>
                                             <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-2">Active Production Cycle / Version 1.0</p>
                                         </div>
 
                                         <div className="grid grid-cols-1 gap-10">
                                             <div className="space-y-4">
-                                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block border-l-2 border-blue-600 pl-3">Narrative Premise (Logline)</label>
+                                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block border-l-2 border-brand pl-3">Narrative Premise (Logline)</label>
                                                 <div 
-                                                    className="prose prose-invert prose-lg max-w-none text-neutral-200 italic font-serif leading-relaxed bg-black/20 p-6 rounded-xl border border-white/5"
+                                                    className="prose prose-invert prose-lg max-w-none text-neutral-200 italic font-serif leading-relaxed bg-primary/20 p-6 rounded-xl border border-white/5"
                                                     dangerouslySetInnerHTML={{ __html: simpleMarkdownToHtml(logline) }}
                                                 />
                                             </div>
 
                                             <div className="space-y-4">
-                                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block border-l-2 border-blue-600 pl-3">Production Beats (Treatment)</label>
+                                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block border-l-2 border-brand pl-3">Production Beats (Treatment)</label>
                                                 <div 
-                                                    className="prose prose-invert prose-neutral max-w-none bg-black/30 p-8 rounded-xl border border-white/5 min-h-[200px]"
+                                                    className="prose prose-invert prose-neutral max-w-none bg-primary/30 p-8 rounded-xl border border-white/5 min-h-[200px]"
                                                     dangerouslySetInnerHTML={{ __html: simpleMarkdownToHtml(treatment) }}
                                                 />
                                             </div>
                                         </div>
 
-                                        <div className="pt-8 flex justify-center border-t border-neutral-800">
+                                        <div className="pt-8 flex justify-center border-t border-accent">
                                             <button onClick={handleGenerateScreenplay} disabled={isGeneratingScreenplay || !isOutlineReady} className="w-full md:w-auto px-20 py-6 bg-brand hover:bg-brand-hover text-white font-black uppercase text-xs tracking-[0.5em] rounded-xl transition-all flex items-center justify-center gap-4 shadow-2xl active:scale-95 disabled:opacity-50">
                                                 {isGeneratingScreenplay ? <LoadingSpinner className="w-6 h-6 text-white" /> : <><ScriptIcon className="w-6 h-6" /> Generate Full First Draft</>}
                                             </button>
@@ -428,14 +429,14 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                 )}
 
                 {(generatedScreenplay || isGeneratingScreenplay) && (
-                    <div id="step-4-report" className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
+                    <div id="step-4-report" className="bg-surface border border-accent rounded-xl overflow-hidden shadow-2xl transition-all duration-500">
                         <StepHeader 
                             number={4} title="FINAL PRODUCTION REPORT" isOpen={isStep4Open} onToggle={() => setIsStep4Open(!isStep4Open)} 
                             onCopy={handleCopyStep4} icon={<div className="w-3.5 h-3.5 rounded-full bg-green-500 shadow-lg shadow-green-900/50"></div>} themeColor="text-green-500"
                             extra={<button onClick={() => {}} className="text-[11px] font-black text-brand hover:text-brand-hover px-5 py-2.5 flex items-center gap-2 border border-brand/20 hover:border-brand/50 rounded-lg transition-all uppercase tracking-widest active:scale-95"><DownloadIcon className="w-4 h-4" /> Export .txt</button>}
                         />
                         {isStep4Open && (
-                            <div className="animate-fade-in bg-black/40 flex flex-col">
+                            <div className="animate-fade-in bg-secondary flex flex-col">
                                 {isGeneratingScreenplay ? (
                                     <div className="py-32 flex flex-col items-center justify-center gap-8 text-neutral-500">
                                         <LoadingSpinner className="w-16 h-16" />
@@ -443,15 +444,15 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                     </div>
                                 ) : (
                                     <>
-                                        <div className="p-2.5 bg-black/50 border-b border-neutral-800 flex gap-2.5">
-                                            <button onClick={() => setActiveOutputTab('outline')} className={`flex-1 py-5 text-[11px] font-black uppercase tracking-[0.3em] rounded-lg transition-all ${activeOutputTab === 'outline' ? 'bg-neutral-800 text-white shadow-xl ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}>Outline Analysis</button>
-                                            <button onClick={() => setActiveOutputTab('screenplay')} className={`flex-1 py-5 text-[11px] font-black uppercase tracking-[0.3em] rounded-lg transition-all ${activeOutputTab === 'screenplay' ? 'bg-neutral-800 text-white shadow-xl ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}>First Draft</button>
+                                        <div className="p-2.5 bg-primary/50 border-b border-accent flex gap-2.5">
+                                            <button onClick={() => setActiveOutputTab('outline')} className={`flex-1 py-5 text-[11px] font-black uppercase tracking-[0.3em] rounded-lg transition-all ${activeOutputTab === 'outline' ? 'bg-surface text-white shadow-xl ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}>Outline Analysis</button>
+                                            <button onClick={() => setActiveOutputTab('screenplay')} className={`flex-1 py-5 text-[11px] font-black uppercase tracking-[0.3em] rounded-lg transition-all ${activeOutputTab === 'screenplay' ? 'bg-surface text-white shadow-xl ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}>First Draft</button>
                                         </div>
 
-                                        <div className="flex-grow bg-black/60 p-4 md:p-16 font-mono text-sm leading-loose overflow-y-auto min-h-[600px]">
+                                        <div className="flex-grow bg-primary/60 p-4 md:p-16 font-mono text-sm leading-loose overflow-y-auto min-h-[600px]">
                                             {activeOutputTab === 'outline' ? (
                                                 <div className="text-neutral-300 animate-fade-in space-y-16 max-w-5xl mx-auto">
-                                                    <div className="text-center border-b border-neutral-800 pb-12">
+                                                    <div className="text-center border-b border-accent pb-12">
                                                         <h3 className="text-5xl font-black text-blue-400 mb-4 tracking-tighter uppercase">{cleanLiteralNewlines(workingTitle)}</h3>
                                                         <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-[0.8em]">Technical Story Matrix / Final Review</p>
                                                     </div>
@@ -477,7 +478,7 @@ export const ScriptWriterStudio: React.FC<ScriptWriterStudioProps> = ({
                                             )}
                                         </div>
                                         {activeOutputTab === 'screenplay' && generatedScreenplay && (
-                                            <div className="p-6 bg-neutral-900 border-t border-neutral-800 flex justify-center">
+                                            <div className="p-6 bg-surface border-t border-accent flex justify-center">
                                                 <button onClick={handleSendToBin} className="px-12 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-[0.5em] rounded-xl transition-all shadow-xl active:scale-95">Send to Scripts Bin</button>
                                             </div>
                                         )}

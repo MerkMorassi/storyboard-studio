@@ -15,19 +15,21 @@ interface ErrorBoundaryState {
  * ErrorBoundary component to catch and display critical rendering errors.
  */
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Initialize state as a class property
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null,
-    errorInfo: null,
-  };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+    };
+  }
 
-  public static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     // Update state so the next render will show the fallback UI.
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log the error for diagnostic purposes.
     console.error("Uncaught error in ErrorBoundary:", error, errorInfo);
     
@@ -37,7 +39,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     });
   }
 
-  public render() {
+  render() {
     // If an error was caught, render the technical crash report
     if (this.state.hasError) {
       return (

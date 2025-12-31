@@ -271,7 +271,8 @@ export const getEmbeddings = async (text: string) => {
             model: 'text-embedding-004',
             contents: { parts: [{ text }] }
         });
-        return response.embeddings?.[0]?.values || null;
+        // Correct access for embedContent (singular) which typically returns `embedding`
+        return response.embedding?.values || null;
     });
 };
 
