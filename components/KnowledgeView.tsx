@@ -8,11 +8,12 @@ import { UploadIcon } from './icons/UploadIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { WandIcon } from './icons/WandIcon';
 import { WarningIcon } from './icons/WarningIcon';
-import { CloseIcon } from './icons.tsx';
+import { CloseIcon, PhoneIcon, CheckIcon } from './icons.tsx';
 
 interface KnowledgeViewProps {
     agents: Agent[];
     onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
+    onCallAgent?: (agent: Agent) => void;
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved';
@@ -34,7 +35,7 @@ const CollapsibleSection: React.FC<{ title: string; number: string; children: Re
     );
 };
 
-export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAgent }) => {
+export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAgent, onCallAgent }) => {
     // Agent Selection State
     const [selectedAgentId, setSelectedAgentId] = useState<string>(agents.length > 0 ? agents[0].id : '');
     const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
@@ -110,6 +111,12 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
             handleSaveWithFeedback(() => {
                 onUpdateAgent(selectedAgentId, { systemPrompt });
             }, setPersonaSaveStatus);
+        }
+    };
+    
+    const handleToggleRAG = () => {
+        if (selectedAgentId) {
+            onUpdateAgent(selectedAgentId, { enableLocalRag: !selectedAgent.enableLocalRag });
         }
     };
 
@@ -320,6 +327,11 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
             setIsAnalyzing(false);
         }
     };
+    
+    // Status visual determination
+    const ragActive = selectedAgent.enableLocalRag;
+    const hasData = vectorCount > 0;
+    const isLockedAndLoaded = ragActive && hasData;
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
@@ -330,23 +342,59 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents, onUpdateAg
                     <p className="text-xs text-text-secondary/70">NOETIC SOVEREIGNTY ENGINE</p>
                 </div>
                 
-                {/* Agent Selector */}
-                <div className="bg-secondary/50 border border-accent p-4 rounded-xl flex items-center justify-between gap-4 mb-4">
-                    <div className="flex flex-col flex-grow">
-                        <label className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">Active Agent Knowledge Base</label>
-                        <select 
-                            value={selectedAgentId} 
-                            onChange={(e) => setSelectedAgentId(e.target.value)}
-                            className="bg-primary text-text-primary font-bold text-lg border border-accent rounded p-2 focus:ring-1 focus:ring-brand cursor-pointer appearance-none outline-none"
-                        >
-                            {agents.map(a => (
-                                <option key={a.id} value={a.id}>{a.name} ({a.narrativeRole || 'General'})</option>
-                            ))}
-                        </select>
+                {/* Agent Selector & Status */}
+                <div className="bg-secondary/50 border border-accent p-4 rounded-xl flex flex-col gap-4 mb-4">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex flex-col flex-grow">
+                            <label className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">Active Agent Knowledge Base</label>
+                            <div className="flex gap-2">
+                                <select 
+                                    value={selectedAgentId} 
+                                    onChange={(e) => setSelectedAgentId(e.target.value)}
+                                    className="bg-primary text-text-primary font-bold text-lg border border-accent rounded p-2 focus:ring-1 focus:ring-brand cursor-pointer appearance-none outline-none flex-grow"
+                                >
+                                    {agents.map(a => (
+                                        <option key={a.id} value={a.id}>{a.name} ({a.narrativeRole || 'General'})</option>
+                                    ))}
+                                </select>
+                                <button 
+                                    onClick={() => onCallAgent && onCallAgent(selectedAgent)}
+                                    className="p-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors shadow-lg active:scale-95 flex-shrink-0"
+                                    title="Call Agent to Test Knowledge"
+                                >
+                                    <PhoneIcon className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                            <p className="text-2xl font-black text-white">{vectorCount.toLocaleString()}</p>
+                            <p className="text-[10px] uppercase text-text-secondary font-bold">Vectors Indexed</p>
+                        </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                        <p className="text-2xl font-black text-white">{vectorCount.toLocaleString()}</p>
-                        <p className="text-[10px] uppercase text-text-secondary font-bold">Vectors Indexed</p>
+                    
+                    {/* Locked & Loaded Indicator */}
+                    <div className={`flex items-center justify-between p-3 rounded-lg border ${isLockedAndLoaded ? 'bg-green-900/20 border-green-500/30' : 'bg-red-900/10 border-red-500/20'}`}>
+                        <div className="flex items-center gap-3">
+                            <div className={`w-3 h-3 rounded-full ${isLockedAndLoaded ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                            <div className="flex flex-col">
+                                <span className={`text-xs font-black uppercase tracking-widest ${isLockedAndLoaded ? 'text-green-400' : 'text-red-400'}`}>
+                                    {isLockedAndLoaded ? 'RAG SYSTEM: ACTIVE & PERSISTED' : 'RAG SYSTEM: INACTIVE'}
+                                </span>
+                                <span className="text-[10px] text-text-secondary">
+                                    {hasData ? 'Knowledge vectors loaded from database.' : 'Knowledge Base is empty.'}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-text-secondary uppercase">Enable RAG</span>
+                            <div 
+                                onClick={handleToggleRAG}
+                                className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${ragActive ? 'bg-green-600' : 'bg-neutral-600'}`}
+                            >
+                                <div className={`w-3 h-3 bg-white rounded-full shadow-sm transform transition-transform ${ragActive ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
