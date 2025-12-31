@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { ActiveView, Project, Agent, ImageState, ScriptFile, LoreEntry, Character } from './types.ts';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -47,6 +46,7 @@ import { getTopazApiKey, saveTopazApiKey, getHfApiKey, saveHfApiKey } from './se
 import { getPromptTemplates, savePromptTemplate, deletePromptTemplate } from './services/promptTemplateService.ts';
 import { generateImageSDXL } from './services/huggingFaceService.ts';
 import { blobToBase64 } from './utils/imageUtils.ts';
+import { vectorDb } from './services/vectorDbService';
 
 export const App = () => {
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
@@ -94,7 +94,7 @@ export const App = () => {
           generativeVideoState: { prompt: '', negativePrompt: '', image: null, lastImage: null, resultUrl: null, engine: 'external', externalUrl: '', steps: 25, duration: 4, guidanceScale: 7.5, guidanceScale2: 1.0, scheduler: 'UniPCMultistep', fps: 16, seed: 42, randomizeSeed: true },
           topazState: { activeMediaType: 'image', source: null, result: null, resultUrl: null, operation: 'enhance', parameters: { scale: 2, strength: 50 }, faceRecovery: true },
           directorState: { referenceImage: null, analysis: null, chatHistory: [], generatedPreview: null },
-          agents: getAnimAgentsTeam(),
+          agents: getAnimAgentsTeam(), // Default initialization
           studioPlayers: [],
           characters: [],
           lore: [],
@@ -103,6 +103,45 @@ export const App = () => {
           automationConfig: { ragEnabled: false, ragProvider: 'browser', ragApiKey: '', ragBaseUrl: '', ragKnowledgeBoxId: '', ragLocalhostUrl: '', webhookUrls: [] }
       }
   });
+
+  // Load persistent data from IndexedDB on startup
+  useEffect(() => {
+      const loadPersistentData = async () => {
+          try {
+              const [savedAgents, savedPlayers, savedImages] = await Promise.all([
+                  vectorDb.getAgents(),
+                  vectorDb.getPlayers(),
+                  vectorDb.getImages()
+              ]);
+
+              updateProjectData({
+                  // If we have saved agents, use them. Otherwise, keep the default team.
+                  agents: savedAgents.length > 0 ? savedAgents : getAnimAgentsTeam(),
+                  studioPlayers: savedPlayers,
+                  images: savedImages
+              });
+          } catch (e) {
+              console.error("Failed to load persistent data:", e);
+          }
+      };
+      loadPersistentData();
+  }, []);
+
+  // Persist Agents whenever they change
+  useEffect(() => {
+      vectorDb.saveAgents(project.data.agents).catch(e => console.error("Failed to save agents", e));
+  }, [project.data.agents]);
+
+  // Persist Players whenever they change
+  useEffect(() => {
+      vectorDb.savePlayers(project.data.studioPlayers).catch(e => console.error("Failed to save players", e));
+  }, [project.data.studioPlayers]);
+
+  // Persist Images whenever they change
+  useEffect(() => {
+      vectorDb.saveImages(project.data.images).catch(e => console.error("Failed to save images", e));
+  }, [project.data.images]);
+
 
   const updateProjectData = (updates: Partial<typeof project.data>) => {
       setProject(prev => ({ ...prev, data: { ...prev.data, ...updates } }));

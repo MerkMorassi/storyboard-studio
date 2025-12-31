@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef } from 'react';
 import { Agent, getAvailableVoices } from '../services/agentService';
 import { UserIcon } from './icons/UserIcon';
@@ -33,6 +32,7 @@ export const AgentForm: React.FC<AgentFormProps> = ({ agent, onSave, onCancel })
 
   // Directives
   const [systemPrompt, setSystemPrompt] = useState(agent?.systemPrompt || '');
+  const [enableLocalRag, setEnableLocalRag] = useState(agent?.enableLocalRag ?? true);
   
   // Voice
   const [voice, setVoice] = useState(agent?.voice || 'Kore');
@@ -57,7 +57,7 @@ export const AgentForm: React.FC<AgentFormProps> = ({ agent, onSave, onCancel })
     onSave({
       name, bio, narrativeRole,
       tags: tags.split(',').map(tag => tag.trim()).filter(Boolean),
-      avatar, systemPrompt, voice, speakingRate, autoPlayAudio,
+      avatar, systemPrompt, enableLocalRag, voice, speakingRate, autoPlayAudio,
     });
     
     setSaveState('saved');
@@ -95,7 +95,19 @@ export const AgentForm: React.FC<AgentFormProps> = ({ agent, onSave, onCancel })
             )}
 
             {activeTab === 'directives' && (
-                <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} placeholder="System Prompt..." rows={10} className="w-full p-2 bg-neutral-800 rounded font-mono text-xs" />
+                <div className="space-y-4">
+                    <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} placeholder="System Prompt..." rows={10} className="w-full p-2 bg-neutral-800 rounded font-mono text-xs" />
+                    <label className="flex items-center gap-2 cursor-pointer bg-neutral-800 p-2 rounded hover:bg-neutral-700 transition">
+                        <input 
+                            type="checkbox" 
+                            checked={enableLocalRag} 
+                            onChange={(e) => setEnableLocalRag(e.target.checked)} 
+                            className="accent-blue-600 w-4 h-4"
+                        />
+                        <span className="text-sm text-neutral-200">Enable Knowledge Base (RAG)</span>
+                    </label>
+                    <p className="text-xs text-neutral-500 px-1">Allows this agent to access and reference documents uploaded to its Knowledge Base.</p>
+                </div>
             )}
 
             {activeTab === 'voice' && (

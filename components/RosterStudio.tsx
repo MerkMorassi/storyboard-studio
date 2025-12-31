@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Agent, ImageState } from '../types.ts';
 import { CloseIcon, PhoneIcon, AutomationIcon } from './icons.tsx';
@@ -17,6 +18,14 @@ interface RosterStudioProps {
     onImageUpload: (agentId: string, file: File) => void;
     onCallEntity: (agent: Agent) => void;
 }
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
 
 const ProfileModal: React.FC<{
     agent: Agent;
@@ -42,6 +51,7 @@ const ProfileModal: React.FC<{
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Sync form state when agent prop updates
     useEffect(() => {
         setName(agent.name);
         setBio(agent.bio || '');
@@ -57,6 +67,19 @@ const ProfileModal: React.FC<{
             name, bio, narrativeRole, actorName, actorContact, systemPrompt, voice
         });
         setIsEditing(false);
+    };
+
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            try {
+                const base64 = await fileToBase64(file);
+                onSave({ avatar: base64 });
+            } catch (err) {
+                console.error("Failed to upload avatar", err);
+            }
+        }
+        e.target.value = '';
     };
 
     const isAI = rosterType === 'ai';
@@ -103,11 +126,7 @@ const ProfileModal: React.FC<{
                                     ref={fileInputRef} 
                                     className="hidden" 
                                     accept="image/*" 
-                                    onChange={(e) => {
-                                        if (e.target.files?.[0]) {
-                                            onImageUpload(agent.id, e.target.files[0]);
-                                        }
-                                    }} 
+                                    onChange={handleAvatarChange}
                                 />
                             </div>
                             <h3 className="text-xl font-bold text-white text-center">{name}</h3>
@@ -297,7 +316,11 @@ const CreateEntityForm: React.FC<{
 };
 
 export const RosterStudio: React.FC<RosterStudioProps> = ({ rosterType, agents, images, onCreateEntity, onViewImage, onUpdateEntity, onDeleteEntity, onImageUpload, onCallEntity }) => {
-    const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+    // Store only the ID to prevent stale state issues
+    const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+    
+    // Derive the active agent from the props using the ID
+    const selectedAgent = selectedAgentId ? agents.find(a => a.id === selectedAgentId) || null : null;
 
     const title = rosterType === 'ai' ? 'AI Agents' : 'Studio Players';
     const description = rosterType === 'ai' 
@@ -332,7 +355,7 @@ export const RosterStudio: React.FC<RosterStudioProps> = ({ rosterType, agents, 
                             key={agent.id}
                             agent={agent}
                             images={images.filter(img => img.agentId === agent.id)}
-                            onClick={() => setSelectedAgent(agent)}
+                            onClick={() => setSelectedAgentId(agent.id)}
                             onDelete={() => onDeleteEntity(agent.id)}
                             onCall={() => onCallEntity(agent)}
                         />
@@ -345,7 +368,7 @@ export const RosterStudio: React.FC<RosterStudioProps> = ({ rosterType, agents, 
                     agent={selectedAgent}
                     rosterType={rosterType}
                     assignedImages={images.filter(img => img.agentId === selectedAgent.id)}
-                    onClose={() => setSelectedAgent(null)}
+                    onClose={() => setSelectedAgentId(null)}
                     onSave={(updated) => onUpdateEntity(selectedAgent.id, updated)}
                     onImageUpload={onImageUpload}
                     onViewImage={onViewImage}

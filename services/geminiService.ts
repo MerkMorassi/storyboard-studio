@@ -267,12 +267,20 @@ export const fetchModels = async () => [
 export const getEmbeddings = async (text: string) => {
     return apiCallWithRetry(async () => {
         const ai = getClient();
-        const response = await ai.models.embedContent({
-            model: 'text-embedding-004',
-            contents: { parts: [{ text }] }
-        });
-        // Correct access for embedContent (singular) which typically returns `embedding`
-        return response.embedding?.values || null;
+        try {
+            const response = await ai.models.embedContent({
+                model: 'text-embedding-004',
+                contents: { parts: [{ text }] }
+            });
+            if (response.embedding && response.embedding.values) {
+                return response.embedding.values;
+            }
+            console.warn("Embedding response missing values:", response);
+            return null;
+        } catch (e) {
+            console.error("Embedding generation failed:", e);
+            throw e;
+        }
     });
 };
 

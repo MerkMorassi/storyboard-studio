@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Agent } from '../services/agentService';
 import { Chat, Part, Content } from '@google/genai';
-import { createChat, generateSpeech } from '../services/geminiService';
+import { createChat, generateSpeech, getEmbeddings } from '../services/geminiService';
 import { ChatMessage } from './ChatMessage';
 import { ChatInterface } from './ChatInterface';
 import { decode, decodeAudioData } from '../utils/audio';
@@ -13,6 +13,8 @@ import { useLiveChat } from '../hooks/useLiveChat';
 import { MicIcon } from './icons/MicIcon';
 import { MicOffIcon } from './icons/MicOffIcon';
 import { PhoneIcon } from './icons.tsx';
+import { DatabaseIcon } from './icons/DatabaseIcon';
+import { cosineSimilarity } from '../services/embeddingService';
 
 interface AgentChatViewProps {
   agent: Agent;
@@ -37,6 +39,46 @@ interface ChatMessagePart {
   };
 }
 
+const retrieveContext = async (agentId: string, query: string): Promise<{ text: string, sources: string[] } | null> => {
+    try {
+        console.log(`[RAG] Retrieving context for agent: ${agentId}`);
+        const vectors = await vectorDb.getVectorsByAgent(agentId);
+        console.log(`[RAG] Found ${vectors.length} total vectors for agent.`);
+        
+        if (vectors.length === 0) return null;
+
+        const queryVector = await getEmbeddings(query);
+        if (!queryVector) {
+            console.warn("[RAG] Failed to generate query embedding.");
+            return null;
+        }
+
+        const scored = vectors.map(v => ({
+            ...v,
+            score: cosineSimilarity(queryVector, v.vector)
+        }));
+
+        scored.sort((a, b) => b.score - a.score);
+        
+        // Log top score
+        console.log(`[RAG] Top match score: ${scored[0]?.score}`);
+
+        // Strict relevance filter
+        const relevant = scored.slice(0, 5).filter(v => v.score > 0.55);
+        
+        console.log(`[RAG] Relevant chunks found: ${relevant.length}`);
+
+        if (relevant.length === 0) return null;
+
+        const contextText = relevant.map(v => `[Source: ${v.source}]\n${v.text}`).join('\n\n');
+        const sources = Array.from(new Set(relevant.map(v => v.source)));
+        
+        return { text: contextText, sources };
+    } catch (e) {
+        console.error("RAG Retrieval Failed", e);
+        return null;
+    }
+};
 
 export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode = 'chat', onClose }) => {
   const [chatSession, setChatSession] = useState<Chat | null>(null);
@@ -199,9 +241,24 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
           partsForApi.push({ inlineData: { mimeType, data: base64 } });
         }
       }
+      
+      let messageToSend = currentMessage;
+      let ragNote = "";
+
+      // RAG Logic
+      if (agent.enableLocalRag && currentMessage.trim()) {
+          const contextResult = await retrieveContext(agent.id, currentMessage);
+          if (contextResult) {
+              messageToSend = `Use the following context from your knowledge base to answer the user's question. If the context isn't relevant to the specific question, ignore it and answer based on your general knowledge.\n\n<CONTEXT>\n${contextResult.text}\n</CONTEXT>\n\nUser Query: ${currentMessage}`;
+              ragNote = `\n\n*(Used context from: ${contextResult.sources.join(', ')})*`;
+          }
+      }
+
       if (currentMessage.trim()) {
+        // Show original message in history
         partsForHistory.push({ text: currentMessage });
-        partsForApi.push({ text: currentMessage });
+        // Send augmented message to API
+        partsForApi.push({ text: messageToSend });
       }
 
       const newHistoryEntry = {
@@ -216,7 +273,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
 
       if (responseText) {
         const modelMessageId = `model-${Date.now()}`;
-        setChatHistory((prev) => [...prev, { id: modelMessageId, role: 'model', parts: [{ text: responseText }] }]);
+        setChatHistory((prev) => [...prev, { id: modelMessageId, role: 'model', parts: [{ text: responseText + (ragNote ? `\n${ragNote}` : '') }] }]);
         
         // Auto-generate audio if in call mode OR if agent setting is on
         if (viewMode === 'call' || agent.autoPlayAudio) {
@@ -396,9 +453,16 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
   return (
     <div className="flex flex-col h-full animate-fade-in px-4 pb-4 md:px-6 md:pb-6 pt-2">
         <div className="flex justify-between items-center mb-4 shrink-0">
-            <div>
-                <h2 className="text-2xl font-bold text-text-primary">Agent Chat</h2>
-                <p className="text-text-secondary">Have a conversation with <span className="font-semibold text-text-primary">{agent.name}</span>.</p>
+            <div className="flex items-center gap-2">
+                <div>
+                    <h2 className="text-2xl font-bold text-text-primary">Agent Chat</h2>
+                    <p className="text-text-secondary">Have a conversation with <span className="font-semibold text-text-primary">{agent.name}</span>.</p>
+                </div>
+                {agent.enableLocalRag && (
+                    <div className="px-2 py-1 bg-blue-900/30 border border-blue-500/30 rounded flex items-center gap-1 text-[10px] text-blue-300 font-bold uppercase tracking-wider" title="RAG Active">
+                        <DatabaseIcon className="w-3 h-3" /> Knowledge Active
+                    </div>
+                )}
             </div>
              <div className="flex items-center gap-2">
                  <button

@@ -1,11 +1,13 @@
 
+import { Agent, ImageState } from '../types.ts';
+
 export interface VectorRecord {
-  id: number | string; // Support both numeric timestamps and UUID strings
+  id: number | string;
   text: string;
   vector: number[];
   source: string;
   timestamp: number;
-  agentId?: string; // New field for segregation
+  agentId?: string;
 }
 
 export interface ChatLogRecord {
@@ -22,9 +24,12 @@ export interface ChatLogRecord {
 }
 
 const DB_NAME = 'mythos_vault';
-const DB_VERSION = 4; // Incremented for agentId index
+const DB_VERSION = 5; // Updated for new stores
 const STORE_VECTORS = 'vectors';
 const STORE_AGENT_CHAT = 'agentChatLogs';
+const STORE_AGENTS = 'agents';
+const STORE_PLAYERS = 'players';
+const STORE_IMAGES = 'images';
 
 class VectorDbService {
   private db: IDBDatabase | null = null;
@@ -46,12 +51,9 @@ class VectorDbService {
           vectorStore = (e.target as IDBOpenDBRequest).transaction!.objectStore(STORE_VECTORS);
         }
 
-        // Create 'source' index if it doesn't exist
         if (!vectorStore.indexNames.contains('source')) {
             vectorStore.createIndex('source', 'source', { unique: false });
         }
-
-        // Create 'agentId' index (v4 upgrade)
         if (!vectorStore.indexNames.contains('agentId')) {
             vectorStore.createIndex('agentId', 'agentId', { unique: false });
         }
@@ -59,6 +61,21 @@ class VectorDbService {
         // Chat Logs Store
         if (!db.objectStoreNames.contains(STORE_AGENT_CHAT)) {
           db.createObjectStore(STORE_AGENT_CHAT, { keyPath: 'id' });
+        }
+
+        // Agents Store
+        if (!db.objectStoreNames.contains(STORE_AGENTS)) {
+            db.createObjectStore(STORE_AGENTS, { keyPath: 'id' });
+        }
+
+        // Players Store
+        if (!db.objectStoreNames.contains(STORE_PLAYERS)) {
+            db.createObjectStore(STORE_PLAYERS, { keyPath: 'id' });
+        }
+
+        // Images Store
+        if (!db.objectStoreNames.contains(STORE_IMAGES)) {
+            db.createObjectStore(STORE_IMAGES, { keyPath: 'id' });
         }
       };
 
@@ -73,7 +90,32 @@ class VectorDbService {
     });
   }
 
-  // --- Vector Store Methods ---
+  // --- Generic Store Methods ---
+
+  async saveItems<T>(storeName: string, items: T[]): Promise<void> {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(storeName, 'readwrite');
+          const store = tx.objectStore(storeName);
+          store.clear(); // Overwrite strategy for simplicity on these lists
+          items.forEach(item => store.put(item));
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+      });
+  }
+
+  async getAllItems<T>(storeName: string): Promise<T[]> {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(storeName, 'readonly');
+          const store = tx.objectStore(storeName);
+          const request = store.getAll();
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+      });
+  }
+
+  // --- Specific Public Methods ---
 
   async addVectors(vectors: VectorRecord[]): Promise<void> {
     const db = await this.open();
@@ -87,14 +129,7 @@ class VectorDbService {
   }
 
   async getAllVectors(): Promise<VectorRecord[]> {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_VECTORS, 'readonly');
-      const store = tx.objectStore(STORE_VECTORS);
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+    return this.getAllItems<VectorRecord>(STORE_VECTORS);
   }
 
   async getVectorsByAgent(agentId: string): Promise<VectorRecord[]> {
@@ -103,14 +138,12 @@ class VectorDbService {
           const tx = db.transaction(STORE_VECTORS, 'readonly');
           const store = tx.objectStore(STORE_VECTORS);
           
-          // Use index if available
           if (store.indexNames.contains('agentId')) {
               const index = store.index('agentId');
               const request = index.getAll(agentId);
               request.onsuccess = () => resolve(request.result);
               request.onerror = () => reject(request.error);
           } else {
-              // Fallback for older DB versions without index (shouldn't happen with version bump but safe)
               const request = store.getAll();
               request.onsuccess = () => {
                   const all = request.result as VectorRecord[];
@@ -132,7 +165,6 @@ class VectorDbService {
           request.onsuccess = (event) => {
               const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
               if (cursor) {
-                  // If agentId is provided, check if it matches before deleting
                   if (!agentId || cursor.value.agentId === agentId) {
                       cursor.delete();
                   }
@@ -152,7 +184,6 @@ class VectorDbService {
       const store = tx.objectStore(STORE_VECTORS);
       
       if (agentId) {
-          // Only clear for specific agent using index
           if (store.indexNames.contains('agentId')) {
               const index = store.index('agentId');
               const request = index.openCursor(IDBKeyRange.only(agentId));
@@ -165,7 +196,6 @@ class VectorDbService {
               };
               tx.oncomplete = () => resolve();
           } else {
-              // Fallback: iterate all
               const request = store.openCursor();
               request.onsuccess = (event) => {
                   const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
@@ -177,7 +207,6 @@ class VectorDbService {
               tx.oncomplete = () => resolve();
           }
       } else {
-          // Clear all
           const request = store.clear();
           request.onsuccess = () => resolve();
       }
@@ -186,29 +215,13 @@ class VectorDbService {
     });
   }
   
-  // --- Agent Chat Log Methods ---
-
+  // Agent Chat Log Methods
   async saveAgentChatLogs(logs: ChatLogRecord[]): Promise<void> {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_AGENT_CHAT, 'readwrite');
-      const store = tx.objectStore(STORE_AGENT_CHAT);
-      store.clear(); 
-      logs.forEach(log => store.put(log));
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
+    return this.saveItems(STORE_AGENT_CHAT, logs);
   }
 
   async getAgentChatLogs(): Promise<ChatLogRecord[]> {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_AGENT_CHAT, 'readonly');
-      const store = tx.objectStore(STORE_AGENT_CHAT);
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+    return this.getAllItems<ChatLogRecord>(STORE_AGENT_CHAT);
   }
 
   async clearAgentChatLogs(): Promise<void> {
@@ -220,6 +233,30 @@ class VectorDbService {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
+  }
+
+  // --- Agents Persistence ---
+  async saveAgents(agents: Agent[]): Promise<void> {
+      return this.saveItems(STORE_AGENTS, agents);
+  }
+  async getAgents(): Promise<Agent[]> {
+      return this.getAllItems<Agent>(STORE_AGENTS);
+  }
+
+  // --- Players Persistence ---
+  async savePlayers(players: Agent[]): Promise<void> {
+      return this.saveItems(STORE_PLAYERS, players);
+  }
+  async getPlayers(): Promise<Agent[]> {
+      return this.getAllItems<Agent>(STORE_PLAYERS);
+  }
+
+  // --- Images Persistence ---
+  async saveImages(images: ImageState[]): Promise<void> {
+      return this.saveItems(STORE_IMAGES, images);
+  }
+  async getImages(): Promise<ImageState[]> {
+      return this.getAllItems<ImageState>(STORE_IMAGES);
   }
 }
 
