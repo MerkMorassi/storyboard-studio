@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { ActiveView, Project, Agent, ImageState, ScriptFile, LoreEntry } from './types.ts';
+import { ActiveView, Project, Agent, ImageState, ScriptFile, LoreEntry, Character } from './types.ts';
 import { Sidebar } from './components/Sidebar.tsx';
 import { DashboardStudio } from './components/DashboardStudio.tsx';
 import { ProjectsStudio } from './components/ProjectsStudio.tsx';
@@ -29,7 +30,8 @@ import { TopazStudio } from './components/TopazStudio.tsx';
 import { ImageGrid } from './components/ImageGrid.tsx';
 import { Storyboard } from './components/Storyboard.tsx';
 import { InspirationBoard } from './components/InspirationBoard.tsx';
-import { AgentsStudio } from './components/AgentsStudio.tsx';
+import { RosterStudio } from './components/RosterStudio.tsx';
+import { CharactersStudio } from './components/CharactersStudio.tsx';
 import { LoreStudio } from './components/LoreStudio.tsx';
 import { PromptLibraryStudio } from './components/PromptLibraryStudio.tsx';
 import { DynamicPromptsStudio } from './components/DynamicPromptsStudio.tsx';
@@ -93,6 +95,8 @@ export const App = () => {
           topazState: { activeMediaType: 'image', source: null, result: null, resultUrl: null, operation: 'enhance', parameters: { scale: 2, strength: 50 }, faceRecovery: true },
           directorState: { referenceImage: null, analysis: null, chatHistory: [], generatedPreview: null },
           agents: getAnimAgentsTeam(),
+          studioPlayers: [],
+          characters: [],
           lore: [],
           dynamicPromptLists: [],
           promptTemplates: getPromptTemplates(),
@@ -103,6 +107,51 @@ export const App = () => {
   const updateProjectData = (updates: Partial<typeof project.data>) => {
       setProject(prev => ({ ...prev, data: { ...prev.data, ...updates } }));
   };
+
+  const createEntity = (data: Partial<Agent>): Agent => ({
+      id: `agent_${Date.now()}`,
+      name: data.name || 'New Entity',
+      systemPrompt: data.systemPrompt || 'You are a helpful assistant.',
+      voice: data.voice || 'Kore',
+      tags: [],
+      speakingRate: 1.0,
+      autoPlayAudio: false,
+      ...data,
+  });
+
+  // AI Agent Handlers
+  const handleCreateAgent = (data: Partial<Agent>): Agent => {
+      const newAgent = createEntity(data);
+      updateProjectData({ agents: [...project.data.agents, newAgent] });
+      return newAgent;
+  };
+  const handleDeleteAgent = (agentId: string) => updateProjectData({ agents: project.data.agents.filter(a => a.id !== agentId) });
+  const handleUpdateAgent = (id: string, u: Partial<Agent>) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) });
+
+  // Studio Player Handlers
+  const handleCreatePlayer = (data: Partial<Agent>): Agent => {
+      const newPlayer = createEntity(data);
+      updateProjectData({ studioPlayers: [...project.data.studioPlayers, newPlayer] });
+      return newPlayer;
+  };
+  const handleDeletePlayer = (playerId: string) => updateProjectData({ studioPlayers: project.data.studioPlayers.filter(p => p.id !== playerId) });
+  const handleUpdatePlayer = (id: string, u: Partial<Agent>) => updateProjectData({ studioPlayers: project.data.studioPlayers.map(p => p.id === id ? { ...p, ...u } : p) });
+  
+  // Character Handlers
+  const handleCreateCharacter = (data: Partial<Character>): Character => {
+      const newChar: Character = {
+          id: `char_${Date.now()}`,
+          name: data.name || 'New Character',
+          archetype: data.archetype || 'Unknown',
+          description: data.description || '',
+          ...data
+      };
+      updateProjectData({ characters: [...project.data.characters, newChar] });
+      return newChar;
+  };
+  const handleDeleteCharacter = (id: string) => updateProjectData({ characters: project.data.characters.filter(c => c.id !== id) });
+  const handleUpdateCharacter = (id: string, u: Partial<Character>) => updateProjectData({ characters: project.data.characters.map(c => c.id === id ? { ...c, ...u } : c) });
+
 
   const handleAddAssetToGrid = (asset: any) => {
       const newImage: ImageState = {
@@ -174,8 +223,6 @@ export const App = () => {
     } catch (error) {
         console.error(`[Tool Call Error] ${name}:`, error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        // This error will be caught in AgentChatStudio and displayed to the user.
-        // We also return a text result for the model to understand the failure.
         return { 
             textResult: `The tool execution failed with the following error: ${errorMessage}`,
             resultData: { error: errorMessage } 
@@ -208,7 +255,7 @@ export const App = () => {
                 onNavigate={setActiveView} 
             />;
           case 'projects': return <ProjectsStudio projects={[project]} activeProjectId={project.id} onSelectProject={() => {}} onCreateProject={() => {}} onRenameProject={() => {}} onDeleteProject={() => {}} />;
-          case 'team': return <TeamStudio team={project.data.agents} onUpdateAgent={(id, u) => { updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) }) }} onNavigate={(v, id) => { setActiveView(v); if(id) setActiveAgentId(id); }} onCallAgent={() => {}} />;
+          case 'team': return <TeamStudio team={project.data.agents} onUpdateAgent={handleUpdateAgent} onNavigate={(v, id) => { setActiveView(v); if(id) setActiveAgentId(id); }} onCallAgent={() => {}} />;
           case 'core': return <CoreStudio agent={getAgentById('agent-core')} onNavigate={setActiveView} onCallAgent={() => {}} />;
           case 'ideation': return <IdeationStudio agent={getAgentById('agent-ideation')} onNavigate={setActiveView} onCallAgent={() => {}} />;
           case 'scripting': return <ScriptingStudio agent={scribe} scriptText={project.data.scriptText} scriptsBin={project.data.scriptsBin} onScriptUpload={() => {}} onDeleteScript={() => {}} onNavigate={setActiveView} onCallAgent={() => {}} />;
@@ -229,12 +276,14 @@ export const App = () => {
           case 'background-removal': return <BackgroundRemovalStudio state={project.data.backgroundRemovalState} onStateUpdate={s => updateProjectData({ backgroundRemovalState: s })} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} />;
           case 'qwen-image-edit': return <QwenImageEditStudio state={project.data.qwenImageEditState} onStateUpdate={s => updateProjectData({ qwenImageEditState: s })} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} />;
           case 'topaz': return <TopazStudio topazState={project.data.topazState} isLoading={false} error={null} onStateUpdate={s => updateProjectData({ topazState: s })} onGenerate={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onAddAssetToGrid={handleAddAssetToGrid} progress="" />;
-          case 'grid': return <ImageGrid images={project.data.images} isLoading={false} error={null} onViewImage={setSelectedImage} gridOverlay={gridOverlay} onGridOverlayChange={setGridOverlay} onEditImage={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onUpscaleImage={() => {}} agents={project.data.agents} onAssignAgentToImage={() => {}} onCreateAgent={() => ({} as Agent)} agentFilter={agentFilter} onAgentFilterChange={setAgentFilter} awaitingExternalGeneration={false} />;
+          case 'grid': return <ImageGrid images={project.data.images} isLoading={false} error={null} onViewImage={setSelectedImage} gridOverlay={gridOverlay} onGridOverlayChange={setGridOverlay} onEditImage={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} onUpscaleImage={() => {}} agents={project.data.agents} onAssignAgentToImage={() => {}} onCreateAgent={handleCreateAgent} agentFilter={agentFilter} onAgentFilterChange={setAgentFilter} awaitingExternalGeneration={false} />;
           case 'story': return <Storyboard frames={project.data.storyboard} onUpdateNote={() => {}} onRemove={() => {}} onReorder={() => {}} />;
           case 'inspiration': return <InspirationBoard images={project.data.inspirationImages} onUpload={() => {}} onRemove={() => {}} onUseAsGuide={() => {}} />;
           case 'scripts-bin': return <ScriptingStudio agent={scribe} scriptText={project.data.scriptText} scriptsBin={project.data.scriptsBin} onScriptUpload={(file) => { const reader = new FileReader(); reader.onload = (e) => updateProjectData({ scriptText: e.target?.result as string }); reader.readAsText(file); }} onDeleteScript={(id) => updateProjectData({ scriptsBin: project.data.scriptsBin.filter(s => s.id !== id) })} onNavigate={setActiveView} onCallAgent={() => { setActiveAgentId(scribe.id); setActiveView('agent-chat'); }} defaultTab='bin' />;
           case 'script-writer': return <ScriptWriterStudio onSendToScriptsBin={(s) => updateProjectData({ scriptsBin: [...project.data.scriptsBin, { ...s, id: `script_${Date.now()}`, date: new Date().toLocaleDateString() }] })} onNavigate={setActiveView} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} />;
-          case 'agents': return <AgentsStudio agents={project.data.agents} images={project.data.images} onCreateAgent={() => ({} as Agent)} onViewImage={setSelectedImage} onUpdateAgent={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} onDeleteAgent={() => {}} onImageUpload={() => {}} onCallAgent={() => {}} />;
+          case 'agents': return <RosterStudio rosterType="ai" agents={project.data.agents} images={project.data.images} onCreateEntity={handleCreateAgent} onViewImage={setSelectedImage} onUpdateEntity={handleUpdateAgent} onDeleteEntity={handleDeleteAgent} onImageUpload={() => {}} onCallEntity={() => {}} />;
+          case 'studio-players': return <RosterStudio rosterType="player" agents={project.data.studioPlayers} images={project.data.images} onCreateEntity={handleCreatePlayer} onViewImage={setSelectedImage} onUpdateEntity={handleUpdatePlayer} onDeleteEntity={handleDeletePlayer} onImageUpload={() => {}} onCallEntity={() => {}} />;
+          case 'characters': return <CharactersStudio characters={project.data.characters} onCreate={handleCreateCharacter} onUpdate={handleUpdateCharacter} onDelete={handleDeleteCharacter} />;
           case 'lore': return <LoreStudio lore={project.data.lore} projects={[{ id: project.id, name: project.name }]} onCreate={handleCreateLore} onUpdate={handleUpdateLore} onDelete={handleDeleteLore} />;
           case 'prompt-library': return <PromptLibraryStudio templates={project.data.promptTemplates} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
           case 'dynamic-prompts': return <DynamicPromptsStudio lists={project.data.dynamicPromptLists} onCreate={() => {}} onUpdate={() => {}} onDelete={() => {}} />;
@@ -253,7 +302,7 @@ export const App = () => {
               {renderView()}
           </div>
           <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onSave={(t, h) => { saveTopazApiKey(t); saveHfApiKey(h); setIsSettingsOpen(false); }} currentTopazApiKey={getTopazApiKey() || ''} currentHfApiKey={getHfApiKey() || ''} />
-          <ImageModal image={selectedImage} onClose={() => setSelectedImage(null)} onEdit={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} agents={project.data.agents} onAssignAgentToImage={() => {}} onCreateAgent={() => ({} as Agent)} />
+          <ImageModal image={selectedImage} onClose={() => setSelectedImage(null)} onEdit={() => {}} onAddToStoryboard={() => {}} onAddToInspiration={() => {}} agents={project.data.agents} onAssignAgentToImage={() => {}} onCreateAgent={handleCreateAgent} />
       </div>
   );
 };

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { LoadingSpinner, BasicGridOverlay, TriadicGridOverlay, BasicGoldenRatioGridOverlay, TriadicGoldenRatioGridOverlay, EditIcon, AddToStoryIcon, PinIcon, DownloadIcon, UpscaleIcon, CharacterIcon, AutomationIcon, VideoIcon } from './icons.tsx';
 import { GridOverlayType, ImageState, Agent } from '../types.ts';
@@ -16,7 +17,7 @@ interface ImageGridProps {
   onUpscaleImage: (id: string) => void;
   agents: Agent[];
   onAssignAgentToImage: (imageId: string, agentId: string | null) => void;
-  onCreateAgent: (name: string) => Agent;
+  onCreateAgent: (data: Partial<Agent>) => Agent;
   agentFilter: string;
   onAgentFilterChange: (filter: string) => void;
   awaitingExternalGeneration: boolean;
@@ -51,7 +52,7 @@ const AssignAgentControl: React.FC<{
     image: ImageState;
     agents: Agent[];
     onAssignAgentToImage: (imageId: string, agentId: string | null) => void;
-    onCreateAgent: (name: string) => Agent;
+    onCreateAgent: (data: Partial<Agent>) => Agent;
 }> = ({ image, agents, onAssignAgentToImage, onCreateAgent }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -64,7 +65,7 @@ const AssignAgentControl: React.FC<{
     const handleCreateAndAssign = () => {
         const name = prompt("Enter the new agent's name:");
         if (name && name.trim()) {
-            const newAgent = onCreateAgent(name);
+            const newAgent = onCreateAgent({ name });
             onAssignAgentToImage(image.id, newAgent.id);
         }
         setIsOpen(false);

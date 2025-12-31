@@ -1,4 +1,5 @@
 
+
 const CACHE_NAME = 'storyboard-studio-v7';
 const urlsToCache = [
   '/',
@@ -30,7 +31,8 @@ const urlsToCache = [
   '/components/PhotorealismStudio.tsx',
   '/components/TopazStudio.tsx',
   '/components/BeforeAfterModal.tsx',
-  '/components/AgentsStudio.tsx',
+  '/components/RosterStudio.tsx',
+  '/components/CharactersStudio.tsx',
   '/components/LoreStudio.tsx',
   '/components/DynamicPromptsStudio.tsx',
   '/components/PromptLibraryStudio.tsx',

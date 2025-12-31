@@ -167,12 +167,70 @@ export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUplo
     const [chatSession, setChatSession] = useState<GeminiChat | null>(null);
     const [isResponding, setIsResponding] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [routingSuggestion, setRoutingSuggestion] = useState<{ suggestedAgentId: string; originalMessage: string } | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const userHasScrolledUp = useRef(false);
+    const messageToSendAfterSwitch = useRef<string | null>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const selectedAgent = agents.find(c => c.id === selectedAgentId);
+
+    const sendMessageToServer = async (messageToSend: string, chat: GeminiChat) => {
+        if (isResponding) return;
+    
+        setIsResponding(true);
+        setError(null);
+    
+        setHistory(prev => [...prev, { role: 'user', text: messageToSend }]);
+    
+        try {
+            let response: GenerateContentResponse = await chat.sendMessage({ message: messageToSend });
+            
+            while(response.functionCalls && response.functionCalls.length > 0) {
+                const toolResponseParts: Part[] = [];
+
+                for(const funcCall of response.functionCalls) {
+                    setHistory(prev => [...prev, { role: 'tool_code', toolCode: { id: funcCall.id, functionCall: funcCall, status: 'pending' } }]);
+                    
+                    const { textResult, resultData } = await onCallTool(funcCall.name, funcCall.args);
+                    
+                    setHistory(prev => prev.map(msg => 
+                        (msg.role === 'tool_code' && msg.toolCode.id === funcCall.id)
+                            ? { ...msg, toolCode: { ...msg.toolCode, status: 'complete', result: resultData } }
+                            : msg
+                    ));
+                    
+                    const isError = !!resultData?.error;
+
+                    toolResponseParts.push({
+                        functionResponse: {
+                            name: funcCall.name,
+                            response: { 
+                                status: isError ? "ERROR" : "OK",
+                                summary: textResult 
+                            }
+                        }
+                    });
+                }
+
+                response = await chat.sendMessage(toolResponseParts);
+            }
+            
+            if (response.text) {
+                 setHistory(prev => [...prev, { role: 'model', text: response.text }]);
+            }
+
+        } catch (e) {
+            console.error("Chat Error:", e);
+            const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
+            setError(errorMessage);
+            setHistory(prev => [...prev, { role: 'model', text: `An error occurred: ${errorMessage}` }]);
+        } finally {
+            setIsResponding(false);
+        }
+    };
 
     useEffect(() => {
         if (agents.length > 0 && !selectedAgentId) {
@@ -185,7 +243,13 @@ export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUplo
             const newChat = createChat(selectedAgent.systemPrompt, [], mythosTools);
             setChatSession(newChat);
             setHistory(selectedAgent.chatHistory || []);
+            
+            if (messageToSendAfterSwitch.current) {
+                sendMessageToServer(messageToSendAfterSwitch.current, newChat);
+                messageToSendAfterSwitch.current = null;
+            }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedAgent]);
 
 
@@ -218,63 +282,74 @@ export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUplo
         }
         event.target.value = ''; // Reset
     };
+    
+    const processAndSendMessage = (messageToSend: string, bypassRoutingCheck = false) => {
+        if (!selectedAgentId || isResponding || !chatSession) return;
+    
+        if (!bypassRoutingCheck) {
+            const ROUTING_HINTS: { keywords: string[], agentId: string }[] = [
+                { keywords: ['audio', 'sound', 'music', 'voice', 'hear', 'listen', 'melody', 'score', 'foley', 'sfx'], agentId: 'agent-audio' },
+                { keywords: ['image', 'shot', 'camera', 'lighting', 'cinematic', 'visual', 'look', 'color', 'lens', 'frame', 'angle', 'picture', 'photo', 'render', 'dop', 'cinematography'], agentId: 'agent-dop' },
+                { keywords: ['art', 'illustration', 'storyboard', 'drawing', 'composition'], agentId: 'agent-art' },
+                { keywords: ['script', 'story', 'plot', 'dialogue', 'scene', 'write', 'narrative', 'character arc', 'screenplay'], agentId: 'agent-scripting' },
+                { keywords: ['design', 'character design', 'style', 'concept art', 'look and feel', 'visual development'], agentId: 'agent-design' },
+                { keywords: ['idea', 'concept', 'brainstorm', 'what if', 'world-building'], agentId: 'agent-ideation' },
+            ];
 
-    const handleSendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (message.trim() && selectedAgentId && !isResponding && chatSession) {
-            const currentMessage = message.trim();
-            setMessage('');
-            setIsResponding(true);
-            setError(null);
+            const DEPARTMENTS: { [key: string]: string[] } = {
+                visual: ['agent-dop', 'agent-art', 'agent-design'],
+                audio: ['agent-audio'],
+                script: ['agent-scripting'],
+                ideation: ['agent-ideation'],
+            };
+            
+            const findDepartment = (agentId: string): string | null => {
+                for (const dept in DEPARTMENTS) { if (DEPARTMENTS[dept].includes(agentId)) return dept; }
+                return null;
+            };
 
-            setHistory(prev => [...prev, { role: 'user', text: currentMessage }]);
+            const lowerMessage = messageToSend.toLowerCase();
+            let suggestedAgentId: string | null = null;
+            let intendedDepartment: string | null = null;
 
-            try {
-                let response: GenerateContentResponse = await chatSession.sendMessage({ message: currentMessage });
-                
-                while(response.functionCalls && response.functionCalls.length > 0) {
-                    const toolResponseParts: Part[] = [];
-
-                    for(const funcCall of response.functionCalls) {
-                        setHistory(prev => [...prev, { role: 'tool_code', toolCode: { id: funcCall.id, functionCall: funcCall, status: 'pending' } }]);
-                        
-                        const { textResult, resultData } = await onCallTool(funcCall.name, funcCall.args);
-                        
-                        setHistory(prev => prev.map(msg => 
-                            (msg.role === 'tool_code' && msg.toolCode.id === funcCall.id)
-                                ? { ...msg, toolCode: { ...msg.toolCode, status: 'complete', result: resultData } }
-                                : msg
-                        ));
-                        
-                        const isError = !!resultData?.error;
-
-                        toolResponseParts.push({
-                            functionResponse: {
-                                name: funcCall.name,
-                                response: { 
-                                    status: isError ? "ERROR" : "OK",
-                                    summary: textResult 
-                                }
-                            }
-                        });
-                    }
-
-                    // Send tool responses back to the model
-                    response = await chatSession.sendMessage(toolResponseParts);
+            for (const hint of ROUTING_HINTS) {
+                if (hint.keywords.some(kw => lowerMessage.includes(kw))) {
+                    suggestedAgentId = hint.agentId;
+                    intendedDepartment = findDepartment(hint.agentId);
+                    break;
                 }
-                
-                // Add the final text response from the model
-                if (response.text) {
-                     setHistory(prev => [...prev, { role: 'model', text: response.text }]);
-                }
+            }
 
-            } catch (e) {
-                console.error("Chat Error:", e);
-                setError(e instanceof Error ? e.message : "An unknown error occurred.");
-            } finally {
-                setIsResponding(false);
+            const currentAgentDepartment = findDepartment(selectedAgentId);
+
+            if (intendedDepartment && currentAgentDepartment && intendedDepartment !== currentAgentDepartment && selectedAgentId !== 'agent-core') {
+                setRoutingSuggestion({ suggestedAgentId: suggestedAgentId!, originalMessage: messageToSend });
+                return;
             }
         }
+        
+        setMessage('');
+        sendMessageToServer(messageToSend, chatSession);
+    };
+
+    const handleFormSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (message.trim()) {
+            processAndSendMessage(message.trim());
+        }
+    };
+
+    const handleSendAnyway = () => {
+        if (!routingSuggestion) return;
+        processAndSendMessage(routingSuggestion.originalMessage, true);
+        setRoutingSuggestion(null);
+    };
+
+    const handleSwitchAndSend = () => {
+        if (!routingSuggestion) return;
+        messageToSendAfterSwitch.current = routingSuggestion.originalMessage;
+        setSelectedAgentId(routingSuggestion.suggestedAgentId);
+        setRoutingSuggestion(null);
     };
 
     const handleScroll = () => {
@@ -349,26 +424,18 @@ export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUplo
 
                     {/* Chat Area */}
                     <div id="chat-window" ref={chatContainerRef} onScroll={handleScroll} className="flex-grow overflow-y-auto p-6 bg-neutral-900/50 space-y-6">
-                        {!history || history.length === 0 ? (
+                        {history.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-center text-neutral-600 opacity-60">
                                 <WritersRoomIcon />
                                 <p className="mt-4 text-sm font-medium">Start the conversation with {selectedAgent?.name || 'agent'}.</p>
-                                <p className="text-xs mt-1 text-neutral-700">Try asking to "prepare a cinematic shot of a rainy alleyway at night".</p>
                             </div>
                         ) : (
                             history.map((msg, index) => {
                                 if (msg.role === 'tool_code') {
-                                    return <AgentActionBubble 
-                                        key={index} 
-                                        agentName={selectedAgent?.name || 'Agent'} 
-                                        toolCode={msg.toolCode} 
-                                        onAddToStoryboard={onAddToStoryboard}
-                                        onAddToInspiration={onAddToInspiration}
-                                        onAddAssetToGrid={onAddAssetToGrid}
-                                    />;
+                                    return <AgentActionBubble key={index} agentName={selectedAgent?.name || 'Agent'} toolCode={msg.toolCode} onAddToStoryboard={onAddToStoryboard} onAddToInspiration={onAddToInspiration} onAddAssetToGrid={onAddAssetToGrid} />;
                                 }
                                 if (msg.role === 'user' || msg.role === 'model') {
-                                    return <ChatMessageBubble key={index} message={msg} agentName={selectedAgent?.name || 'Agent'} />;
+                                    return <ChatMessageBubble key={index} message={{role: msg.role, text: msg.text || ''}} agentName={selectedAgent?.name || 'Agent'} />;
                                 }
                                 return null;
                             })
@@ -386,23 +453,44 @@ export const AgentChatStudio: React.FC<AgentChatStudioProps> = ({ agents, onUplo
                         {error && (
                             <div className="flex justify-center my-4">
                                 <div className="bg-red-900/20 border border-red-500/50 text-red-300 px-4 py-2 rounded-lg text-xs font-medium flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                    <WarningIcon className="w-4 h-4" />
                                     {error}
                                 </div>
                             </div>
                         )}
                     </div>
 
+                    {/* Routing Suggestion Area */}
+                    {routingSuggestion && (
+                        <div className="p-4 bg-yellow-900/20 border-t border-b border-yellow-500/30 text-yellow-200 text-sm space-y-3">
+                            <div className="flex items-start gap-3">
+                                <WarningIcon className="w-5 h-5 text-yellow-500 mt-1 flex-shrink-0" />
+                                <div>
+                                    <h4 className="font-bold">Agent Scope Mismatch</h4>
+                                    <p className="text-yellow-300/80 text-xs leading-relaxed mt-1">
+                                        Your message seems better suited for <strong>{agents.find(a => a.id === routingSuggestion.suggestedAgentId)?.name}</strong>. How would you like to proceed?
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <button onClick={() => setRoutingSuggestion(null)} className="px-3 py-1.5 text-xs font-bold rounded-md bg-neutral-700/50 hover:bg-neutral-600 text-white">Cancel</button>
+                                <button onClick={handleSendAnyway} className="px-3 py-1.5 text-xs font-bold rounded-md bg-yellow-700/50 hover:bg-yellow-600 text-white">Send to {selectedAgent?.name} Anyway</button>
+                                <button onClick={handleSwitchAndSend} className="px-3 py-1.5 text-xs font-bold rounded-md bg-blue-600 hover:bg-blue-500 text-white">Switch & Send</button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Input Area */}
                     <div className="p-4 bg-neutral-800/80 border-t border-neutral-700 relative z-10 backdrop-blur-sm">
-                        <form onSubmit={handleSendMessage} className="relative group">
+                        <form onSubmit={handleFormSubmit} className="relative group">
                              <textarea
+                                ref={textareaRef}
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
                                         e.preventDefault();
-                                        handleSendMessage(e);
+                                        handleFormSubmit(e);
                                     }
                                 }}
                                 placeholder={`Message ${selectedAgent?.name || '...'}`}

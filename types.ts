@@ -1,4 +1,5 @@
 
+
 export type RAGProvider = 'cloud' | 'localhost' | 'browser';
 
 export interface ScriptFile {
@@ -30,6 +31,8 @@ export interface ProjectData {
   topazState: TopazState;
   directorState: DirectorState;
   agents: Agent[];
+  studioPlayers: Agent[]; // For human actors, using Agent type for component reuse
+  characters: Character[]; // For fictional characters/archetypes
   lore: LoreEntry[];
   dynamicPromptLists: DynamicPromptList[];
   promptTemplates: PromptTemplate[];
@@ -86,7 +89,7 @@ export interface StoryboardFrame {
   prompt: string;
 }
 
-export type ActiveView = 'projects' | 'dashboard' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'image-generator' | 'grid' | 'story' | 'inspiration' | 'video' | 'generative-video' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'qwen-image-edit' | 'topaz' | 'agents' | 'lore' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'prompt-library' | 'agent-workspace' | 'script-writer' | 'scripts-bin';
+export type ActiveView = 'projects' | 'dashboard' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'image-generator' | 'grid' | 'story' | 'inspiration' | 'video' | 'generative-video' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'qwen-image-edit' | 'topaz' | 'agents' | 'lore' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'prompt-library' | 'agent-workspace' | 'script-writer' | 'scripts-bin' | 'characters' | 'studio-players';
 
 export interface InspirationImage {
   id: string;
@@ -137,6 +140,15 @@ export interface Agent {
   narrativeRole?: string;
   actorName?: string;
   actorContact?: string;
+}
+
+// Fictional character archetype
+export interface Character {
+  id: string;
+  name: string;
+  archetype: string;
+  description: string;
+  avatar?: string;
 }
 
 export interface LoreEntry {

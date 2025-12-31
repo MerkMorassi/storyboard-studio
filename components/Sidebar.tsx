@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { ActiveView } from '../types';
 import { 
@@ -6,7 +7,7 @@ import {
     PencilIcon, ImageIcon, AnalyzerIcon, CameraLensIcon, ClapperboardIcon, 
     BlenderIcon, LayersIcon, PuzzleIcon, SwapIcon, FaceSparkleIcon, PhotoRealismIcon, 
     ExpandIcon, ScissorsIcon, GridIcon, StoryboardIcon, PinIcon, LoreIcon, 
-    LibraryIcon, ShuffleIcon, SettingsIcon, WritersRoomIcon, EditIcon
+    LibraryIcon, ShuffleIcon, SettingsIcon, WritersRoomIcon, EditIcon, CharacterIcon
 } from './icons';
 
 interface SidebarProps {
@@ -73,7 +74,9 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'scripts-bin', type: 'link', label: 'Scripts Bin', view: 'scripts-bin', icon: LibraryIcon },
     
     { id: 'header-data', type: 'header', label: 'Knowledge' },
-    { id: 'agents', type: 'link', label: 'Studio Players', view: 'agents', icon: AgentsIcon },
+    { id: 'agents', type: 'link', label: 'AI Agents', view: 'agents', icon: AgentsIcon },
+    { id: 'studio-players', type: 'link', label: 'Studio Players', view: 'studio-players', icon: CharacterIcon },
+    { id: 'characters', type: 'link', label: 'Character Studio', view: 'characters', icon: PencilIcon },
     { id: 'lore', type: 'link', label: 'Lore', view: 'lore', icon: LoreIcon },
     { id: 'prompt-library', type: 'link', label: 'Prompt Library', view: 'prompt-library', icon: LibraryIcon },
     { id: 'dynamic-prompts', type: 'link', label: 'Dynamic Prompts', view: 'dynamic-prompts', icon: ShuffleIcon },

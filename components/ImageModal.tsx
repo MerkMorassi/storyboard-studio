@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { ImageState, Agent } from '../types.ts';
 import { AddToStoryIcon, DownloadIcon, EditIcon, PinIcon, CloseIcon } from './icons.tsx';
@@ -11,7 +12,7 @@ interface ImageModalProps {
   onAddToInspiration: (base64: string) => void;
   agents: Agent[];
   onAssignAgentToImage: (imageId: string, agentId: string | null) => void;
-  onCreateAgent: (name: string) => Agent;
+  onCreateAgent: (data: Partial<Agent>) => Agent;
 }
 
 const downloadImage = (base64Image: string, filename: string) => {
@@ -27,7 +28,7 @@ const AssignAgentDropdown: React.FC<{
   image: ImageState;
   agents: Agent[];
   onAssignAgentToImage: (imageId: string, agentId: string | null) => void;
-  onCreateAgent: (name: string) => Agent;
+  onCreateAgent: (data: Partial<Agent>) => Agent;
 }> = ({ image, agents, onAssignAgentToImage, onCreateAgent }) => {
     
     const handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -35,7 +36,7 @@ const AssignAgentDropdown: React.FC<{
         if (value === 'create_new') {
             const name = prompt("Enter the new agent's name:");
             if (name && name.trim()) {
-                const newAgent = onCreateAgent(name);
+                const newAgent = onCreateAgent({ name });
                 onAssignAgentToImage(image.id, newAgent.id);
             }
         } else {
@@ -96,18 +97,18 @@ export const ImageModal: React.FC<ImageModalProps> = ({ image, onClose, onEdit, 
   };
 
   const handleEditAction = () => {
-    if (!image) return;
+    if (!image || !image.base64) return;
     onEdit(image.base64);
   };
   
   const handleAddToStoryboardAction = () => {
-      if (!image) return;
+      if (!image || !image.base64) return;
       onAddToStoryboard(image.base64);
       showFeedback('Added to Storyboard');
   };
   
   const handleAddToInspirationAction = () => {
-      if (!image) return;
+      if (!image || !image.base64) return;
       onAddToInspiration(image.base64);
       showFeedback('Added to Inspiration');
   };
@@ -139,11 +140,11 @@ export const ImageModal: React.FC<ImageModalProps> = ({ image, onClose, onEdit, 
         </button>
 
         <div className="flex-grow p-4 flex items-center justify-center overflow-hidden">
-            <img
+            {image.base64 && <img
                 src={`data:image/jpeg;base64,${image.base64}`}
                 alt="Full size generated image"
                 className="max-w-full max-h-[75vh] object-contain shadow-lg"
-            />
+            />}
         </div>
         
         <div className="flex-shrink-0 bg-neutral-800/50 p-3 border-t border-neutral-800 flex items-center justify-between gap-4 flex-wrap relative">
@@ -159,8 +160,9 @@ export const ImageModal: React.FC<ImageModalProps> = ({ image, onClose, onEdit, 
 
             <div className="flex items-center justify-center gap-2 sm:gap-4 flex-shrink-0">
                  <button
-                    onClick={() => downloadImage(image.base64, `storyboard-image-${Date.now()}.jpeg`)}
+                    onClick={() => image.base64 && downloadImage(image.base64, `storyboard-image-${Date.now()}.jpeg`)}
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition"
+                    disabled={!image.base64}
                 >
                     <DownloadIcon />
                     <span className="hidden sm:inline">Download</span>
@@ -168,6 +170,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({ image, onClose, onEdit, 
                 <button
                     onClick={handleEditAction}
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition"
+                    disabled={!image.base64}
                 >
                     <EditIcon />
                     <span className="hidden sm:inline">Edit</span>
@@ -175,6 +178,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({ image, onClose, onEdit, 
                 <button
                     onClick={handleAddToStoryboardAction}
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition"
+                     disabled={!image.base64}
                 >
                     <AddToStoryIcon />
                     <span className="hidden sm:inline">Add to Storyboard</span>
@@ -182,6 +186,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({ image, onClose, onEdit, 
                  <button
                     onClick={handleAddToInspirationAction}
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-600 transition"
+                     disabled={!image.base64}
                 >
                     <PinIcon />
                     <span className="hidden sm:inline">Add to Inspiration</span>
