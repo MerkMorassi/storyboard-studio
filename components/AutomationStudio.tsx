@@ -152,7 +152,7 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
                                         type="url"
                                         value={localConfig.ragLocalhostUrl}
                                         onChange={(e) => handleConfigChange('ragLocalhostUrl', e.target.value)}
-                                        placeholder="e.g., http://localhost:4002/api/rag"
+                                        placeholder="e.g., http://localhost:4000/api/rag"
                                         className="w-full bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none"
                                         disabled={isExternalRagConfigDisabled}
                                     />
