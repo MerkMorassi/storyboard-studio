@@ -11,20 +11,23 @@ export interface VectorRecord {
 }
 
 export interface ChatLogRecord {
-    id: string;
-    role: 'user' | 'model';
-    parts: {
-      text?: string;
-      inlineData?: {
-        mimeType: string;
-        data: string;
-        fileName?: string;
-      };
+    id: string; // This will now be the agentId
+    history: {
+        id: string;
+        role: 'user' | 'model';
+        parts: {
+          text?: string;
+          inlineData?: {
+            mimeType: string;
+            data: string;
+            fileName?: string;
+          };
+        }[];
     }[];
 }
 
 const DB_NAME = 'mythos_vault';
-const DB_VERSION = 5; // Updated for new stores
+const DB_VERSION = 5; 
 const STORE_VECTORS = 'vectors';
 const STORE_AGENT_CHAT = 'agentChatLogs';
 const STORE_AGENTS = 'agents';
@@ -58,7 +61,7 @@ class VectorDbService {
             vectorStore.createIndex('agentId', 'agentId', { unique: false });
         }
 
-        // Chat Logs Store
+        // Chat Logs Store - Keyed by Agent ID now
         if (!db.objectStoreNames.contains(STORE_AGENT_CHAT)) {
           db.createObjectStore(STORE_AGENT_CHAT, { keyPath: 'id' });
         }
@@ -97,7 +100,7 @@ class VectorDbService {
       return new Promise((resolve, reject) => {
           const tx = db.transaction(storeName, 'readwrite');
           const store = tx.objectStore(storeName);
-          store.clear(); // Overwrite strategy for simplicity on these lists
+          store.clear(); // Overwrite strategy for lists
           items.forEach(item => store.put(item));
           tx.oncomplete = () => resolve();
           tx.onerror = () => reject(tx.error);
@@ -115,7 +118,7 @@ class VectorDbService {
       });
   }
 
-  // --- Specific Public Methods ---
+  // --- Vectors Methods ---
 
   async addVectors(vectors: VectorRecord[]): Promise<void> {
     const db = await this.open();
@@ -196,6 +199,7 @@ class VectorDbService {
               };
               tx.oncomplete = () => resolve();
           } else {
+              // Fallback if index missing
               const request = store.openCursor();
               request.onsuccess = (event) => {
                   const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
@@ -215,16 +219,48 @@ class VectorDbService {
     });
   }
   
-  // Agent Chat Log Methods
-  async saveAgentChatLogs(logs: ChatLogRecord[]): Promise<void> {
-    return this.saveItems(STORE_AGENT_CHAT, logs);
+  // --- Agent Chat Log Methods (Agent Specific) ---
+
+  async saveAgentChat(agentId: string, history: any[]): Promise<void> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_AGENT_CHAT, 'readwrite');
+        const store = tx.objectStore(STORE_AGENT_CHAT);
+        // We store the entire history array for this agent ID as a single record
+        store.put({ id: agentId, history: history });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
   }
 
-  async getAgentChatLogs(): Promise<ChatLogRecord[]> {
-    return this.getAllItems<ChatLogRecord>(STORE_AGENT_CHAT);
+  async getAgentChat(agentId: string): Promise<any[]> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_AGENT_CHAT, 'readonly');
+        const store = tx.objectStore(STORE_AGENT_CHAT);
+        const request = store.get(agentId);
+        
+        request.onsuccess = () => {
+            const result = request.result as ChatLogRecord;
+            resolve(result ? result.history : []);
+        };
+        request.onerror = () => reject(request.error);
+    });
   }
 
-  async clearAgentChatLogs(): Promise<void> {
+  async deleteAgentChat(agentId: string): Promise<void> {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_AGENT_CHAT, 'readwrite');
+          const store = tx.objectStore(STORE_AGENT_CHAT);
+          store.delete(agentId);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+      });
+  }
+
+  // Legacy/Global Clear (for debugging or full wipes)
+  async clearAllAgentChats(): Promise<void> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_AGENT_CHAT, 'readwrite');

@@ -43,19 +43,15 @@ const retrieveContext = async (agentId: string, query: string): Promise<{ text: 
     try {
         console.log(`[RAG] Retrieving context for agent: ${agentId}`);
         const vectors = await vectorDb.getVectorsByAgent(agentId);
-        console.log(`[RAG] Found ${vectors.length} total vectors for agent.`);
         
         if (vectors.length === 0) return null;
 
         const queryVector = await getEmbeddings(query);
-        if (!queryVector) {
-            console.warn("[RAG] Failed to generate query embedding.");
-            return null;
-        }
+        if (!queryVector) return null;
 
-        // Dimension Check: Ensure the stored vectors match the current embedding model
+        // Dimension Check
         if (vectors[0].vector.length !== queryVector.length) {
-            console.error(`[RAG] Dimension Mismatch! Stored: ${vectors[0].vector.length}, Query: ${queryVector.length}. The Knowledge Base JSON might have been embedded with a different model.`);
+            console.error(`[RAG] Dimension Mismatch! Stored: ${vectors[0].vector.length}, Query: ${queryVector.length}.`);
             return null;
         }
 
@@ -66,14 +62,9 @@ const retrieveContext = async (agentId: string, query: string): Promise<{ text: 
 
         scored.sort((a, b) => b.score - a.score);
         
-        // Log top score
-        console.log(`[RAG] Top match score: ${scored[0]?.score}`);
-
-        // Lowered threshold to 0.45 to catch more relevant but loosely phrased context
+        // Threshold
         const relevant = scored.slice(0, 5).filter(v => v.score > 0.45);
         
-        console.log(`[RAG] Relevant chunks found: ${relevant.length}`);
-
         if (relevant.length === 0) return null;
 
         const contextText = relevant.map(v => `[Source: ${v.source}]\n${v.text}`).join('\n\n');
@@ -92,6 +83,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
   const [chatMessage, setChatMessage] = useState<string>('');
   const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'chat' | 'call'>(initialMode);
+  const [ragActive, setRagActive] = useState(false);
   
   const [messageAudioStates, setMessageAudioStates] = useState<Record<string, {
     isGenerating: boolean;
@@ -128,16 +120,27 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
 
   const { isLive, connectionState, liveTranscript, startLiveChat, stopLiveChat } = useLiveChat(agent, handleLiveTurnComplete);
 
+  // Check RAG availability for this specific agent on mount
+  useEffect(() => {
+      const checkRag = async () => {
+          if (!agent.enableLocalRag) {
+              setRagActive(false);
+              return;
+          }
+          const vectors = await vectorDb.getVectorsByAgent(agent.id);
+          setRagActive(vectors.length > 0);
+      };
+      checkRag();
+  }, [agent.id, agent.enableLocalRag]);
 
+   // Load Agent-Specific Chat History
    useEffect(() => {
     if (isLive) return;
     const loadChat = async () => {
-        const logs = await vectorDb.getAgentChatLogs();
+        const logs = await vectorDb.getAgentChat(agent.id);
         setChatHistory(logs);
 
-        // Keep instruction clean but we will rely on our markdown parser now
-        const formattingInstruction = ""; 
-        const chatSystemPrompt = `${agent.systemPrompt} ${formattingInstruction}`;
+        const chatSystemPrompt = `${agent.systemPrompt}`;
         
         const geminiHistory: Content[] = logs.map(log => ({
             role: log.role,
@@ -153,11 +156,12 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
         setChatSession(newChat);
     };
     loadChat();
-  }, [agent.systemPrompt, isLive]);
+  }, [agent.id, agent.systemPrompt, isLive]);
   
+  // Save Chat History Per Agent
   const saveHistory = useCallback((history: { id: string; role: 'user' | 'model'; parts: ChatMessagePart[] }[]) => {
-      vectorDb.saveAgentChatLogs(history);
-  }, []);
+      vectorDb.saveAgentChat(agent.id, history);
+  }, [agent.id]);
   
   useEffect(() => {
     if (chatHistory.length > 0) {
@@ -243,6 +247,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
         for (const file of files) {
           const base64 = await fileToBase64(file);
           const mimeType = file.type || 'application/octet-stream';
+          // Add file context to history and API call
           partsForHistory.push({ inlineData: { mimeType, data: base64, fileName: file.name } });
           partsForApi.push({ inlineData: { mimeType, data: base64 } });
         }
@@ -251,8 +256,8 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
       let messageToSend = currentMessage;
       let ragNote = "";
 
-      // RAG Logic
-      if (agent.enableLocalRag && currentMessage.trim()) {
+      // RAG Logic - Only if enabled AND vectors exist
+      if (ragActive && currentMessage.trim()) {
           const contextResult = await retrieveContext(agent.id, currentMessage);
           if (contextResult) {
               messageToSend = `CRITICAL: You have access to the following Knowledge Base context. You MUST use this information to answer the user's question if relevant. If the context is not relevant, ignore it.\n\n<KNOWLEDGE_BASE_CONTEXT>\n${contextResult.text}\n</KNOWLEDGE_BASE_CONTEXT>\n\nUser Query: ${currentMessage}`;
@@ -265,6 +270,9 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
         partsForHistory.push({ text: currentMessage });
         // Send augmented message to API
         partsForApi.push({ text: messageToSend });
+      } else if (files && files.length > 0 && !currentMessage.trim()) {
+          // If only files, we still might want to prompt the model to look at them
+          partsForApi.push({ text: "Analyze the attached file(s)." });
       }
 
       const newHistoryEntry = {
@@ -327,16 +335,18 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `chat_transcript_${Date.now()}.txt`;
+    // Prefix filename with Agent Name
+    a.download = `${agent.name}_Transcript_${Date.now()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const handleClearChat = async () => {
-    if (window.confirm("Are you sure you want to clear this entire chat history?")) {
-        await vectorDb.clearAgentChatLogs();
+    if (window.confirm(`Are you sure you want to clear the conversation history for ${agent.name}?`)) {
+        await vectorDb.deleteAgentChat(agent.id);
         setChatHistory([]);
         
+        // Re-init session
         const chatSystemPrompt = agent.systemPrompt;
         const newChat = createChat(chatSystemPrompt);
         setChatSession(newChat);
@@ -464,8 +474,9 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
                     <h2 className="text-2xl font-bold text-text-primary">Agent Chat</h2>
                     <p className="text-text-secondary">Have a conversation with <span className="font-semibold text-text-primary">{agent.name}</span>.</p>
                 </div>
-                {agent.enableLocalRag && (
-                    <div className="px-2 py-1 bg-blue-900/30 border border-blue-500/30 rounded flex items-center gap-1 text-[10px] text-blue-300 font-bold uppercase tracking-wider" title="RAG Active">
+                {/* RAG Indicator - Only visible if active AND loaded */}
+                {ragActive && (
+                    <div className="px-2 py-1 bg-blue-900/30 border border-blue-500/30 rounded flex items-center gap-1 text-[10px] text-blue-300 font-bold uppercase tracking-wider" title="RAG Active & Loaded">
                         <DatabaseIcon className="w-3 h-3" /> Knowledge Active
                     </div>
                 )}

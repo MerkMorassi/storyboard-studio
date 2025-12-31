@@ -164,7 +164,24 @@ export const App = () => {
       updateProjectData({ agents: [...project.data.agents, newAgent] });
       return newAgent;
   };
-  const handleDeleteAgent = (agentId: string) => updateProjectData({ agents: project.data.agents.filter(a => a.id !== agentId) });
+  
+  // Destructive Delete - Cleans up Chat Logs and Vectors
+  const handleDeleteAgent = async (agentId: string) => {
+      if (window.confirm("WARNING: This is a destructive action.\n\nDeleting this agent will PERMANENTLY remove their specific Chat Logs and Knowledge Base vectors from the database.\n\nAre you sure you want to proceed?")) {
+          // Remove from state first to update UI
+          updateProjectData({ agents: project.data.agents.filter(a => a.id !== agentId) });
+          
+          // Deep clean DB
+          try {
+              await vectorDb.deleteAgentChat(agentId); // Clean chat
+              await vectorDb.clearVectors(agentId); // Clean RAG data
+              console.log(`Deep cleaned agent data for: ${agentId}`);
+          } catch(e) {
+              console.error("Error during agent cleanup:", e);
+          }
+      }
+  };
+  
   const handleUpdateAgent = (id: string, u: Partial<Agent>) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) });
 
   // Studio Player Handlers
