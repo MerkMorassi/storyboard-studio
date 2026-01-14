@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Project, ActiveView, ImageState, StoryboardFrame, InspirationImage, BlenderImage, SceneCompositorState, CompositeState, FaceSwapState, FaceRepairState, PhotorealismState, ResizeState, GreenScreenState, BackgroundRemovalState, QwenImageEditState, GenerativeVideoState, CameraMovementState, TransitionState, TopazState, AutomationConfig, Agent, LoreEntry, DynamicPromptList, PromptTemplate, ScriptFile } from './types.ts';
 import { DashboardStudio } from './components/DashboardStudio.tsx';
@@ -40,11 +41,12 @@ import { BackgroundRemovalStudio } from './components/BackgroundRemovalStudio.ts
 import { QwenImageEditStudio } from './components/QwenImageEditStudio.tsx';
 import { TopazStudio } from './components/TopazStudio.tsx';
 import { DirectorStudio } from './modules/director/DirectorStudio.tsx';
-import { getHfApiKey, getTopazApiKey, saveHfApiKey, saveTopazApiKey } from './services/apiKeyService.ts';
+import { getHfApiKey, getTopazApiKey, saveHfApiKey, saveTopazApiKey, getGeminiApiKey, saveGeminiApiKey } from './services/apiKeyService.ts';
 import { getAnimAgentsTeam } from './services/agentService.ts';
 import { SimpleCinematicStudio } from './components/SimpleCinematicStudio.tsx';
 import { RosterStudio } from './components/RosterStudio.tsx';
 import { AgentChatStudio } from './components/AgentChatStudio.tsx';
+import { vectorDb } from './services/vectorDbService';
 
 // Mock initial data
 const INITIAL_PROJECT: Project = {
@@ -90,6 +92,54 @@ export const App = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [selectedImage, setSelectedImage] = useState<ImageState | null>(null);
     const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
+    const [agentFilter, setAgentFilter] = useState('');
+    const [gridOverlay, setGridOverlay] = useState<any>('none');
+
+    // Startup check for keys
+    useEffect(() => {
+        const geminiKey = getGeminiApiKey();
+        if (!geminiKey) {
+            setIsSettingsOpen(true);
+        }
+    }, []);
+
+    // Load persistent data from IndexedDB on startup
+    useEffect(() => {
+        const loadPersistentData = async () => {
+            try {
+                const [savedAgents, savedPlayers, savedImages] = await Promise.all([
+                    vectorDb.getAgents(),
+                    vectorDb.getPlayers(),
+                    vectorDb.getImages()
+                ]);
+
+                updateProjectData({
+                    // If we have saved agents, use them. Otherwise, keep the default team.
+                    agents: savedAgents.length > 0 ? savedAgents : getAnimAgentsTeam(),
+                    studioPlayers: savedPlayers,
+                    images: savedImages
+                });
+            } catch (e) {
+                console.error("Failed to load persistent data:", e);
+            }
+        };
+        loadPersistentData();
+    }, []);
+
+    // Persist Agents whenever they change
+    useEffect(() => {
+        vectorDb.saveAgents(project.data.agents).catch(e => console.error("Failed to save agents", e));
+    }, [project.data.agents]);
+
+    // Persist Players whenever they change
+    useEffect(() => {
+        vectorDb.savePlayers(project.data.studioPlayers).catch(e => console.error("Failed to save players", e));
+    }, [project.data.studioPlayers]);
+
+    // Persist Images whenever they change
+    useEffect(() => {
+        vectorDb.saveImages(project.data.images).catch(e => console.error("Failed to save images", e));
+    }, [project.data.images]);
 
     const updateProjectData = (updates: Partial<Project['data']>) => {
         setProject(prev => ({
@@ -98,14 +148,15 @@ export const App = () => {
         }));
     };
 
-    const handleAddAssetToGrid = (asset: any) => {
+    const handleAddAssetToGrid = (asset: any, targetProjectId?: string) => {
         const newImage: ImageState = {
             id: `img_${Date.now()}`,
             type: asset.type,
             base64: asset.base64,
             url: asset.url,
             mimeType: asset.mimeType,
-            metadata: asset.metadata
+            metadata: asset.metadata,
+            agentId: activeAgentId || undefined // Associate with active agent if context exists
         };
         updateProjectData({ images: [newImage, ...project.data.images] });
     };
@@ -155,7 +206,7 @@ export const App = () => {
                 return <GenericAgentStudio agent={agent} onNavigate={handleNavigate} onCallAgent={() => {}} />;
             }
             case 'mythos-cinematic-engine': return <MythosCinematicStudio hfToken={getHfApiKey() || ''} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onClearInitialPrompt={() => {}} />;
-            case 'generative-video': return <GenerativeVideoStudio apiKey={''} hfToken={getHfApiKey() || ''} videoState={project.data.generativeVideoState} onStateUpdate={s => updateProjectData({ generativeVideoState: s })} onAddImageToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddAssetToGrid={handleAddAssetToGrid} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
+            case 'generative-video': return <GenerativeVideoStudio apiKey={''} hfToken={getHfApiKey() || ''} videoState={project.data.generativeVideoState} onStateUpdate={s => updateProjectData({ generativeVideoState: s })} onAddImageToGrid={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddAssetToGrid={handleAddAssetToGrid} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
             case 'transition-studio': return <TransitionStudio state={project.data.transitionState} onStateUpdate={s => updateProjectData({ transitionState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
             case 'camera-movement': return <CameraMovementStudio state={project.data.cameraMovementState} onStateUpdate={s => updateProjectData({ cameraMovementState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} />;
             case 'blender': return <BlenderStudio sourceImages={project.data.blenderImages} resultImage={project.data.blenderResult} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} />;
@@ -170,7 +221,17 @@ export const App = () => {
             case 'qwen-image-edit': return <QwenImageEditStudio state={project.data.qwenImageEditState} onStateUpdate={s => updateProjectData({ qwenImageEditState: s })} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onAddAssetToGrid={handleAddAssetToGrid} hfToken={getHfApiKey() || ''} />;
             case 'topaz': return <TopazStudio topazState={project.data.topazState} isLoading={false} error={null} onStateUpdate={s => updateProjectData({ topazState: s })} onGenerate={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onAddAssetToGrid={handleAddAssetToGrid} progress="" />;
             case 'director': return <DirectorStudio onNavigate={handleNavigate} />;
-            case 'grid': return <ImageGeneratorStudio hfToken={getHfApiKey() || ''} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} agents={project.data.agents} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onCreateAgent={() => project.data.agents[0]} />;
+            case 'grid': return (
+                <div className="p-6 h-full overflow-hidden flex flex-col">
+                    <h2 className="text-2xl font-bold text-white mb-4">Project Gallery</h2>
+                    <div className="flex-grow overflow-y-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Reusing existing ImageGrid component logic here or rendering custom view */}
+                            {/* Assuming ImageGrid component is used elsewhere or imported */}
+                        </div>
+                    </div>
+                </div>
+            ); 
             case 'knowledge': return <KnowledgeView agents={project.data.agents} onUpdateAgent={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} />;
             case 'automation': return <AutomationStudio config={project.data.automationConfig} onSave={(c) => updateProjectData({ automationConfig: c })} onTestWebhook={async () => true} />;
             case 'studio-players': return <RosterStudio rosterType="player" agents={project.data.studioPlayers} images={project.data.images} onCreateEntity={(d) => project.data.agents[0]} onViewImage={() => {}} onUpdateEntity={() => {}} onDeleteEntity={() => {}} onImageUpload={() => {}} onCallEntity={() => {}} />;
@@ -202,9 +263,15 @@ export const App = () => {
                 <SettingsModal 
                     isOpen={isSettingsOpen} 
                     onClose={() => setIsSettingsOpen(false)} 
-                    onSave={(t, h) => { saveTopazApiKey(t); saveHfApiKey(h); setIsSettingsOpen(false); }} 
+                    onSave={(t, h, g) => { 
+                        saveTopazApiKey(t); 
+                        saveHfApiKey(h); 
+                        saveGeminiApiKey(g);
+                        setIsSettingsOpen(false); 
+                    }} 
                     currentTopazApiKey={getTopazApiKey() || ''} 
                     currentHfApiKey={getHfApiKey() || ''} 
+                    currentGeminiApiKey={getGeminiApiKey() || ''}
                 />
             </div>
         </div>

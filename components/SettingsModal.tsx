@@ -1,22 +1,26 @@
+
 import React, { useState, useEffect } from 'react';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (topazApiKey: string, hfApiKey: string) => void;
+  onSave: (topazApiKey: string, hfApiKey: string, geminiApiKey: string) => void;
   currentTopazApiKey: string;
   currentHfApiKey: string;
+  currentGeminiApiKey: string;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave, currentTopazApiKey, currentHfApiKey }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave, currentTopazApiKey, currentHfApiKey, currentGeminiApiKey }) => {
   const [topazApiKeyInput, setTopazApiKeyInput] = useState(currentTopazApiKey);
   const [hfApiKeyInput, setHfApiKeyInput] = useState(currentHfApiKey);
+  const [geminiApiKeyInput, setGeminiApiKeyInput] = useState(currentGeminiApiKey);
   const [showKeys, setShowKeys] = useState(false);
 
   useEffect(() => {
     setTopazApiKeyInput(currentTopazApiKey);
     setHfApiKeyInput(currentHfApiKey);
-  }, [currentTopazApiKey, currentHfApiKey, isOpen]);
+    setGeminiApiKeyInput(currentGeminiApiKey);
+  }, [currentTopazApiKey, currentHfApiKey, currentGeminiApiKey, isOpen]);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -35,7 +39,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   }
 
   const handleSave = () => {
-    onSave(topazApiKeyInput.trim(), hfApiKeyInput.trim());
+    onSave(topazApiKeyInput.trim(), hfApiKeyInput.trim(), geminiApiKeyInput.trim());
   };
 
   return (
@@ -66,19 +70,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         </div>
         
         <div className="space-y-8">
+          {/* Gemini Key */}
           <div>
-            <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
-              Topaz Labs API Key
+            <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3">
+              Google Gemini API Key (Critical)
             </label>
             <input
               type={showKeys ? "text" : "password"}
-              value={topazApiKeyInput}
-              onChange={(e) => setTopazApiKeyInput(e.target.value)}
-              placeholder="Enter Topaz API Key"
+              value={geminiApiKeyInput}
+              onChange={(e) => setGeminiApiKeyInput(e.target.value)}
+              placeholder="AI Studio Key (AI...)"
               className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
             />
+            <p className="text-[10px] text-neutral-600 mt-2 italic px-1">
+              Required for all text, reasoning, and standard agent operations.
+            </p>
           </div>
 
+          <div className="h-px bg-neutral-800 w-full"></div>
+
+          {/* Hugging Face */}
           <div>
             <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
               Hugging Face Access Token
@@ -91,8 +102,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
             />
             <p className="text-[10px] text-neutral-600 mt-2 italic px-1">
-              Used for the merkmorassi-mythos-engine hardware link.
+              Required for specialized GPU tasks (Flux, Video, Outpainting, Private Models).
             </p>
+          </div>
+
+          {/* Topaz */}
+          <div>
+            <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
+              Topaz Labs API Key
+            </label>
+            <input
+              type={showKeys ? "text" : "password"}
+              value={topazApiKeyInput}
+              onChange={(e) => setTopazApiKeyInput(e.target.value)}
+              placeholder="Enter Topaz API Key"
+              className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
+            />
           </div>
 
           <div className="flex items-center gap-2 px-1">

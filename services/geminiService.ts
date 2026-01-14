@@ -2,6 +2,7 @@
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Content, Type, Modality, FunctionDeclaration } from "@google/genai";
 import { MythosData } from './mythosData';
 import { CONTENT_GUIDELINES } from './contentGuidelines';
+import { getGeminiApiKey } from './apiKeyService';
 
 const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -11,7 +12,11 @@ const safetySettings = [
 ];
 
 const getClient = () => {
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getGeminiApiKey();
+    if (!apiKey) {
+        throw new Error("Gemini API Key is missing. Please configure it in System Settings.");
+    }
+    return new GoogleGenAI({ apiKey });
 }
 
 export const mythosTools: FunctionDeclaration[] = [
@@ -49,8 +54,12 @@ const apiCallWithRetry = async <T>(apiFunction: () => Promise<T>, maxRetries = 3
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
             return await apiFunction();
-        } catch (error) {
-            if (attempt === maxRetries - 1 || (error instanceof Error && !error.message.includes('rate limit'))) {
+        } catch (error: any) {
+            // Don't retry if it's an auth error
+            if (error.message && (error.message.includes("API Key") || error.status === 403 || error.status === 401)) {
+                throw error;
+            }
+            if (attempt === maxRetries - 1) {
                 throw error;
             }
             const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;

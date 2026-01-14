@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ActiveView } from '../types.ts';
 import { 
@@ -6,8 +7,9 @@ import {
     BlenderIcon, LayersIcon, PuzzleIcon, SwapIcon, FaceSparkleIcon, PhotoRealismIcon, 
     ExpandIcon, ScissorsIcon, GridIcon, StoryboardIcon, PinIcon, LoreIcon, 
     LibraryIcon, ShuffleIcon, SettingsIcon, WritersRoomIcon, EditIcon, CharacterIcon,
-    TransitionIcon, DollyIcon
+    TransitionIcon, DollyIcon, WarningIcon
 } from './icons.tsx';
+import { hasCriticalKeys } from '../services/apiKeyService';
 
 interface SidebarProps {
     activeView: ActiveView;
@@ -71,6 +73,8 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, onOpenSettings }) => {
+    const keysPresent = hasCriticalKeys();
+
     return (
         <div className="w-64 bg-neutral-900 border-r border-neutral-800 flex flex-col h-full flex-shrink-0">
             <div className="p-6 border-b border-neutral-800">
@@ -118,10 +122,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, onOpen
             <div className="p-4 border-t border-neutral-800 bg-neutral-900">
                 <button 
                     onClick={onOpenSettings}
-                    className="w-full flex items-center gap-3 px-3 py-3 text-xs font-bold text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-all"
+                    className={`w-full flex items-center justify-between px-3 py-3 text-xs font-bold rounded-lg transition-all ${!keysPresent ? 'bg-red-900/20 text-red-400 border border-red-500/50 hover:bg-red-900/40' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}
                 >
-                    <SettingsIcon className="w-4 h-4 text-neutral-500 group-hover:text-white" />
-                    System Settings
+                    <div className="flex items-center gap-3">
+                        <SettingsIcon className="w-4 h-4" />
+                        <span>System Settings</span>
+                    </div>
+                    {!keysPresent && <WarningIcon className="w-4 h-4 animate-pulse" />}
                 </button>
             </div>
         </div>
