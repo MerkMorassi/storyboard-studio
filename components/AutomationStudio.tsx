@@ -62,9 +62,9 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
             <div className="bg-neutral-800/50 p-6 border border-neutral-700 space-y-6 rounded-lg">
                  <div className="flex justify-between items-center">
                     <div>
-                        <h3 className="text-lg font-semibold text-neutral-300">RAG-as-a-Service</h3>
+                        <h3 className="text-lg font-semibold text-neutral-300">Neural Retrieval (RAG)</h3>
                         <p className="text-sm text-neutral-400 mt-1">
-                            Connect to your Retrieval-Augmented Generation service to give your AI Agents long-term memory.
+                            Switch between Field (Browser) and Studio (Localhost) memory modes.
                         </p>
                     </div>
                     <label htmlFor="rag-toggle" className="flex items-center cursor-pointer">
@@ -84,83 +84,84 @@ export const AutomationStudio: React.FC<AutomationStudioProps> = ({ config, onSa
 
                 <div className={`space-y-4 transition-opacity ${!localConfig.ragEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-2">RAG Provider</label>
-                        <div className="flex flex-wrap gap-4">
-                            <label className="flex items-center gap-2 text-sm text-neutral-200 bg-neutral-900/50 px-3 py-2 rounded-lg border border-neutral-700 cursor-pointer hover:bg-neutral-800 focus-within:ring-2 focus-within:ring-blue-500">
-                                <input type="radio" name="ragProvider" value="cloud" checked={localConfig.ragProvider === 'cloud'} onChange={() => handleConfigChange('ragProvider', 'cloud')} className="form-radio text-blue-500 focus:ring-blue-500" disabled={!localConfig.ragEnabled} />
-                                Cloud Provider
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">Retrieval Mode</label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <label className={`flex flex-col gap-2 p-4 rounded-xl border transition-all cursor-pointer ${localConfig.ragProvider === 'browser' ? 'bg-blue-600/10 border-blue-500 shadow-lg' : 'bg-neutral-900/50 border-neutral-700'}`}>
+                                <div className="flex items-center gap-2">
+                                    <input type="radio" name="ragProvider" value="browser" checked={localConfig.ragProvider === 'browser'} onChange={() => handleConfigChange('ragProvider', 'browser')} className="form-radio text-blue-500" />
+                                    <span className="font-bold text-white text-sm">FIELD MODE (Browser)</span>
+                                </div>
+                                <p className="text-[10px] text-neutral-400 leading-tight uppercase font-medium">Portable retrieval using IndexedDB. Use this when mobile or in the field.</p>
                             </label>
-                            <label className="flex items-center gap-2 text-sm text-neutral-200 bg-neutral-900/50 px-3 py-2 rounded-lg border border-neutral-700 cursor-pointer hover:bg-neutral-800 focus-within:ring-2 focus-within:ring-blue-500">
-                                <input type="radio" name="ragProvider" value="localhost" checked={localConfig.ragProvider === 'localhost'} onChange={() => handleConfigChange('ragProvider', 'localhost')} className="form-radio text-blue-500 focus:ring-blue-500" disabled={!localConfig.ragEnabled} />
-                                Localhost
+
+                            <label className={`flex flex-col gap-2 p-4 rounded-xl border transition-all cursor-pointer ${localConfig.ragProvider === 'localhost' ? 'bg-green-600/10 border-green-500 shadow-lg' : 'bg-neutral-900/50 border-neutral-700'}`}>
+                                <div className="flex items-center gap-2">
+                                    <input type="radio" name="ragProvider" value="localhost" checked={localConfig.ragProvider === 'localhost'} onChange={() => handleConfigChange('ragProvider', 'localhost')} className="form-radio text-green-500" />
+                                    <span className="font-bold text-white text-sm">STUDIO MODE (Node.js)</span>
+                                </div>
+                                <p className="text-[10px] text-neutral-400 leading-tight uppercase font-medium">High-performance retrieval from your local Neural Vault server.</p>
                             </label>
-                            <label className="flex items-center gap-2 text-sm text-neutral-200 bg-neutral-900/50 px-3 py-2 rounded-lg border border-neutral-700 cursor-pointer hover:bg-neutral-800 focus-within:ring-2 focus-within:ring-blue-500">
-                                <input type="radio" name="ragProvider" value="browser" checked={localConfig.ragProvider === 'browser'} onChange={() => handleConfigChange('ragProvider', 'browser')} className="form-radio text-blue-500 focus:ring-blue-500" disabled={!localConfig.ragEnabled} />
-                                Browser / Local (IndexedDB)
+
+                            <label className={`flex flex-col gap-2 p-4 rounded-xl border transition-all cursor-pointer ${localConfig.ragProvider === 'cloud' ? 'bg-purple-600/10 border-purple-500 shadow-lg' : 'bg-neutral-900/50 border-neutral-700'}`}>
+                                <div className="flex items-center gap-2">
+                                    <input type="radio" name="ragProvider" value="cloud" checked={localConfig.ragProvider === 'cloud'} onChange={() => handleConfigChange('ragProvider', 'cloud')} className="form-radio text-purple-500" />
+                                    <span className="font-bold text-white text-sm">CLOUD MODE</span>
+                                </div>
+                                <p className="text-[10px] text-neutral-400 leading-tight uppercase font-medium">Connect to external enterprise vector stores like Pinecone or Weaviate.</p>
                             </label>
                         </div>
-                        {localConfig.ragProvider === 'browser' && (
-                            <p className="text-xs text-blue-400 mt-2 p-2 bg-blue-900/20 border border-blue-800 rounded">
-                                <strong>MYTHOS Local Engine Active:</strong> Vectors are stored securely in your browser's IndexedDB. Embeddings are generated using your Google API Key (text-embedding-004). No external server required.
-                            </p>
-                        )}
                     </div>
 
-                    {(localConfig.ragProvider === 'cloud' || localConfig.ragProvider === 'localhost') && (
-                        <div className={`grid gap-4 border-l-2 border-neutral-700 pl-4`}>
-                            {localConfig.ragProvider === 'cloud' && (
-                                <>
-                                    <div>
-                                        <label className="block text-sm font-medium text-neutral-300 mb-1">API Key</label>
-                                        <input
-                                            type="password"
-                                            value={localConfig.ragApiKey}
-                                            onChange={(e) => handleConfigChange('ragApiKey', e.target.value)}
-                                            placeholder="Enter your RAG service API Key"
-                                            className="w-full bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none"
-                                            disabled={isExternalRagConfigDisabled}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-neutral-300 mb-1">Base URL</label>
-                                        <input
-                                            type="url"
-                                            value={localConfig.ragBaseUrl}
-                                            onChange={(e) => handleConfigChange('ragBaseUrl', e.target.value)}
-                                            placeholder="e.g., https://api.rag-provider.com/v1"
-                                            className="w-full bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none"
-                                            disabled={isExternalRagConfigDisabled}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-neutral-300 mb-1">Knowledge Box ID</label>
-                                        <input
-                                            type="text"
-                                            value={localConfig.ragKnowledgeBoxId}
-                                            onChange={(e) => handleConfigChange('ragKnowledgeBoxId', e.target.value)}
-                                            placeholder="Enter the unique ID for your knowledge box"
-                                            className="w-full bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none"
-                                            disabled={isExternalRagConfigDisabled}
-                                        />
-                                    </div>
-                                </>
-                            )}
-                            {localConfig.ragProvider === 'localhost' && (
+                    {localConfig.ragProvider === 'localhost' && (
+                        <div className="p-4 bg-black/40 rounded-xl border border-neutral-700 animate-fade-in space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">Localhost RAG API URL</label>
+                                <input
+                                    type="url"
+                                    value={localConfig.ragLocalhostUrl}
+                                    onChange={(e) => handleConfigChange('ragLocalhostUrl', e.target.value)}
+                                    placeholder="http://localhost:4000/api/rag"
+                                    className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-1 focus:ring-green-500 outline-none"
+                                />
+                            </div>
+                            <div className="flex items-start gap-3 bg-green-900/10 p-3 rounded-lg border border-green-500/20">
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 shrink-0 animate-pulse"></div>
+                                <p className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium">Point this to your Node.js server to access specialized COREPACKS and persistent studio history.</p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {localConfig.ragProvider === 'cloud' && (
+                        <div className="grid gap-4 bg-black/40 p-4 rounded-xl border border-neutral-700 animate-fade-in">
+                            <div>
+                                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">API Key</label>
+                                <input
+                                    type="password"
+                                    value={localConfig.ragApiKey}
+                                    onChange={(e) => handleConfigChange('ragApiKey', e.target.value)}
+                                    className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-1 focus:ring-purple-500 outline-none"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-neutral-300 mb-1">Localhost RAG API URL</label>
+                                    <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">Base URL</label>
                                     <input
                                         type="url"
-                                        value={localConfig.ragLocalhostUrl}
-                                        onChange={(e) => handleConfigChange('ragLocalhostUrl', e.target.value)}
-                                        placeholder="e.g., http://localhost:4000/api/rag"
-                                        className="w-full bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none"
-                                        disabled={isExternalRagConfigDisabled}
+                                        value={localConfig.ragBaseUrl}
+                                        onChange={(e) => handleConfigChange('ragBaseUrl', e.target.value)}
+                                        className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 outline-none"
                                     />
-                                    <p className="text-xs text-neutral-500 mt-2">
-                                        Enter the full endpoint URL for your local RAG service documents.
-                                    </p>
                                 </div>
-                            )}
+                                <div>
+                                    <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">Collection/Box ID</label>
+                                    <input
+                                        type="text"
+                                        value={localConfig.ragKnowledgeBoxId}
+                                        onChange={(e) => handleConfigChange('ragKnowledgeBoxId', e.target.value)}
+                                        className="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 rounded-lg p-2.5 outline-none"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>

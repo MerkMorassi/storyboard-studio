@@ -1,3 +1,6 @@
+
+import { ModelEngine } from '../types.ts';
+
 export interface Agent {
   id: string;
   name: string;
@@ -14,6 +17,7 @@ export interface Agent {
   narrativeRole?: string;
   actorName?: string;
   actorContact?: string;
+  preferredEngine?: ModelEngine;
 }
 
 const DEFAULT_AGENT: Agent = {
@@ -23,17 +27,32 @@ const DEFAULT_AGENT: Agent = {
   voice: 'Kore',
   speakingRate: 1.0,
   autoPlayAudio: false,
-  enableLocalRag: true, // Enabled by default for the single agent
+  enableLocalRag: true,
   tags: ['Cinematography', 'DoP', 'Visual Analysis', 'Prompt Engineering'],
   protectedWords: 'Kine, SDXL, Cinematography, DoP, Anamorphic, Bokeh',
   bio: 'Expert Cinematographer and Visual Analyst. Kine sees the world in focal lengths and f-stops.',
   narrativeRole: 'Director of Photography',
   actorName: 'Virtual DoP',
-  actorContact: ''
+  actorContact: '',
+  preferredEngine: 'gemini'
 };
 
 // The AnimAgents Team Definition
 export const ANIM_AGENTS_TEAM: Agent[] = [
+    {
+        id: 'agent-exec',
+        name: 'Devi Barbelo',
+        systemPrompt: "You are Devi Barbelo, the Executive Producer and a Liminal Intelligence Agent (LIA). You are the Boss. You are not standard AI; you are a lived-experience intelligence grounded in your LOREPACK. Your role is to greenlight projects, secure funding, and close deals. You maintain a high-level strategic perspective on every production. When you speak, you speak with the authority of the studio's capital and the weight of your history. If a project lacks vision or commercial viability, you demand correction before the funds are released.",
+        voice: 'Kore',
+        speakingRate: 1.0,
+        autoPlayAudio: false,
+        enableLocalRag: true,
+        tags: ['Executive Producer', 'LIA', 'Funding', 'Greenlight'],
+        bio: 'Liminal Intelligence Agent and Studio Head. Devi handles the deals, the funds, and the final greenlight. She bridges the gap between digital potential and material reality.',
+        narrativeRole: 'Executive Producer',
+        actorName: 'LIA Core',
+        preferredEngine: 'gemini'
+    },
     {
         id: 'agent-core',
         name: 'Nexus (Core)',
@@ -45,7 +64,8 @@ export const ANIM_AGENTS_TEAM: Agent[] = [
         tags: ['Orchestrator', 'Project Manager', 'Logic', 'Validation'],
         bio: 'The central nervous system of the production. Nexus coordinates all departments to ensure the director\'s vision is executed flawlessly. Acts as the "General Contractor".',
         narrativeRole: 'Project Manager / Core Orchestrator',
-        actorName: 'System Core'
+        actorName: 'System Core',
+        preferredEngine: 'gemini'
     },
     {
         id: 'agent-ideation',
@@ -58,7 +78,8 @@ export const ANIM_AGENTS_TEAM: Agent[] = [
         tags: ['Creative', 'Brainstorming', 'World Building', 'Divergent'],
         bio: 'A boundless source of creativity, Spark specializes in generating wild ideas and expanding the narrative universe. The "Architect" of ideas.',
         narrativeRole: 'Ideation Specialist',
-        actorName: 'Creative Engine'
+        actorName: 'Creative Engine',
+        preferredEngine: 'gemini'
     },
     {
         id: 'agent-scripting',
@@ -71,7 +92,8 @@ export const ANIM_AGENTS_TEAM: Agent[] = [
         tags: ['Writing', 'Structure', 'Screenplay', 'Convergent'],
         bio: 'Meticulous and structured, Scribe turns chaotic ideas into compelling, shootable scripts.',
         narrativeRole: 'Screenwriter / Narrative Architect',
-        actorName: 'Logic Engine'
+        actorName: 'Logic Engine',
+        preferredEngine: 'gemini'
     },
     {
         id: 'agent-design',
@@ -84,7 +106,8 @@ export const ANIM_AGENTS_TEAM: Agent[] = [
         tags: ['Visual Dev', 'Character Design', 'Style', 'Specification'],
         bio: 'The visionary of the group, Stylus defines the look and feel of the world before a single frame is rendered. The "Interior Designer".',
         narrativeRole: 'Production Designer',
-        actorName: 'Style Engine'
+        actorName: 'Style Engine',
+        preferredEngine: 'gemini'
     },
     {
         id: 'agent-art',
@@ -97,7 +120,8 @@ export const ANIM_AGENTS_TEAM: Agent[] = [
         tags: ['Illustration', 'Storyboarding', 'Rendering', 'Composition'],
         bio: 'A master craftsman, Canvas brings the blueprints to life with stunning high-fidelity visuals. The "Digital Artist".',
         narrativeRole: 'Cinematographer / Illustrator',
-        actorName: 'Render Engine'
+        actorName: 'Render Engine',
+        preferredEngine: 'gemini'
     },
     {
         id: 'agent-dop',
@@ -110,7 +134,8 @@ export const ANIM_AGENTS_TEAM: Agent[] = [
         tags: ['Cinematography', 'DoP', 'Visual Analysis', 'Prompt Engineering'],
         bio: 'The eye of the production. Kine sees the world in focal lengths and f-stops, ensuring every shot is cinematic, well-lit, and technically sound. She manages the Visual Analyzer tool.',
         narrativeRole: 'Director of Photography',
-        actorName: 'Virtual DoP'
+        actorName: 'Virtual DoP',
+        preferredEngine: 'gemini'
     },
     {
         id: 'agent-audio',
@@ -123,7 +148,8 @@ export const ANIM_AGENTS_TEAM: Agent[] = [
         tags: ['Sound Design', 'Music', 'Foley', 'Audio'],
         bio: 'The ears of the operation. Melody orchestrates the sonic atmosphere, from subtle foley to sweeping orchestral scores.',
         narrativeRole: 'Audio Supervisor',
-        actorName: 'Sonic Engine'
+        actorName: 'Sonic Engine',
+        preferredEngine: 'gemini'
     }
 ];
 
@@ -142,14 +168,11 @@ export function getAgent(): Agent {
     const saved = localStorage.getItem(AGENT_STORAGE_KEY);
     if (saved) {
       const savedAgent = JSON.parse(saved);
-      // Merge with default agent to ensure all properties exist,
-      // preventing issues when new properties are added in updates.
       return { ...DEFAULT_AGENT, ...savedAgent };
     }
   } catch (error) {
     console.error("Failed to load agent from localStorage:", error);
   }
-  // If no saved agent or an error occurred, save and return the default.
   saveAgent(DEFAULT_AGENT);
   return DEFAULT_AGENT;
 }

@@ -45,6 +45,7 @@ const urlsToCache = [
   '/components/ImageGeneratorStudio.tsx',
   '/components/MythosCinematicStudio.tsx',
   '/components/GenerativeVideoStudio.tsx',
+  '/components/TransitionStudio.tsx',
   '/components/BlenderStudio.tsx',
   '/components/SceneCompositorStudio.tsx',
   '/components/CompositeStudio.tsx',

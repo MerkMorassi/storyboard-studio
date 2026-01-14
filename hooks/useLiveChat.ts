@@ -1,18 +1,14 @@
-
 import { useState, useRef, useCallback } from 'react';
-// FIX: Alias Blob to GenAIBlob to avoid conflict with global Blob type.
 import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenAIBlob } from '@google/genai';
 import { getApiKey } from '../services/apiKeyService';
 import { Agent } from '../services/agentService';
 import { decode, decodeAudioData, encode } from '../utils/audio';
 
-// Define the shape of the live transcript state
 interface LiveTranscript {
     user: string;
     model: string;
 }
 
-// Define the connection state types
 type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
 
 export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTranscript) => void) => {
@@ -20,7 +16,6 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
     const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
     const [liveTranscript, setLiveTranscript] = useState<LiveTranscript>({ user: '', model: '' });
 
-    // FIX: Using 'any' for the session promise ref as the 'LiveSession' type is not an exported member of the SDK.
     const sessionPromiseRef = useRef<Promise<any> | null>(null);
     const inputAudioContextRef = useRef<AudioContext | null>(null);
     const outputAudioContextRef = useRef<AudioContext | null>(null);
@@ -30,34 +25,34 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
 
     const nextStartTimeRef = useRef(0);
     const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-
-    const finalTranscriptRef = useRef<LiveTranscript>({ user: '', model: '' });
+    const transcriptBufferRef = useRef<LiveTranscript>({ user: '', model: '' });
 
     const stopLiveChat = useCallback(async () => {
         setIsLive(false);
         setConnectionState('idle');
 
-        // Close media stream tracks
         mediaStreamRef.current?.getTracks().forEach(track => track.stop());
         mediaStreamRef.current = null;
 
-        // Disconnect audio nodes
         scriptProcessorRef.current?.disconnect();
         mediaStreamSourceRef.current?.disconnect();
         scriptProcessorRef.current = null;
         mediaStreamSourceRef.current = null;
 
-        // Close audio contexts
-        inputAudioContextRef.current?.close();
-        outputAudioContextRef.current?.close();
-        inputAudioContextRef.current = null;
-        outputAudioContextRef.current = null;
+        if (inputAudioContextRef.current) {
+            await inputAudioContextRef.current.close();
+            inputAudioContextRef.current = null;
+        }
+        if (outputAudioContextRef.current) {
+            await outputAudioContextRef.current.close();
+            outputAudioContextRef.current = null;
+        }
         
-        // Stop any playing audio
-        audioSourcesRef.current.forEach(source => source.stop());
+        audioSourcesRef.current.forEach(source => {
+            try { source.stop(); } catch(e) {}
+        });
         audioSourcesRef.current.clear();
 
-        // Close the Gemini session
         if (sessionPromiseRef.current) {
             try {
                 const session = await sessionPromiseRef.current;
@@ -68,20 +63,19 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
             sessionPromiseRef.current = null;
         }
 
-        const finalTranscript = { ...finalTranscriptRef.current };
-        finalTranscriptRef.current = { user: '', model: '' }; // Reset for next session
+        const final = { ...transcriptBufferRef.current };
+        transcriptBufferRef.current = { user: '', model: '' };
         setLiveTranscript({ user: '', model: '' });
-
-        return finalTranscript;
+        return final;
     }, []);
 
     const startLiveChat = useCallback(async () => {
         if (isLive) return;
 
-        // FIX: Verify API key availability from environment directly as per guidelines.
         if (!process.env.API_KEY) {
+            console.error("Missing API Key for Live Session");
             setConnectionState('error');
-            console.error("API Key not found for live chat.");
+            setIsLive(false);
             return;
         }
 
@@ -96,10 +90,11 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
             outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             nextStartTimeRef.current = 0;
 
-            // FIX: Initialize GoogleGenAI using process.env.API_KEY directly as required by standard coding guidelines.
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            
+            // Fixed Model Name to 'gemini-2.5-flash-native-audio-preview-12-2025' for best reliability
             sessionPromiseRef.current = ai.live.connect({
-                model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+                model: 'gemini-2.5-flash-native-audio-preview-12-2025',
                 config: {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: agent.voice || 'Kore' } } },
@@ -109,67 +104,60 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
                 },
                 callbacks: {
                     onopen: () => {
+                        console.log('Live Session Established');
                         setConnectionState('connected');
-                        const source = inputAudioContextRef.current!.createMediaStreamSource(stream);
+                        
+                        if (!inputAudioContextRef.current) return;
+                        
+                        const source = inputAudioContextRef.current.createMediaStreamSource(stream);
                         mediaStreamSourceRef.current = source;
 
-                        const scriptProcessor = inputAudioContextRef.current!.createScriptProcessor(4096, 1, 1);
+                        const scriptProcessor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
                         scriptProcessorRef.current = scriptProcessor;
 
                         scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
                             const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
                             const int16 = new Int16Array(inputData.length);
                             for (let i = 0; i < inputData.length; i++) {
-                                int16[i] = inputData[i] * 32768;
+                                const s = Math.max(-1, Math.min(1, inputData[i]));
+                                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
                             }
                             const pcmBlob: GenAIBlob = {
                                 data: encode(new Uint8Array(int16.buffer)),
                                 mimeType: 'audio/pcm;rate=16000',
                             };
+                            
                             sessionPromiseRef.current?.then((session) => {
-                                session.sendRealtimeInput({ media: pcmBlob });
+                                try {
+                                    session.sendRealtimeInput({ media: pcmBlob });
+                                } catch (err) {
+                                    console.warn("Input streaming failure:", err);
+                                }
                             });
                         };
                         source.connect(scriptProcessor);
-                        scriptProcessor.connect(inputAudioContextRef.current!.destination);
+                        scriptProcessor.connect(inputAudioContextRef.current.destination);
                     },
                     onmessage: async (message: LiveServerMessage) => {
-                        // Handle transcription
-                        let updatedTranscript = { ...liveTranscript };
-                        let hasUpdate = false;
-
                         if (message.serverContent?.inputTranscription) {
                             const text = message.serverContent.inputTranscription.text;
-                            setLiveTranscript(prev => {
-                                const newVal = { ...prev, user: prev.user + text };
-                                updatedTranscript = newVal;
-                                return newVal;
-                            });
-                            hasUpdate = true;
+                            transcriptBufferRef.current.user += text;
+                            setLiveTranscript(prev => ({ ...prev, user: prev.user + text }));
                         }
                         if (message.serverContent?.outputTranscription) {
                             const text = message.serverContent.outputTranscription.text;
-                            setLiveTranscript(prev => {
-                                const newVal = { ...prev, model: prev.model + text };
-                                updatedTranscript = newVal;
-                                return newVal;
-                            });
-                            hasUpdate = true;
+                            transcriptBufferRef.current.model += text;
+                            setLiveTranscript(prev => ({ ...prev, model: prev.model + text }));
                         }
                         
                         if (message.serverContent?.turnComplete) {
-                            // If user/model have spoken, push to history via callback
-                            // We need to use a functional update pattern or ref to get the absolute latest state
-                            // inside this callback closure.
-                            setLiveTranscript(currentTranscript => {
-                                if (onTurnComplete && (currentTranscript.user || currentTranscript.model)) {
-                                    onTurnComplete(currentTranscript);
-                                }
-                                return { user: '', model: '' }; // Reset transcript for next turn
-                            });
+                            if (onTurnComplete && (transcriptBufferRef.current.user || transcriptBufferRef.current.model)) {
+                                onTurnComplete({ ...transcriptBufferRef.current });
+                            }
+                            transcriptBufferRef.current = { user: '', model: '' };
+                            setLiveTranscript({ user: '', model: '' });
                         }
 
-                        // Handle audio output
                         const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
                         if (base64Audio && outputAudioContextRef.current) {
                             const audioCtx = outputAudioContextRef.current;
@@ -186,20 +174,28 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
                             nextStartTimeRef.current += audioBuffer.duration;
                             audioSourcesRef.current.add(source);
                         }
+
+                        const interrupted = message.serverContent?.interrupted;
+                        if (interrupted) {
+                            audioSourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
+                            audioSourcesRef.current.clear();
+                            nextStartTimeRef.current = 0;
+                        }
                     },
-                    onerror: (e: ErrorEvent) => {
-                        console.error('Live chat error:', e);
+                    onerror: (e: any) => {
+                        console.error('Live chat service error:', e);
                         setConnectionState('error');
-                        stopLiveChat();
+                        setIsLive(false);
                     },
                     onclose: () => {
+                        console.log('Live Session Closed by Server');
                         setConnectionState('idle');
+                        setIsLive(false);
                     },
                 },
             });
-
         } catch (err) {
-            console.error('Failed to start live chat:', err);
+            console.error('Failed to initiate live chat:', err);
             setConnectionState('error');
             setIsLive(false);
         }

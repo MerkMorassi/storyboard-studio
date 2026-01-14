@@ -1,6 +1,6 @@
 {
-  "name": "Creative Fire Media",
-  "description": "A complete media production suite.",
+  "name": "Mythos Director Pro",
+  "description": "High-fidelity cinematic production suite with LOREPACK neural synchronization.",
   "requestFramePermissions": [
     "microphone"
   ]
