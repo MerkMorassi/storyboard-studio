@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { GreenScreenState } from '../types.ts';
-import { LoadingSpinner, DownloadIcon, AddToStoryIcon, PinIcon, ScissorsIcon, VideoIcon, ImageIcon } from './icons.tsx';
+import { LoadingSpinner, ScissorsIcon, VideoIcon, ImageIcon } from './icons.tsx';
 import { AssetActions } from './AssetActions.tsx';
 import { getGradioClient } from '../services/gradioService';
 
@@ -10,7 +10,7 @@ interface GreenScreenStudioProps {
     isLoading: boolean;
     error: string | null;
     onStateUpdate: (newState: GreenScreenState) => void;
-    onAddToStoryboard: (base64: string) => void; // Extracts a frame
+    onAddToStoryboard: (base64: string) => void; 
     onAddAssetToGrid?: (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string }) => void;
     hfToken?: string;
 }
@@ -65,12 +65,10 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
                 // VIDEO PATH
                 setProgress('Connecting to video background removal service...');
                 
-                // Target the fantaxy/Remove-Video-Background space
                 const client = await getGradioClient("fantaxy/Remove-Video-Background", { hfToken });
                 
                 setProgress('Processing video frames (this may take a minute)...');
                 
-                // The space usually takes a video file path/blob
                 const result = await client.predict("/predict", [blob]);
 
                 if (result && result.data && result.data.length > 0) {
@@ -97,17 +95,13 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
                 // IMAGE PATH
                 setProgress('Connecting to image background removal service...');
                 
-                // Switch to BiRefNet (ZhengPeng7/BiRefNet_demo) as it is more stable publicly than briaai/RMBG-1.4
-                // BiRefNet is SOTA for high quality segmentation
                 const client = await getGradioClient("ZhengPeng7/BiRefNet_demo", { hfToken });
                 
                 setProgress('Removing background...');
                 
-                // BiRefNet takes [image]
                 const result = await client.predict("/predict", [blob]);
 
                 if (result && result.data && result.data.length > 0) {
-                    // Result 0 is typically the RGBA image
                     const resultData = (result.data as any[])[0];
                     let resultUrl = '';
                     
@@ -118,17 +112,19 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
                     }
 
                     if (resultUrl) {
-                        // Fetch the blob and convert to Data URI for consistent storage
                         const response = await fetch(resultUrl);
                         const resultBlob = await response.blob();
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const base64data = reader.result as string;
-                            onStateUpdate({ ...greenScreenState, resultUrl: base64data });
-                            setLocalLoading(false);
-                        };
-                        reader.readAsDataURL(resultBlob);
-                        return; // Async completion handled in onloadend
+                        
+                        await new Promise<void>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const base64data = reader.result as string;
+                                onStateUpdate({ ...greenScreenState, resultUrl: base64data });
+                                resolve();
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(resultBlob);
+                        });
                     } else {
                         throw new Error("API returned invalid data.");
                     }
@@ -152,29 +148,19 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
             
             setLocalError(errorMessage);
         } finally {
-            if (greenScreenState.source && !isVideo(greenScreenState.source.mimeType)) {
-               // For image path, handled in reader or error block
-            } else {
-               setLocalLoading(false);
-            }
+            setLocalLoading(false);
             setProgress('');
-        }
-        
-        if (!greenScreenState.source || isVideo(greenScreenState.source.mimeType) || localError) {
-             setLocalLoading(false);
         }
     };
 
     const activeLoading = isLoading || localLoading;
     const activeError = error || localError;
 
-    // Helper to determine if result is an image (Data URI) or Video (URL)
     const isResultImage = (url: string) => url.startsWith('data:image');
 
     const getResultAsset = () => {
         if (!greenScreenState.resultUrl) return undefined;
         if (isResultImage(greenScreenState.resultUrl)) {
-            // Extract base64 and mime for AssetActions
             const [meta, base64] = greenScreenState.resultUrl.split(',');
             const mimeType = meta.split(':')[1].split(';')[0];
             return { type: 'image' as const, base64, mimeType };
@@ -246,7 +232,7 @@ export const GreenScreenStudio: React.FC<GreenScreenStudioProps> = ({
                         className="w-full py-4 bg-green-700 hover:bg-green-600 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {activeLoading ? (
-                            <><LoadingSpinner className="w-5 h-5 text-white" /> Processing...</>
+                            <><LoadingSpinner className="w-5 h-5 text-white" /> {progress || 'Processing...'}</>
                         ) : (
                             <><ScissorsIcon className="w-5 h-5" /> Remove Background</>
                         )}

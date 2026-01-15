@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { TransitionState } from '../types.ts';
-import { LoadingSpinner, TransitionIcon, ClapperboardIcon, ChevronDownIcon } from './icons.tsx';
+import { TransitionState, PromptTemplate } from '../types.ts';
+import { LoadingSpinner, TransitionIcon, ClapperboardIcon, ChevronDownIcon, LibraryIcon } from './icons.tsx';
 import { AssetActions } from './AssetActions';
 import { getGradioClient } from '../services/gradioService';
 
@@ -14,12 +14,22 @@ interface TransitionStudioProps {
     hfToken?: string;
     projects: { id: string; name: string }[];
     activeProjectId?: string;
+    promptTemplates?: PromptTemplate[];
 }
 
 const base64ToBlob = async (base64: string, mimeType: string): Promise<Blob> => {
     const res = await fetch(`data:${mimeType};base64,${base64}`);
     return await res.blob();
 };
+
+const ASPECT_RATIOS = [
+    { label: '2.39:1 (Cinematic)', w: 1920, h: 804 },
+    { label: '16:9 (Landscape)', w: 1280, h: 720 },
+    { label: '9:16 (Portrait)', w: 720, h: 1280 },
+    { label: '1:1 (Square)', w: 1024, h: 1024 },
+    { label: '3:2 (Classic)', w: 1216, h: 816 },
+    { label: 'Custom', w: 0, h: 0 } // handled manually
+];
 
 const ImageUpload: React.FC<{
     title: string;
@@ -36,7 +46,7 @@ const ImageUpload: React.FC<{
     return (
         <div 
             onClick={() => inputRef.current?.click()}
-            className="w-full h-full bg-neutral-900 border-2 border-dashed border-neutral-700 rounded-xl flex items-center justify-center cursor-pointer hover:bg-neutral-800/50 hover:border-neutral-500 transition-all relative overflow-hidden group"
+            className="w-full h-full bg-neutral-900 border-2 border-dashed border-neutral-700 rounded-xl flex items-center justify-center cursor-pointer hover:bg-neutral-800/50 hover:border-neutral-500 transition-all relative overflow-hidden group min-h-[250px]"
         >
             {image ? (
                 <>
@@ -67,12 +77,13 @@ export const TransitionStudio: React.FC<TransitionStudioProps> = ({
     onAddToInspiration,
     hfToken,
     projects,
-    activeProjectId 
+    activeProjectId,
+    promptTemplates = []
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState('');
-    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(true);
     const videoRef = useRef<HTMLVideoElement>(null);
 
     const handleUpload = (type: 'start' | 'end', file: File) => {
@@ -90,6 +101,23 @@ export const TransitionStudio: React.FC<TransitionStudioProps> = ({
         reader.readAsDataURL(file);
     };
 
+    const handleResolutionPreset = (width: number, height: number) => {
+        if (width > 0 && height > 0) {
+            onStateUpdate({ ...state, width, height });
+        }
+    };
+
+    const applyTemplate = (templateId: string) => {
+        const template = promptTemplates.find(t => t.id === templateId);
+        if (template) {
+            onStateUpdate({
+                ...state,
+                prompt: template.positivePrompt ? `${template.positivePrompt}, ${state.prompt}` : state.prompt,
+                negativePrompt: template.negativePrompt ? `${template.negativePrompt}, ${state.negativePrompt}` : state.negativePrompt
+            });
+        }
+    };
+
     const handleGenerate = async () => {
         if (!state.startImage || !state.endImage) {
             setError("Both Start and End frames are required.");
@@ -98,39 +126,51 @@ export const TransitionStudio: React.FC<TransitionStudioProps> = ({
         
         setIsLoading(true);
         setError(null);
-        setProgress('Initializing video transition model...');
+        setProgress('Connecting to LTX-2 Neural Engine...');
         onStateUpdate({ ...state, resultUrl: null });
 
         try {
             const startBlob = await base64ToBlob(state.startImage.base64, state.startImage.mimeType);
             const endBlob = await base64ToBlob(state.endImage.base64, state.endImage.mimeType);
 
-            const client = await getGradioClient("GiorgioV/test-wan-2-2-first-last-frame", { hfToken });
+            // Connect to LTX-2 Space
+            const client = await getGradioClient("linoyts/ltx-2-first-last-frame", { hfToken });
             
-            setProgress('Generating transition video...');
+            setProgress('Interpolating frames (Standard Mode)...');
             
+            // Named parameters for LTX-2 First-Last Frame API
             const result = await client.predict("/generate_video", { 
-                start_image_pil: startBlob,
-                end_image_pil: endBlob,
-                prompt: state.prompt || "A beautiful transition",
+                start_frame: startBlob,
+                prompt: state.prompt || "Smooth cinematic transition between keyframes with natural motion and consistent lighting",
+                end_frame_upload: endBlob,
+                end_frame_generated: null, // We prefer uploaded end frame
+                strength_start: state.strengthStart ?? 1.0,
+                strength_end: state.strengthEnd ?? 0.9,
+                duration: state.duration ?? 5,
+                enhance_prompt: state.enhancePrompt ?? true,
                 negative_prompt: state.negativePrompt,
-                duration_seconds: state.duration,
-                steps: state.steps,
-                guidance_scale: state.guidanceScale,
-                guidance_scale_2: state.guidanceScale2,
-                seed: state.seed,
-                randomize_seed: state.randomizeSeed
+                seed: state.randomizeSeed ? -1 : (state.seed || 42),
+                randomize_seed: state.randomizeSeed,
+                num_inference_steps: state.steps ?? 20,
+                cfg_guidance_scale: state.guidanceScale ?? 3,
+                height: state.height ?? 512,
+                width: state.width ?? 768,
             });
 
-            if (result?.data?.[0]?.url) {
-                const newSeed = result.data[1];
+            if (result?.data?.[0]) {
+                let videoUrl = result.data[0];
+                if (typeof videoUrl === 'object' && videoUrl.url) videoUrl = videoUrl.url;
+                
+                // data[1] is prompt used, data[2] is seed used
+                const usedSeed = result.data[2];
+
                 onStateUpdate({ 
                     ...state, 
-                    resultUrl: result.data[0].url,
-                    seed: state.randomizeSeed ? newSeed : state.seed // Update seed if it was randomized
+                    resultUrl: videoUrl,
+                    seed: state.randomizeSeed ? usedSeed : state.seed 
                 });
             } else {
-                throw new Error("Could not parse video URL from the model's response.");
+                throw new Error("Could not parse video output from the model.");
             }
         } catch (err) {
             console.error("Transition generation error:", err);
@@ -153,21 +193,45 @@ export const TransitionStudio: React.FC<TransitionStudioProps> = ({
 
     return (
         <div className="p-6 max-w-7xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
-            <div className="flex-shrink-0">
-                <h2 className="text-3xl font-bold text-neutral-200 mb-2">Transition Studio</h2>
-                <p className="text-neutral-400">Generate a video that smoothly transitions between a start and end frame.</p>
+            <div className="flex-shrink-0 flex justify-between items-end">
+                <div>
+                    <h2 className="text-3xl font-bold text-neutral-200 mb-2">Transition Studio <span className="text-sm font-normal text-blue-400 bg-blue-900/20 px-2 py-1 rounded ml-2 border border-blue-500/30">LTX-2</span></h2>
+                    <p className="text-neutral-400">Generate a video that smoothly transitions between a start and end frame using keyframe interpolation.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1 text-xs">
+                        <span className="text-neutral-500 uppercase font-bold tracking-wider mr-2">Target Res</span>
+                        <span className="text-white font-mono">{state.width}x{state.height}</span>
+                    </div>
+                </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
                 <ImageUpload title="Start Frame" image={state.startImage} onUpload={(f) => handleUpload('start', f)} onRemove={() => onStateUpdate({...state, startImage: null})} />
                 
                 <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 flex flex-col gap-4">
-                    <textarea 
-                        value={state.prompt}
-                        onChange={(e) => onStateUpdate({ ...state, prompt: e.target.value })}
-                        placeholder="Describe the transition..."
-                        className="w-full h-24 bg-neutral-900 border border-neutral-600 rounded p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none resize-none"
-                    />
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Transition Prompt</label>
+                            <div className="relative group">
+                                <select 
+                                    onChange={(e) => applyTemplate(e.target.value)} 
+                                    defaultValue="" 
+                                    className="appearance-none bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-[10px] text-blue-400 font-bold outline-none cursor-pointer hover:border-blue-500 pr-6"
+                                >
+                                    <option value="" disabled>Apply Style...</option>
+                                    {promptTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                </select>
+                                <LibraryIcon className="w-3 h-3 text-blue-400 absolute right-2 top-1.5 pointer-events-none" />
+                            </div>
+                        </div>
+                        <textarea 
+                            value={state.prompt}
+                            onChange={(e) => onStateUpdate({ ...state, prompt: e.target.value })}
+                            placeholder="Describe the transition (e.g. Smooth cinematic zoom...)"
+                            className="w-full h-24 bg-neutral-900 border border-neutral-600 rounded p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none resize-none"
+                        />
+                    </div>
                     
                     {/* Advanced Settings */}
                     <div className="border-t border-neutral-700 pt-4">
@@ -180,30 +244,64 @@ export const TransitionStudio: React.FC<TransitionStudioProps> = ({
                         </button>
                         
                         {showAdvanced && (
-                            <div className="mt-4 space-y-3 bg-neutral-900/50 p-3 rounded-lg border border-neutral-700/50">
+                            <div className="mt-4 space-y-4 bg-neutral-900/50 p-3 rounded-lg border border-neutral-700/50">
+                                
+                                {/* Resolution Presets */}
+                                <div>
+                                    <label className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-2 block">Aspect Ratio</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {ASPECT_RATIOS.map((preset) => (
+                                            <button
+                                                key={preset.label}
+                                                onClick={() => handleResolutionPreset(preset.w, preset.h)}
+                                                className={`px-2 py-1.5 rounded text-[10px] font-bold border transition-colors ${
+                                                    state.width === preset.w && state.height === preset.h
+                                                        ? 'bg-blue-600 border-blue-500 text-white shadow-md'
+                                                        : 'bg-neutral-800 border-neutral-600 text-neutral-400 hover:text-white hover:border-neutral-500'
+                                                }`}
+                                            >
+                                                {preset.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 <textarea 
                                     value={state.negativePrompt}
                                     onChange={(e) => onStateUpdate({ ...state, negativePrompt: e.target.value })}
                                     placeholder="Negative prompt..."
-                                    className="w-full h-20 bg-neutral-800 border border-neutral-600 rounded p-2 text-xs"
+                                    className="w-full h-16 bg-neutral-800 border border-neutral-600 rounded p-2 text-xs"
                                 />
+                                
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-[10px] text-neutral-500">Duration ({state.duration}s)</label>
-                                        <input type="range" min="1" max="5" step="0.1" value={state.duration} onChange={e => onStateUpdate({...state, duration: parseFloat(e.target.value)})} className="w-full" />
+                                        <input type="range" min="1" max="10" step="0.5" value={state.duration} onChange={e => onStateUpdate({...state, duration: parseFloat(e.target.value)})} className="w-full accent-blue-500" />
                                     </div>
                                      <div>
                                         <label className="text-[10px] text-neutral-500">Steps ({state.steps})</label>
-                                        <input type="range" min="1" max="25" step="1" value={state.steps} onChange={e => onStateUpdate({...state, steps: parseInt(e.target.value)})} className="w-full" />
+                                        <input type="range" min="10" max="50" step="1" value={state.steps} onChange={e => onStateUpdate({...state, steps: parseInt(e.target.value)})} className="w-full accent-blue-500" />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-neutral-500">Guidance (High): {state.guidanceScale}</label>
-                                        <input type="range" min="0" max="10" step="0.5" value={state.guidanceScale} onChange={e => onStateUpdate({...state, guidanceScale: parseFloat(e.target.value)})} className="w-full" />
+                                        <label className="text-[10px] text-neutral-500">Start Strength: {state.strengthStart}</label>
+                                        <input type="range" min="0" max="1" step="0.05" value={state.strengthStart ?? 1} onChange={e => onStateUpdate({...state, strengthStart: parseFloat(e.target.value)})} className="w-full accent-green-500" />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-neutral-500">Guidance (Low): {state.guidanceScale2}</label>
-                                        <input type="range" min="0" max="10" step="0.5" value={state.guidanceScale2} onChange={e => onStateUpdate({...state, guidanceScale2: parseFloat(e.target.value)})} className="w-full" />
+                                        <label className="text-[10px] text-neutral-500">End Strength: {state.strengthEnd}</label>
+                                        <input type="range" min="0" max="1" step="0.05" value={state.strengthEnd ?? 0.9} onChange={e => onStateUpdate({...state, strengthEnd: parseFloat(e.target.value)})} className="w-full accent-green-500" />
                                     </div>
+                                    <div>
+                                        <label className="text-[10px] text-neutral-500">Width</label>
+                                        <input type="number" value={state.width} onChange={e => onStateUpdate({...state, width: parseInt(e.target.value)})} className="w-full bg-neutral-800 border border-neutral-600 rounded p-1 text-xs" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-neutral-500">Height</label>
+                                        <input type="number" value={state.height} onChange={e => onStateUpdate({...state, height: parseInt(e.target.value)})} className="w-full bg-neutral-800 border border-neutral-600 rounded p-1 text-xs" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input type="checkbox" checked={state.enhancePrompt ?? true} onChange={e => onStateUpdate({...state, enhancePrompt: e.target.checked})} id="enhance" className="accent-blue-500" />
+                                    <label htmlFor="enhance" className="text-xs text-neutral-400">Enhance Prompt (AI)</label>
                                 </div>
                                 <div>
                                     <label className="text-[10px] text-neutral-500">Seed</label>
@@ -224,7 +322,7 @@ export const TransitionStudio: React.FC<TransitionStudioProps> = ({
                         {isLoading ? <LoadingSpinner className="w-5 h-5" /> : <TransitionIcon className="w-5 h-5" />}
                         {isLoading ? (progress || 'Generating...') : 'Generate Transition'}
                     </button>
-                    {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+                    {error && <p className="text-xs text-red-400 text-center bg-red-900/20 p-2 rounded">{error}</p>}
                 </div>
                 
                 <ImageUpload title="End Frame" image={state.endImage} onUpload={(f) => handleUpload('end', f)} onRemove={() => onStateUpdate({...state, endImage: null})} />

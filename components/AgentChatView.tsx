@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Agent } from '../services/agentService';
 import { Chat, Part, Content } from '@google/genai';
@@ -6,14 +5,11 @@ import { createChat, generateSpeech, getEmbeddings } from '../services/geminiSer
 import { ChatMessage } from './ChatMessage';
 import { ChatInterface } from './ChatInterface';
 import { decode, decodeAudioData } from '../utils/audio';
-import { TrashIcon } from './icons/TrashIcon';
 import { vectorDb } from '../services/vectorDbService';
-import { WarningIcon } from './icons/WarningIcon';
 import { useLiveChat } from '../hooks/useLiveChat';
 import { MicIcon } from './icons/MicIcon';
 import { MicOffIcon } from './icons/MicOffIcon';
-import { PhoneIcon, ChatIcon, LoadingSpinner } from './icons.tsx';
-import { DatabaseIcon } from './icons/DatabaseIcon';
+import { PhoneIcon, ChatIcon, LoadingSpinner, DatabaseIcon, TrashIcon } from './icons.tsx';
 import { cosineSimilarity } from '../services/embeddingService';
 import { TELEPORTER } from '../utils/numMarkX';
 import { runDolphinInference } from '../services/dolphinService';
@@ -45,35 +41,74 @@ const fileToBase64 = (file: File): Promise<string> =>
 
 const retrieveLivedExperience = async (agentId: string, query: string): Promise<{ text: string, sources: string[] } | null> => {
     try {
+        // 1. Vector Retrieval
         const allVectors = await vectorDb.getVectorsByAgent(agentId);
-        if (allVectors.length === 0) return null;
+        
+        let contextText = "";
+        const sources = new Set<string>();
 
+        // 1a. Teleport (Exact Match)
         const teleportIds = TELEPORTER.teleport(query);
         if (teleportIds && teleportIds.length > 0) {
             const directNodes = allVectors.filter(v => teleportIds.includes(v.id));
             if (directNodes.length > 0) {
-                return {
-                    text: directNodes.map(v => `[DIRECT HIT: ${v.source}]\n${v.text}`).join('\n\n'),
-                    sources: Array.from(new Set(directNodes.map(v => v.source)))
-                };
+                contextText += directNodes.map(v => `[DIRECT HIT: ${v.source}]\n${v.text}`).join('\n\n') + "\n\n";
+                directNodes.forEach(v => sources.add(v.source));
             }
         }
 
+        // 1b. Semantic Search
         const queryVector = await getEmbeddings(query);
-        if (!queryVector) return null;
+        if (queryVector) {
+            const scored = allVectors.map(v => ({
+                ...v,
+                score: cosineSimilarity(queryVector, v.vector)
+            })).sort((a, b) => b.score - a.score);
+            
+            const relevant = scored.slice(0, 5).filter(v => v.score > 0.45);
+            if (relevant.length > 0) {
+                contextText += relevant.map(v => `[EXPERIENCE NODE: ${v.source}]\n${v.text}`).join('\n\n') + "\n\n";
+                relevant.forEach(v => sources.add(v.source));
+            }
+        }
 
-        const scored = allVectors.map(v => ({
-            ...v,
-            score: cosineSimilarity(queryVector, v.vector)
-        })).sort((a, b) => b.score - a.score);
-        
-        const relevant = scored.slice(0, 5).filter(v => v.score > 0.45);
-        if (relevant.length === 0) return null;
+        // 2. Graph Retrieval (Graph RAG)
+        const graphNodes = await vectorDb.getGraphNodesByAgent(agentId);
+        if (graphNodes.length > 0) {
+            const lowerQuery = query.toLowerCase();
+            // Simple keyword matching for graph nodes (can be upgraded to embedding search later)
+            const matchedNodes = graphNodes.filter(n => lowerQuery.includes(n.label.toLowerCase()) || (n.name && lowerQuery.includes(n.name.toLowerCase())));
+            
+            if (matchedNodes.length > 0) {
+                const edges = await vectorDb.getGraphEdgesByAgent(agentId);
+                let graphContext = "[GRAPH KNOWLEDGE TOPOLOGY]\n";
+                
+                matchedNodes.forEach(node => {
+                    graphContext += `Node: ${node.label} (${node.description || 'No Desc'})\n`;
+                    
+                    // Find connected edges
+                    const connectedEdges = edges.filter(e => e.source === node.id || e.target === node.id);
+                    connectedEdges.forEach(e => {
+                        const isSource = e.source === node.id;
+                        const otherId = isSource ? e.target : e.source;
+                        const otherNode = graphNodes.find(n => n.id === otherId);
+                        if (otherNode) {
+                            graphContext += `  -> ${e.label} -> ${otherNode.label}\n`;
+                        }
+                    });
+                    graphContext += "\n";
+                });
+                
+                if (graphContext.trim() !== "[GRAPH KNOWLEDGE TOPOLOGY]") {
+                    contextText += graphContext;
+                    sources.add("Neural Graph");
+                }
+            }
+        }
 
-        const contextText = relevant.map(v => `[EXPERIENCE NODE: ${v.source}]\n${v.text}`).join('\n\n');
-        const sources = Array.from(new Set(relevant.map(v => v.source)));
+        if (!contextText.trim()) return null;
         
-        return { text: contextText, sources };
+        return { text: contextText, sources: Array.from(sources) };
     } catch (e) {
         console.error("[LOREPACK] Retrieval Fault", e);
         return null;
@@ -118,8 +153,9 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
   useEffect(() => {
       const syncTeleporter = async () => {
           const vectors = await vectorDb.getVectorsByAgent(agent.id);
+          const nodes = await vectorDb.getGraphNodesByAgent(agent.id);
           TELEPORTER.rebuildIndex(vectors.map(v => ({ id: v.id, text: v.text })));
-          setHasLorepack(vectors.length > 0);
+          setHasLorepack(vectors.length > 0 || nodes.length > 0);
       };
       syncTeleporter();
   }, [agent.id]);
@@ -129,7 +165,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
     const loadChat = async () => {
         const logs = await vectorDb.getAgentChat(agent.id);
         setChatHistory(logs);
-        const perspectivePrompt = `${agent.systemPrompt}\n\nCORE PROTOCOL: You have a LOREPACK containing your history and knowledge. When provided with <LIVED_EXPERIENCE> context, you must speak FROM that history. Do not say "based on the context"; simply embody the knowledge as your own lived experience.`;
+        const perspectivePrompt = `${agent.systemPrompt}\n\nCORE PROTOCOL: You have a LOREPACK containing your history and knowledge (Vectors & Graph). When provided with <LIVED_EXPERIENCE> or [GRAPH KNOWLEDGE TOPOLOGY] context, you must speak FROM that history. Do not say "based on the context"; simply embody the knowledge as your own lived experience. Use graph connections to reason about relationships between concepts.`;
         
         const geminiHistory: Content[] = logs.map(log => ({
             role: log.role,
@@ -226,10 +262,11 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
       
       let promptWithExperience = currentMessage;
       let experienceCitation = "";
+      
       if (hasLorepack && currentMessage.trim()) {
           const experience = await retrieveLivedExperience(agent.id, currentMessage);
           if (experience) {
-              promptWithExperience = `[LOREPACK PERSPECTIVE INITIATED]\n\n<LIVED_EXPERIENCE>\n${experience.text}\n</LIVED_EXPERIENCE>\n\nDIRECTIVE: Respond to the following query using the above history as your own memory:\n\n${currentMessage}`;
+              promptWithExperience = `[LOREPACK PERSPECTIVE INITIATED]\n\n<LIVED_EXPERIENCE>\n${experience.text}\n</LIVED_EXPERIENCE>\n\nDIRECTIVE: Respond to the following query using the above history/graph as your own memory:\n\n${currentMessage}`;
               experienceCitation = `\n\n*(Sourced from experiences in: ${experience.sources.join(', ')})*`;
           }
       }

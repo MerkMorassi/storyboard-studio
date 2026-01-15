@@ -259,6 +259,11 @@ export interface TransitionState {
   seed: number;
   randomizeSeed: boolean;
   resultUrl: string | null;
+  strengthStart?: number;
+  strengthEnd?: number;
+  enhancePrompt?: boolean;
+  width?: number;
+  height?: number;
 }
 
 export interface TopazState {
@@ -281,12 +286,160 @@ export interface ToolCode {
   code: string;
 }
 
-export interface Agent {
+// --- NEW RAG & LOREPACK TYPES ---
+
+export interface VectorRecord {
+  id: string;
+  text: string;
+  vector: number[];
+  source: string;
+  agent: string; // The "handle" or author
+  timestamp: number;
+  permissions?: string; 
+}
+export type LorePackExport = VectorRecord[];
+
+export enum ConnectionState {
+  DISCONNECTED = 'DISCONNECTED',
+  CONNECTING = 'CONNECTING',
+  CONNECTED = 'CONNECTED',
+  ERROR = 'ERROR',
+}
+
+export interface VisionEvent {
+    id: string;
+    timestamp: number;
+    type: 'SCREENING_ROOM_SNAPSHOT';
+    description: string;
+    assetUrl: string;
+    witnessedBy: string[];
+}
+
+export interface LogMessage {
+  id: string;
+  type: 'user' | 'model' | 'system' | 'tool';
+  text: string;
+  timestamp: number;
+  sender?: string;
+  isStreaming?: boolean;
+  feedback?: 'up' | 'down';
+  attachment?: string;
+  attachmentType?: 'image' | 'video' | 'text' | 'audio' | 'pdf';
+  visionEvent?: VisionEvent;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  timestamp: number;
+  logs: LogMessage[];
+  agentId: string;
+}
+
+export interface ModelConfig {
+  temperature: number;
+  topP: number;
+  topK: number;
+}
+
+export const DEFAULT_MODEL_CONFIG: ModelConfig = {
+  temperature: 0.7,
+  topP: 0.95,
+  topK: 40,
+};
+
+export interface SovereignConfig {
+  mode: 'PRESET' | 'CUSTOM' | 'SILENT';
+  preset: string;
+  customGreeting: string;
+}
+
+export const DEFAULT_SOVEREIGN_CONFIG: SovereignConfig = {
+  mode: 'PRESET',
+  preset: 'Nexus Prime',
+  customGreeting: ''
+};
+
+export interface AgentConfig {
+  agentId: string;
+  systemInstruction: string;
+  modelConfig: ModelConfig;
+  voiceName?: string;
+  voiceReference?: string;
+  voiceSpeed?: number;
+  voicePitch?: number;
+  accessLevel?: string;
+  bio?: string;
+}
+
+export interface CloudFile {
+  name: string;
+  displayName: string;
+  mimeType: string;
+  sizeBytes: string;
+  createTime: string;
+  state: 'STATE_UNSPECIFIED' | 'PROCESSING' | 'ACTIVE' | 'FAILED';
+  uri: string;
+}
+
+export interface GraphNode {
   id: string;
   name: string;
+  label: string; 
+  description: string;
+  agentId: string;
+}
+
+export interface GraphEdge {
+  source: string; 
+  target: string; 
+  label: string;
+  agentId: string;
+}
+
+export type PermMemory = 'READ_LORE' | 'WRITE_LORE' | 'MODIFY_LORE' | 'MANAGE_MEMORY';
+export type PermTools = 'EXECUTE_CODE' | 'ROUTE_EXTERNAL' | 'GENERATE_MEDIA' | 'COLLABORATE';
+export type PermSystem = 'ADMIN_OVERRIDE' | 'BROADCAST_COUNCIL' | 'SELF_UPDATE' | 'PUBLISH_CANON' | 'WRITE_CANON';
+export type SomaPermission = PermMemory | PermTools | PermSystem;
+
+export enum SomaActionType {
+    QUERY_DB = 'QUERY_DB',
+    INGEST_DATA = 'INGEST_DATA',
+    DELETE_DATA = 'DELETE_DATA',
+    EXEC_CODE = 'EXEC_CODE',
+    ROUTE_REQUEST = 'ROUTE_REQUEST',
+    CREATE_IMAGE = 'CREATE_IMAGE',
+    SYSTEM_ADMIN = 'SYSTEM_ADMIN',
+    BROADCAST = 'BROADCAST',
+    PUBLISH_CANON = 'PUBLISH_CANON',
+    DELEGATE_TASK = 'DELEGATE_TASK',
+    COLLABORATE = 'COLLABORATE'
+}
+
+export type AgentClass = 'PARTNER' | 'EXECUTIVE' | 'TALENT' | 'STAFF';
+export type AgentDepartment = 'ADMINISTRATION' | 'CREATIVE' | 'PRODUCTION' | 'TECHNICAL';
+
+export interface StudioConfig {
+    preferredTools: string[];
+    color: string;
+}
+
+export interface ActorProfile {
+    canAct: boolean;
+    currentRole?: string;
+    voiceCloneId?: string;
+}
+
+// HYBRID AGENT INTERFACE - SUPPORTS BOTH LEGACY AND NEW RAG FIELDS
+export interface Agent {
+  // Common
+  id: string;
+  name: string;
+  
+  // Legacy fields (Active App Use)
   lore?: string;
   chatHistory?: ChatMessage[];
-  systemPrompt: string;
+  systemPrompt: string; // Used by existing components
   voice: string;
   avatar?: string;
   tags?: string[];
@@ -300,4 +453,103 @@ export interface Agent {
   actorName?: string;
   actorContact?: string;
   preferredEngine?: ModelEngine;
+
+  // New RAG/Soma fields (Optional for now)
+  handle?: string;
+  agentClass?: AgentClass;
+  department?: AgentDepartment;
+  title?: string;
+  system_instruction?: string; // New RAG uses this
+  pronouns?: string;
+  accessLevel?: string;
+  permissions?: SomaPermission[]; 
+  voiceReference?: string;
+  studioConfig?: StudioConfig;
+  actorProfile?: ActorProfile;
+  file_ids?: string[]; 
+}
+
+export interface LorePackHeader {
+  schema: "MYTHOS.LOREPACK.v1";
+  id: string;
+  agentId: string;
+  handle: string;
+  version: number;
+  timestamp: number;
+  description?: string;
+  name?: string;
+}
+
+export interface LorePack {
+  id: string;
+  header: LorePackHeader;
+  sacred_archive: VectorRecord[];
+}
+
+export interface MediaAsset {
+    id: string;
+    type: 'image' | 'video' | 'audio' | 'text' | 'pdf';
+    data: string;
+    prompt: string;
+    agentId: string;
+    timestamp: number;
+    tags?: string[];
+    cloudUri?: string;
+}
+
+export interface CanvasSection {
+    id: string;
+    title: string;
+    content: string;
+    lastEditor: string;
+    timestamp: number;
+}
+
+export interface WorkingMemory {
+    id: string; 
+    title: string;
+    sections: CanvasSection[];
+    lastModified: number;
+}
+
+export interface MultiAgentMessage {
+    id: string;
+    senderId: string; 
+    senderName: string;
+    text: string;
+    timestamp: number;
+    targets?: string[]; 
+    msgType?: 'utterance' | 'action' | 'thought' | 'system';
+    isThinking?: boolean;
+    attachment?: string;
+    meta?: Record<string, any>; 
+    model?: string;
+}
+
+export enum ProductionStage {
+    IDEATION = 'IDEATION',
+    SCRIPT = 'SCRIPT',
+    DESIGN = 'DESIGN',
+    ART = 'ART'
+}
+
+export enum ApprovalStatus {
+    DRAFT = 'DRAFT',
+    PENDING = 'PENDING',
+    APPROVED = 'APPROVED',
+    REJECTED = 'REJECTED'
+}
+
+export interface CanonBlock {
+    id: string;
+    parentId?: string;
+    stage: ProductionStage;
+    title: string;
+    content: string;
+    mediaRef?: string;
+    agentId: string;
+    timestamp: number;
+    status: ApprovalStatus;
+    version: number;
+    feedback?: string;
 }

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ActiveView } from '../types.ts';
 import { 
@@ -69,7 +68,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'lore', type: 'link', label: 'Lore Bible', view: 'lore', icon: LoreIcon },
     { id: 'prompt-library', type: 'link', label: 'Prompt Library', view: 'prompt-library', icon: LibraryIcon },
     { id: 'dynamic-prompts', type: 'link', label: 'Dynamic Prompts', view: 'dynamic-prompts', icon: ShuffleIcon },
-    { id: 'knowledge', type: 'link', label: 'LorePack Forge', view: 'knowledge', icon: LibraryIcon },
+    { id: 'knowledge', type: 'link', label: 'LorePack Studio', view: 'knowledge', icon: LibraryIcon },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, onOpenSettings }) => {

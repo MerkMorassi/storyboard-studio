@@ -1,5 +1,4 @@
-
-import React, { ErrorInfo, ReactNode, Component } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { CrashReport } from './components/CrashReport';
 
 interface ErrorBoundaryProps {
@@ -16,6 +15,7 @@ interface ErrorBoundaryState {
  * ErrorBoundary component to catch and display critical rendering errors.
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Initialize state as a class property
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null,
@@ -43,7 +43,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return (
         <CrashReport 
           error={this.state.error || new Error("An unknown error occurred.")} 
-          componentStack={this.state.errorInfo?.componentStack || undefined} 
+          componentStack={this.state.errorInfo?.componentStack} 
         />
       );
     }

@@ -1,5 +1,4 @@
-
-import { Agent, ImageState } from '../types.ts';
+import { Agent, ImageState, GraphNode, GraphEdge } from '../types.ts';
 
 export interface VectorRecord {
   id: number | string;
@@ -8,6 +7,8 @@ export interface VectorRecord {
   source: string;
   timestamp: number;
   agentId?: string;
+  // Compatibility with types.ts
+  agent?: string; 
 }
 
 export interface ChatLogRecord {
@@ -27,12 +28,14 @@ export interface ChatLogRecord {
 }
 
 const DB_NAME = 'mythos_vault';
-const DB_VERSION = 5; 
+const DB_VERSION = 7; 
 const STORE_VECTORS = 'vectors';
 const STORE_AGENT_CHAT = 'agentChatLogs';
 const STORE_AGENTS = 'agents';
 const STORE_PLAYERS = 'players';
 const STORE_IMAGES = 'images';
+const STORE_GRAPH_NODES = 'graph_nodes';
+const STORE_GRAPH_EDGES = 'graph_edges';
 
 class VectorDbService {
   private db: IDBDatabase | null = null;
@@ -74,6 +77,16 @@ class VectorDbService {
 
         if (!db.objectStoreNames.contains(STORE_IMAGES)) {
             db.createObjectStore(STORE_IMAGES, { keyPath: 'id' });
+        }
+
+        if (!db.objectStoreNames.contains(STORE_GRAPH_NODES)) {
+            const store = db.createObjectStore(STORE_GRAPH_NODES, { keyPath: 'id' });
+            store.createIndex('agentId', 'agentId', { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains(STORE_GRAPH_EDGES)) {
+            const store = db.createObjectStore(STORE_GRAPH_EDGES, { autoIncrement: true });
+            store.createIndex('agentId', 'agentId', { unique: false });
         }
       };
 
@@ -248,6 +261,87 @@ class VectorDbService {
   }
   async getImages(): Promise<ImageState[]> {
       return this.getAllItems<ImageState>(STORE_IMAGES);
+  }
+
+  // --- Graph Support ---
+  async addGraphNodes(nodes: GraphNode[]): Promise<void> {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_GRAPH_NODES, 'readwrite');
+          const store = tx.objectStore(STORE_GRAPH_NODES);
+          nodes.forEach(n => store.put(n));
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+      });
+  }
+
+  async addGraphEdges(edges: GraphEdge[]): Promise<void> {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_GRAPH_EDGES, 'readwrite');
+          const store = tx.objectStore(STORE_GRAPH_EDGES);
+          edges.forEach(e => store.put(e));
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+      });
+  }
+
+  async getGraphNodesByAgent(agentId: string): Promise<GraphNode[]> {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_GRAPH_NODES, 'readonly');
+          const store = tx.objectStore(STORE_GRAPH_NODES);
+          const index = store.index('agentId');
+          const request = index.getAll(agentId);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+      });
+  }
+
+  async getGraphEdgesByAgent(agentId: string): Promise<GraphEdge[]> {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_GRAPH_EDGES, 'readonly');
+          const store = tx.objectStore(STORE_GRAPH_EDGES);
+          const index = store.index('agentId');
+          const request = index.getAll(agentId);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+      });
+  }
+
+  async deleteGraphForAgent(agentId: string): Promise<void> {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction([STORE_GRAPH_NODES, STORE_GRAPH_EDGES], 'readwrite');
+          
+          const nodeStore = tx.objectStore(STORE_GRAPH_NODES);
+          const nodeIndex = nodeStore.index('agentId');
+          const nodeRequest = nodeIndex.openCursor(IDBKeyRange.only(agentId));
+          
+          nodeRequest.onsuccess = (e) => {
+              const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+              if (cursor) {
+                  cursor.delete();
+                  cursor.continue();
+              }
+          };
+
+          const edgeStore = tx.objectStore(STORE_GRAPH_EDGES);
+          const edgeIndex = edgeStore.index('agentId');
+          const edgeRequest = edgeIndex.openCursor(IDBKeyRange.only(agentId));
+
+          edgeRequest.onsuccess = (e) => {
+              const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+              if (cursor) {
+                  cursor.delete();
+                  cursor.continue();
+              }
+          };
+
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+      });
   }
 }
 
