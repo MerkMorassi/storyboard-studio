@@ -15,7 +15,6 @@ export const AgentForm: React.FC<AgentFormProps> = ({ agent, onCancel, onSave })
     const [voice, setVoice] = useState(agent.voice);
     const [bio, setBio] = useState(agent.bio || '');
     const [narrativeRole, setNarrativeRole] = useState(agent.narrativeRole || '');
-    // Added missing state variables to fix reference errors
     const [preferredEngine, setPreferredEngine] = useState<ModelEngine>(agent.preferredEngine || 'gemini');
 
     const handleSubmit = (e: React.FormEvent) => {

@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardStudio } from './components/DashboardStudio';
@@ -45,7 +43,7 @@ import { ArtStudio } from './components/ArtStudio';
 import { RosterStudio } from './components/RosterStudio';
 import { VoiceLab } from './components/VoiceLab.tsx';
 import { Agent, Project, ActiveView, ImageState } from './types';
-import { getGeminiApiKey, getHfApiKey, getTopazApiKey, saveGeminiApiKey, saveHfApiKey, saveTopazApiKey } from './services/apiKeyService';
+import { getGeminiApiKey, getHfApiKey, getTopazApiKey, saveGeminiApiKey, saveHfApiKey, saveTopazApiKey, getVoiceLabUrl, saveVoiceLabUrl } from './services/apiKeyService';
 import { getAnimAgentsTeam } from './services/agentService';
 import { vectorDb } from './services/vectorDbService';
 
@@ -218,7 +216,21 @@ export const App = () => {
             <div className="flex-grow flex flex-col min-w-0 bg-secondary/20">
                 {renderContent()}
             </div>
-            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onSave={(topaz, hf, gemini) => { saveTopazApiKey(topaz); saveHfApiKey(hf); saveGeminiApiKey(gemini); setIsSettingsOpen(false); }} currentTopazApiKey={getTopazApiKey() || ''} currentHfApiKey={getHfApiKey() || ''} currentGeminiApiKey={getGeminiApiKey() || ''} />
+            <SettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                onSave={(topaz, hf, gemini, voiceLabUrl) => {
+                    saveTopazApiKey(topaz);
+                    saveHfApiKey(hf);
+                    saveGeminiApiKey(gemini);
+                    saveVoiceLabUrl(voiceLabUrl);
+                    setIsSettingsOpen(false);
+                }}
+                currentTopazApiKey={getTopazApiKey() || ''}
+                currentHfApiKey={getHfApiKey() || ''}
+                currentGeminiApiKey={getGeminiApiKey() || ''}
+                currentVoiceLabUrl={getVoiceLabUrl() || ''}
+            />
         </div>
     );
 };

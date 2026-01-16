@@ -1,117 +1,159 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { ChatterboxService, ChatterboxRequest } from '../services/chatterbox';
-import { Agent } from '../types.ts';
+import { Client } from "@gradio/client";
+import { Agent } from '../types';
 import { getAgentConfig } from '../services/db';
-import { SpeakerIcon, UploadIcon, WarningIcon } from './icons.tsx';
+import { getHfApiKey } from '../services/apiKeyService';
+import { EXTERNAL_MODEL_ENDPOINTS } from '../services/externalRouter';
+import { SpeakerIcon, UploadIcon, WarningIcon, LoadingSpinner } from './icons';
 
 interface VoiceLabProps {
     agents: Agent[];
     onAudioGenerated?: (audioUrl: string) => void;
 }
 
+// Helper to convert data URL to Blob for Gradio Client
+const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
+    const res = await fetch(dataUrl);
+    return await res.blob();
+};
+
 export const VoiceLab: React.FC<VoiceLabProps> = ({ agents, onAudioGenerated }) => {
     const [selectedAgentId, setSelectedAgentId] = useState<string>(agents[0]?.id || '');
     const [text, setText] = useState('');
-    const [loading, setLoading] = useState(false);
+    
+    // Gradio Specific State
+    const [status, setStatus] = useState<'IDLE' | 'LOADING_PROFILE' | 'CONNECTING' | 'PROCESSING' | 'COMPLETE' | 'ERROR'>('IDLE');
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const [voiceRef, setVoiceRef] = useState<string | null>(null);
+    // Voice Profile State
+    const [voiceRefBlob, setVoiceRefBlob] = useState<Blob | null>(null);
+    const [voiceRefName, setVoiceRefName] = useState<string>('');
     const [isUsingOverride, setIsUsingOverride] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [voiceRefUrl, setVoiceRefUrl] = useState<string | null>(null); // For playback
 
+    // Synthesis Parameters
     const [params, setParams] = useState({
         exaggeration: 0.5,
         temperature: 0.8,
         seed_num: 0,
         cfg_weight: 0.5
     });
+    
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
 
+    // 1. Load Agent's Saved Voice Reference on Selection
     useEffect(() => {
         const loadVoice = async () => {
             if (!selectedAgentId) return;
             
-            setLoading(true);
+            setStatus('LOADING_PROFILE');
+            setVoiceRefBlob(null);
+            setVoiceRefUrl(null);
+            setVoiceRefName('');
+
             try {
                 const config = await getAgentConfig(selectedAgentId);
-                if (config?.voiceReference) {
-                    setVoiceRef(config.voiceReference);
+                const agent = agents.find(a => a.id === selectedAgentId);
+                const refString = config?.voiceReference || agent?.voiceReference;
+
+                if (refString) {
+                    const blob = await dataUrlToBlob(refString);
+                    setVoiceRefBlob(blob);
+                    setVoiceRefUrl(refString); // Use the data URL for playback
+                    setVoiceRefName('System Profile');
                     setIsUsingOverride(false);
-                } else {
-                    const agent = agents.find(a => a.id === selectedAgentId);
-                    if (agent?.voiceReference) {
-                        setVoiceRef(agent.voiceReference);
-                        setIsUsingOverride(false);
-                    } else {
-                        setVoiceRef(null);
-                    }
                 }
             } catch (e) {
                 console.error("Failed to load agent voice config", e);
+                setError("Failed to load voice profile.");
+                setStatus('ERROR');
             } finally {
-                setLoading(false);
+                setStatus('IDLE');
             }
         };
         loadVoice();
     }, [selectedAgentId, agents]);
 
+    // Cleanup object URL
+    useEffect(() => {
+        return () => {
+            if (voiceRefUrl && voiceRefUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(voiceRefUrl);
+            }
+        }
+    }, [voiceRefUrl]);
+
+    // 2. Main Synthesis Function using @gradio/client
     const handleSynthesize = async () => {
-        if (!voiceRef || !text) {
+        if (!voiceRefBlob || !text) {
             setError("Missing text or voice reference.");
             return;
         }
 
-        setLoading(true);
+        setStatus('CONNECTING');
         setError(null);
+        setAudioUrl(null);
 
         try {
-            const req: ChatterboxRequest = {
-                text: text,
-                audioRef: voiceRef,
-                exaggeration: params.exaggeration,
-                temperature: params.temperature,
-                seed_num: params.seed_num,
-                cfg_weight: params.cfg_weight
-            };
-
-            const arrayBuffer = await ChatterboxService.synthesize(req);
+            const token = getHfApiKey();
+            const endpoint = EXTERNAL_MODEL_ENDPOINTS.CHATTERBOX_TTS?.url || EXTERNAL_MODEL_ENDPOINTS.CHATTERBOX_TTS.space;
             
-            if (arrayBuffer.byteLength === 0) {
-                setError("Mock service returned empty audio. Connect to a real synthesis backend.");
-                setLoading(false);
-                return;
+            if (!endpoint) {
+                throw new Error("Voice Lab URL is not configured in settings or router.");
             }
 
-            const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
-            const url = URL.createObjectURL(blob);
-            
-            setAudioUrl(url);
-            if (onAudioGenerated) onAudioGenerated(url);
+            const app = await Client.connect(endpoint, { 
+                hf_token: token ? (token as `hf_${string}`) : undefined
+            });
+
+            setStatus('PROCESSING');
+
+            const result = await app.predict("/generate", { 
+                text: text, 
+                audio_prompt: voiceRefBlob, 
+                exaggeration: params.exaggeration, 
+                temperature: params.temperature, 
+                seed_num: params.seed_num, 
+                cfg_weight: params.cfg_weight, 
+            });
+
+            if (result.data && result.data[0]) {
+                const audioResult = result.data[0];
+                const finalUrl = (typeof audioResult === 'object' && audioResult.url) ? audioResult.url : audioResult;
+                
+                setAudioUrl(finalUrl);
+                if (onAudioGenerated) onAudioGenerated(finalUrl);
+                setStatus('COMPLETE');
+            } else {
+                 throw new Error("API returned no data or an unexpected format.");
+            }
 
         } catch (err: any) {
-            setError(err.message || "Synthesis failed");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                const result = evt.target?.result as string;
-                setVoiceRef(result);
-                setIsUsingOverride(true);
-            };
-            reader.readAsDataURL(file);
+            console.error("Gradio Error:", err);
+            setError(err.message || "Synthesis failed. Check console for details.");
+            setStatus('ERROR');
         }
     };
     
-    const selectedAgent = agents.find(a => a.id === selectedAgentId);
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setVoiceRefBlob(file);
+            setVoiceRefName(file.name);
+            setIsUsingOverride(true);
+            
+            const fileUrl = URL.createObjectURL(file);
+            setVoiceRefUrl(fileUrl);
+        }
+    };
+
+    const isLoading = status === 'CONNECTING' || status === 'PROCESSING' || status === 'LOADING_PROFILE';
 
     return (
-        <div className="p-6 max-w-4xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
+        <div className="p-6 max-w-4xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto custom-scrollbar">
             <div className="flex-shrink-0">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Voice Lab</h2>
                 <p className="text-neutral-400">Grounded voice synthesis for generating agent dialogue.</p>
@@ -127,6 +169,7 @@ export const VoiceLab: React.FC<VoiceLabProps> = ({ agents, onAudioGenerated }) 
                                 className="w-full bg-neutral-800 border border-neutral-700 p-2 rounded-lg text-sm text-white"
                                 value={selectedAgentId} 
                                 onChange={(e) => setSelectedAgentId(e.target.value)}
+                                disabled={isLoading}
                             >
                                 {agents.map(a => (
                                     <option key={a.id} value={a.id}>{a.name.toUpperCase()}</option>
@@ -137,9 +180,20 @@ export const VoiceLab: React.FC<VoiceLabProps> = ({ agents, onAudioGenerated }) 
                             </button>
                             <input type="file" accept="audio/*" onChange={handleFileUpload} ref={fileInputRef} className="hidden" />
                         </div>
-                        <div className={`text-[10px] mt-2 font-bold uppercase tracking-wider ${isUsingOverride ? 'text-yellow-400' : (voiceRef ? 'text-green-400' : 'text-red-400')}`}>
-                            {isUsingOverride ? "⚠️ Using Manual Upload Override" : (voiceRef ? "✓ System Profile Loaded" : "❌ No Voice Reference Found")}
+                        <div className={`text-[10px] mt-2 font-bold uppercase tracking-wider ${isUsingOverride ? 'text-yellow-400' : (voiceRefBlob ? 'text-green-400' : 'text-red-400')}`}>
+                            {isUsingOverride ? `⚠️ OVERRIDE: ${voiceRefName}` : (voiceRefBlob ? "✓ SYSTEM PROFILE LOADED" : "❌ NO VOICE REFERENCE FOUND")}
                         </div>
+                        {voiceRefUrl && (
+                            <div className="mt-3">
+                                <audio
+                                    key={voiceRefUrl}
+                                    controls
+                                    src={voiceRefUrl}
+                                    className="w-full h-10"
+                                    ref={audioRef}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <textarea
@@ -148,24 +202,25 @@ export const VoiceLab: React.FC<VoiceLabProps> = ({ agents, onAudioGenerated }) 
                         value={text}
                         onChange={(e) => setText(e.target.value)}
                         rows={5}
+                        disabled={isLoading}
                     />
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <div className="flex justify-between text-xs text-neutral-400"><span>Exaggeration</span><span>{params.exaggeration}</span></div>
-                            <input type="range" min="0" max="1" step="0.05" value={params.exaggeration} onChange={(e) => setParams(p => ({...p, exaggeration: parseFloat(e.target.value)}))} className="w-full accent-blue-500" />
+                            <input type="range" min="0" max="1" step="0.05" value={params.exaggeration} onChange={(e) => setParams(p => ({...p, exaggeration: parseFloat(e.target.value)}))} className="w-full accent-blue-500" disabled={isLoading}/>
                         </div>
                         <div>
                             <div className="flex justify-between text-xs text-neutral-400"><span>Stability (Temp)</span><span>{params.temperature}</span></div>
-                            <input type="range" min="0.1" max="1.5" step="0.05" value={params.temperature} onChange={(e) => setParams(p => ({...p, temperature: parseFloat(e.target.value)}))} className="w-full accent-blue-500" />
+                            <input type="range" min="0.1" max="1.5" step="0.05" value={params.temperature} onChange={(e) => setParams(p => ({...p, temperature: parseFloat(e.target.value)}))} className="w-full accent-blue-500" disabled={isLoading}/>
                         </div>
                         <div>
                             <div className="flex justify-between text-xs text-neutral-400"><span>Pace (CFG)</span><span>{params.cfg_weight}</span></div>
-                            <input type="range" min="0" max="1" step="0.1" value={params.cfg_weight} onChange={(e) => setParams(p => ({...p, cfg_weight: parseFloat(e.target.value)}))} className="w-full accent-blue-500" />
+                            <input type="range" min="0" max="1" step="0.1" value={params.cfg_weight} onChange={(e) => setParams(p => ({...p, cfg_weight: parseFloat(e.target.value)}))} className="w-full accent-blue-500" disabled={isLoading}/>
                         </div>
                         <div>
                             <label className="text-xs text-neutral-400">Seed</label>
-                            <input type="number" value={params.seed_num} onChange={(e) => setParams(p => ({...p, seed_num: parseInt(e.target.value) || 0}))} className="w-full bg-neutral-900 border border-neutral-700 p-1 rounded-lg text-sm text-center" />
+                            <input type="number" value={params.seed_num} onChange={(e) => setParams(p => ({...p, seed_num: parseInt(e.target.value) || 0}))} className="w-full bg-neutral-900 border border-neutral-700 p-1 rounded-lg text-sm text-center" disabled={isLoading}/>
                         </div>
                     </div>
                 </div>
@@ -173,11 +228,11 @@ export const VoiceLab: React.FC<VoiceLabProps> = ({ agents, onAudioGenerated }) 
                 {/* Right Column: Output */}
                 <div className="flex flex-col gap-6">
                     <button 
-                        className={`w-full py-4 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${loading ? 'bg-neutral-600' : 'bg-blue-600 hover:bg-blue-500'}`}
+                        className={`w-full py-4 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${isLoading ? 'bg-neutral-600' : 'bg-blue-600 hover:bg-blue-500'}`}
                         onClick={handleSynthesize}
-                        disabled={loading || !voiceRef || !text}
+                        disabled={isLoading || !voiceRefBlob || !text}
                     >
-                        {loading ? 'Synthesizing...' : <><SpeakerIcon className="w-5 h-5"/> Generate Speech</>}
+                        {isLoading ? <><LoadingSpinner className="w-5 h-5"/> {status}...</> : <><SpeakerIcon className="w-5 h-5"/> Generate Speech</>}
                     </button>
 
                     {error && (
@@ -187,7 +242,7 @@ export const VoiceLab: React.FC<VoiceLabProps> = ({ agents, onAudioGenerated }) 
                         </div>
                     )}
 
-                    {audioUrl && (
+                    {audioUrl && status === 'COMPLETE' && (
                         <div className="mt-4 p-4 border border-neutral-700 rounded-lg bg-neutral-900/50">
                             <audio controls src={audioUrl} className="w-full" autoPlay />
                             <div className="flex justify-between mt-2">

@@ -1,8 +1,8 @@
-
 // Keys for LocalStorage
 const TOPAZ_API_KEY_STORAGE_KEY = 'mythos_topaz_v2';
 const HF_API_KEY_STORAGE_KEY = 'mythos_hf_v2';
 const GEMINI_API_KEY_STORAGE_KEY = 'mythos_gemini_v2';
+const VOICE_LAB_URL_STORAGE_KEY = 'mythos_voicelab_url_v1';
 
 /**
  * Helper to get value from Env (Vite or Process) or Null
@@ -92,6 +92,30 @@ export const getHfApiKey = (): string | null => {
 
     try {
         return localStorage.getItem(HF_API_KEY_STORAGE_KEY);
+    } catch (error) {
+        return null;
+    }
+};
+
+// --- VOICE LAB (CHATTERBOX) ---
+export const saveVoiceLabUrl = (url: string): void => {
+    try {
+        if (!url) {
+            localStorage.removeItem(VOICE_LAB_URL_STORAGE_KEY);
+        } else {
+            localStorage.setItem(VOICE_LAB_URL_STORAGE_KEY, url.trim());
+        }
+    } catch (error) {
+        console.error("Persistence Failure (VoiceLab URL):", error);
+    }
+};
+
+export const getVoiceLabUrl = (): string | null => {
+    const envKey = getEnvValue('VITE_VOICELAB_URL') || getEnvValue('VOICELAB_URL');
+    if (envKey) return envKey;
+
+    try {
+        return localStorage.getItem(VOICE_LAB_URL_STORAGE_KEY);
     } catch (error) {
         return null;
     }

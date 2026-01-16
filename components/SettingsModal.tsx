@@ -1,26 +1,28 @@
-
 import React, { useState, useEffect } from 'react';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (topazApiKey: string, hfApiKey: string, geminiApiKey: string) => void;
+  onSave: (topazApiKey: string, hfApiKey: string, geminiApiKey: string, voiceLabUrl: string) => void;
   currentTopazApiKey: string;
   currentHfApiKey: string;
   currentGeminiApiKey: string;
+  currentVoiceLabUrl: string;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave, currentTopazApiKey, currentHfApiKey, currentGeminiApiKey }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave, currentTopazApiKey, currentHfApiKey, currentGeminiApiKey, currentVoiceLabUrl }) => {
   const [topazApiKeyInput, setTopazApiKeyInput] = useState(currentTopazApiKey);
   const [hfApiKeyInput, setHfApiKeyInput] = useState(currentHfApiKey);
   const [geminiApiKeyInput, setGeminiApiKeyInput] = useState(currentGeminiApiKey);
+  const [voiceLabUrlInput, setVoiceLabUrlInput] = useState(currentVoiceLabUrl);
   const [showKeys, setShowKeys] = useState(false);
 
   useEffect(() => {
     setTopazApiKeyInput(currentTopazApiKey);
     setHfApiKeyInput(currentHfApiKey);
     setGeminiApiKeyInput(currentGeminiApiKey);
-  }, [currentTopazApiKey, currentHfApiKey, currentGeminiApiKey, isOpen]);
+    setVoiceLabUrlInput(currentVoiceLabUrl);
+  }, [currentTopazApiKey, currentHfApiKey, currentGeminiApiKey, currentVoiceLabUrl, isOpen]);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -39,7 +41,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   }
 
   const handleSave = () => {
-    onSave(topazApiKeyInput.trim(), hfApiKeyInput.trim(), geminiApiKeyInput.trim());
+    onSave(topazApiKeyInput.trim(), hfApiKeyInput.trim(), geminiApiKeyInput.trim(), voiceLabUrlInput.trim());
   };
 
   return (
@@ -103,6 +105,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             />
             <p className="text-[10px] text-neutral-600 mt-2 italic px-1">
               Required for specialized GPU tasks (Flux, Video, Outpainting, Private Models).
+            </p>
+          </div>
+
+          {/* Voice Lab URL */}
+          <div>
+            <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
+              Voice Lab URL (Gradio)
+            </label>
+            <input
+              type={showKeys ? "text" : "password"}
+              value={voiceLabUrlInput}
+              onChange={(e) => setVoiceLabUrlInput(e.target.value)}
+              placeholder="Enter HF Space or Gradio URL for XTTS"
+              className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
+            />
+            <p className="text-[10px] text-neutral-600 mt-2 italic px-1">
+              Required for the Voice Lab Studio. Points to a Gradio service running a voice synthesis model like XTTSv2.
             </p>
           </div>
 

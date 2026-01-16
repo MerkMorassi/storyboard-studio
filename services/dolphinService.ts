@@ -38,11 +38,20 @@ export const runDolphinInference = async (
             return { text: "", error: "Dolphin Hardware (A10G) is currently booting. Please wait 60 seconds." };
         }
 
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[Dolphin Engine] Fault: ${response.status}`, errorText);
+            throw new Error(`Dolphin Engine Fault (${response.status}). Check server logs.`);
+        }
+
         const json = await response.json();
         
         // Gradio returns result in data array
         if (json.data && json.data[0]) {
-            return { text: json.data[0] };
+            // The model often includes the input prompt in its response, so we strip it.
+            const rawOutput = json.data[0];
+            const assistantResponse = rawOutput.split('<|im_start|>assistant\n')[1] || rawOutput;
+            return { text: assistantResponse.trim() };
         }
 
         throw new Error("Invalid response from Dolphin Core.");

@@ -5,7 +5,7 @@ import { MediaInput } from '../../components/MediaInput';
 import { 
     AnalyzerIcon, CameraLensIcon, ChatIcon, ImageIcon, ClapperboardIcon, 
     StoryboardIcon, PinIcon, BlenderIcon, LayersIcon, SwapIcon, 
-    PhotoRealismIcon, MagicIcon, FaceSparkleIcon, PuzzleIcon, ExpandIcon, ScissorsIcon
+    PhotoRealismIcon, MagicIcon, FaceSparkleIcon, PuzzleIcon, ExpandIcon, ScissorsIcon, WandIcon, EditIcon
 } from '../../components/icons';
 import { PlusIcon } from '../../components/icons/PlusIcon';
 import { analyzeImage, analyzeVideo } from './service';
@@ -43,6 +43,27 @@ const StudioCard: React.FC<StudioCardProps> = ({ title, description, icon, onCli
         <p className="text-xs text-neutral-400 leading-relaxed flex-grow">{description}</p>
     </div>
 );
+
+const ToolCard: React.FC<{
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+    onClick: () => void;
+}> = ({ title, description, icon, onClick }) => (
+    <div 
+        onClick={onClick}
+        className="bg-neutral-900/50 border border-neutral-800 hover:border-green-500/50 hover:bg-neutral-800/80 rounded-xl p-5 cursor-pointer transition-all group shadow-lg"
+    >
+        <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-neutral-800 rounded-lg text-green-400 group-hover:bg-green-900/30 transition-colors">
+                {icon}
+            </div>
+            <h3 className="font-bold text-white group-hover:text-green-300 transition-colors">{title}</h3>
+        </div>
+        <p className="text-xs text-neutral-400 leading-relaxed">{description}</p>
+    </div>
+);
+
 
 const FOCUS_TAGS = {
     "Lighting": ["Key Light Direction", "Hard vs Soft Light", "Contrast Ratio", "Practical Sources", "Volumetric Lighting"],
@@ -179,6 +200,31 @@ ${result.composition}
                     </div>
 
                     <div className="space-y-8 pb-10">
+                        {/* Agent Tool Arsenal */}
+                        <div>
+                            <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-4 border-b border-neutral-800 pb-2">Agent Tool Arsenal</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <ToolCard 
+                                    title="Generate Image (MythOS)" 
+                                    description="Autonomous agent tool to generate high-quality cinematic images from a text prompt. Any agent can call this to visualize concepts."
+                                    icon={<ImageIcon className="w-5 h-5"/>}
+                                    onClick={() => navigateTo('mythos-cinematic-engine')}
+                                />
+                                <ToolCard 
+                                    title="Generate Video (Veo)" 
+                                    description="Autonomous agent tool to create short video clips. Powered by Google's Veo model to animate scenes or establish mood."
+                                    icon={<ClapperboardIcon className="w-5 h-5"/>}
+                                    onClick={() => navigateTo('generative-video')}
+                                />
+                                <ToolCard 
+                                    title="Prepare Generation" 
+                                    description="Tool to formulate a detailed prompt and navigate the user to the correct studio, priming the engine for generation."
+                                    icon={<WandIcon className="w-5 h-5"/>}
+                                    onClick={() => navigateTo('image-generator')}
+                                />
+                            </div>
+                        </div>
+
                         {/* Core Analysis & Chat */}
                         <div>
                             <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-4 border-b border-neutral-800 pb-2">Analysis & Direction</h2>
@@ -284,6 +330,18 @@ ${result.composition}
                                     description="Remove video backgrounds automatically."
                                     icon={<ScissorsIcon className="w-6 h-6"/>}
                                     onClick={() => navigateTo('green-screen')}
+                                />
+                                <StudioCard 
+                                    title="BG Remover" 
+                                    description="High-precision automatic background removal."
+                                    icon={<ScissorsIcon className="w-6 h-6"/>}
+                                    onClick={() => navigateTo('background-removal')}
+                                />
+                                <StudioCard 
+                                    title="Qwen Edit" 
+                                    description="Multi-image composition and editing."
+                                    icon={<EditIcon className="w-6 h-6"/>}
+                                    onClick={() => navigateTo('qwen-image-edit')}
                                 />
                                 <StudioCard 
                                     title="Enhance (Topaz)" 

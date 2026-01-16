@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ActiveView } from '../types.ts';
 import { 
     DashboardIcon, FolderIcon, AgentsIcon, AutomationIcon, MagicIcon, ScriptIcon, 
@@ -6,7 +6,7 @@ import {
     BlenderIcon, LayersIcon, PuzzleIcon, SwapIcon, FaceSparkleIcon, PhotoRealismIcon, 
     ExpandIcon, ScissorsIcon, GridIcon, StoryboardIcon, PinIcon, LoreIcon, 
     LibraryIcon, ShuffleIcon, SettingsIcon, WritersRoomIcon, EditIcon, CharacterIcon,
-    TransitionIcon, DollyIcon, WarningIcon, SpeakerIcon
+    TransitionIcon, DollyIcon, WarningIcon, SpeakerIcon, ChevronLeftIcon
 } from './icons.tsx';
 import { hasCriticalKeys } from '../services/apiKeyService';
 
@@ -74,28 +74,97 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'knowledge', type: 'link', label: 'LorePack Studio', view: 'knowledge', icon: LibraryIcon },
 ];
 
+const SIDEBAR_COLLAPSED_KEY = 'mythos_sidebar_collapsed_v1';
+const MENU_ORDER_KEY = 'mythos_menu_order_v1';
+
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, onOpenSettings }) => {
     const keysPresent = hasCriticalKeys();
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [menuItems, setMenuItems] = useState(DEFAULT_MENU_ITEMS);
 
+    const dragItem = useRef<number | null>(null);
+    const dragOverItem = useRef<number | null>(null);
+
+    useEffect(() => {
+        // Load collapsed state
+        try {
+            const savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+            if (savedCollapsed) setIsCollapsed(JSON.parse(savedCollapsed));
+        } catch (e) { console.error("Could not parse sidebar collapsed state."); }
+
+        // Load menu order
+        try {
+            const savedOrder = localStorage.getItem(MENU_ORDER_KEY);
+            if (savedOrder) {
+                const orderedIds = JSON.parse(savedOrder) as string[];
+                const defaultMap = new Map(DEFAULT_MENU_ITEMS.map(item => [item.id, item]));
+                const newMenuItems: MenuItem[] = [];
+                const addedIds = new Set<string>();
+
+                orderedIds.forEach(id => {
+                    const item = defaultMap.get(id);
+                    if (item) {
+                        newMenuItems.push(item);
+                        addedIds.add(id);
+                    }
+                });
+
+                DEFAULT_MENU_ITEMS.forEach(item => {
+                    if (!addedIds.has(item.id)) newMenuItems.push(item);
+                });
+
+                setMenuItems(newMenuItems);
+            }
+        } catch (e) {
+            console.error("Could not parse menu order, using default.");
+        }
+    }, []);
+
+    const toggleCollapse = () => {
+        setIsCollapsed(prev => {
+            const newState = !prev;
+            localStorage.setItem(SIDEBAR_COLLAPSED_KEY, JSON.stringify(newState));
+            return newState;
+        });
+    };
+
+    const handleDrop = () => {
+        if (dragItem.current === null || dragOverItem.current === null) return;
+
+        const newMenuItems = [...menuItems];
+        const draggedItemContent = newMenuItems.splice(dragItem.current, 1)[0];
+        newMenuItems.splice(dragOverItem.current, 0, draggedItemContent);
+        
+        dragItem.current = null;
+        dragOverItem.current = null;
+        
+        setMenuItems(newMenuItems);
+        localStorage.setItem(MENU_ORDER_KEY, JSON.stringify(newMenuItems.map(item => item.id)));
+    };
+    
     return (
-        <div className="w-64 bg-neutral-900 border-r border-neutral-800 flex flex-col h-full flex-shrink-0">
-            <div className="p-6 border-b border-neutral-800">
+        <div className={`bg-neutral-900 border-r border-neutral-800 flex flex-col h-full flex-shrink-0 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}>
+            <div className={`p-6 border-b border-neutral-800 transition-all duration-300 ${isCollapsed ? 'py-4' : 'py-6'}`}>
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-lg shadow-blue-900/50">M</div>
-                    <div>
-                        <h1 className="text-lg font-black text-white tracking-tighter leading-none">MYTHOS</h1>
-                        <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Studio OS 4.2</p>
-                    </div>
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-lg shadow-blue-900/50 flex-shrink-0">M</div>
+                    {!isCollapsed && (
+                        <div className="transition-opacity duration-200">
+                            <h1 className="text-lg font-black text-white tracking-tighter leading-none">MYTHOS</h1>
+                            <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Studio OS 4.2</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
             <div className="flex-grow overflow-y-auto py-4 custom-scrollbar">
-                <nav className="space-y-1 px-3">
-                    {DEFAULT_MENU_ITEMS.map((item) => {
+                <nav className="space-y-1 px-3" onDragOver={(e) => e.preventDefault()}>
+                    {menuItems.map((item, index) => {
                         if (item.type === 'header') {
                             return (
-                                <div key={item.id} className="px-3 pt-5 pb-2">
-                                    <p className="text-[10px] font-black text-neutral-600 uppercase tracking-widest">{item.label}</p>
+                                <div key={item.id} className={`px-3 pt-5 pb-2 transition-all ${isCollapsed ? 'text-center' : ''}`}>
+                                    <p className={`text-[10px] font-black text-neutral-600 uppercase tracking-widest transition-all ${isCollapsed ? 'opacity-0 h-0' : 'opacity-100'}`}>
+                                        {!isCollapsed ? item.label : ''}
+                                    </p>
                                 </div>
                             );
                         }
@@ -106,31 +175,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, onOpen
                         return (
                             <button
                                 key={item.id}
+                                draggable
+                                onDragStart={() => dragItem.current = index}
+                                onDragEnter={() => dragOverItem.current = index}
+                                onDragEnd={handleDrop}
                                 onClick={() => item.view && onNavigate(item.view)}
-                                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-bold rounded-lg transition-all group ${
+                                title={isCollapsed ? item.label : undefined}
+                                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-bold rounded-lg transition-all group ${isCollapsed ? 'justify-center' : ''} ${
                                     isActive 
                                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
                                         : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
                                 }`}
                             >
-                                <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-white' : 'text-neutral-500 group-hover:text-white'}`} />
-                                {item.label}
+                                <Icon className={`w-4 h-4 transition-colors flex-shrink-0 ${isActive ? 'text-white' : 'text-neutral-500 group-hover:text-white'}`} />
+                                {!isCollapsed && <span className="truncate">{item.label}</span>}
                             </button>
                         );
                     })}
                 </nav>
             </div>
 
-            <div className="p-4 border-t border-neutral-800 bg-neutral-900">
+            <div className={`p-4 border-t border-neutral-800 bg-neutral-900 transition-all duration-300`}>
                 <button 
                     onClick={onOpenSettings}
-                    className={`w-full flex items-center justify-between px-3 py-3 text-xs font-bold rounded-lg transition-all ${!keysPresent ? 'bg-red-900/20 text-red-400 border border-red-500/50 hover:bg-red-900/40' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}
+                    title={isCollapsed ? "System Settings" : undefined}
+                    className={`w-full flex items-center justify-between px-3 py-3 text-xs font-bold rounded-lg transition-all ${isCollapsed ? 'justify-center' : ''} ${!keysPresent ? 'bg-red-900/20 text-red-400 border border-red-500/50 hover:bg-red-900/40' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}
                 >
                     <div className="flex items-center gap-3">
-                        <SettingsIcon className="w-4 h-4" />
-                        <span>System Settings</span>
+                        <SettingsIcon className="w-4 h-4 flex-shrink-0" />
+                        {!isCollapsed && <span>System Settings</span>}
                     </div>
-                    {!keysPresent && <WarningIcon className="w-4 h-4 animate-pulse" />}
+                    {!isCollapsed && !keysPresent && <WarningIcon className="w-4 h-4 animate-pulse" />}
+                </button>
+                <button onClick={toggleCollapse} className="w-full flex items-center justify-center gap-3 px-3 py-2 text-xs font-bold text-neutral-500 hover:text-white rounded-lg transition-all mt-2 hover:bg-neutral-800">
+                    <ChevronLeftIcon className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} />
                 </button>
             </div>
         </div>

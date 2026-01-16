@@ -47,6 +47,20 @@ export const mythosTools: FunctionDeclaration[] = [
             },
             required: ['prompt']
         }
+    },
+    {
+        name: 'generateMythosVideo',
+        description: 'Generates a high-quality cinematic video, animation, or clip using the MythOS engine. Use this when the user explicitly asks to create, make, show, or generate a video.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                prompt: {
+                    type: Type.STRING,
+                    description: 'A detailed, comma-separated text prompt for the video generator, describing the desired visual and motion in cinematic terms.'
+                }
+            },
+            required: ['prompt']
+        }
     }
 ];
 

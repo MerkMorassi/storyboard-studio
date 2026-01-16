@@ -1,43 +1,40 @@
-import * as React from 'react';
+// FIX: Switched to named imports from 'react' to ensure proper type resolution for class components.
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { CrashReport } from './components/CrashReport';
 
 interface ErrorBoundaryProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
-  errorInfo: React.ErrorInfo | null;
+  errorInfo: ErrorInfo | null;
 }
 
 /**
  * ErrorBoundary component to catch and display critical rendering errors.
  */
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // FIX: Switched to a namespace import for React (`import * as React`) and using fully qualified
-  // types like `React.Component`. This resolves potential type resolution issues in some build
-  // environments where named imports might conflict, causing properties like 'state' and 'props'
-  // to appear missing on the component class instance.
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    };
-  }
+// FIX: Extended `Component` directly instead of `React.Component` to match the named import.
+// FIX: Added 'extends Component<...>' to make this a proper React component.
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = {
+    hasError: false,
+    error: null,
+    errorInfo: null,
+  };
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     // Update state so the next render will show the fallback UI.
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log the error for diagnostic purposes.
     console.error("Uncaught error in ErrorBoundary:", error, errorInfo);
 
     // This will now correctly be recognized as a method on the component instance.
+    // FIX: `this.setState` is now available because the class correctly extends React's `Component`.
     this.setState({
       errorInfo: errorInfo,
     });
@@ -55,6 +52,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
 
     // `this.props` is correctly accessed on a class component instance.
+    // FIX: `this.props` is now available because the class correctly extends React's `Component`.
     return this.props.children;
   }
 }

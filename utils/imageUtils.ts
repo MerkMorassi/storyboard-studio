@@ -1,4 +1,3 @@
-
 /**
  * Converts a Blob object to a base64 encoded string.
  * @param blob The Blob to convert.
