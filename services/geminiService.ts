@@ -268,6 +268,50 @@ OUTPUT FORMAT: JSON Schema.
     });
 };
 
+export const extractTripletsFromText = async (text: string): Promise<{s: string, r: string, o: string}[]> => {
+    return apiCallWithRetry(async () => {
+        const ai = getClient();
+        const prompt = `
+          CONTEXT: ${text}
+          TASK: Extract narrative relationships as triplets (Subject, Relation, Object).
+          FOCUS: Identify core entities and how they connect.
+          OUTPUT FORMAT: [{"s": "Subject", "r": "Relation", "o": "Object"}]
+          SYSTEM: Respond with ONLY the JSON array. No explanations, no markdown.
+        `;
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: { parts: [{ text: prompt }] },
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                s: { type: Type.STRING },
+                                r: { type: Type.STRING },
+                                o: { type: Type.STRING },
+                            },
+                            required: ['s', 'r', 'o']
+                        }
+                    },
+                    safetySettings
+                }
+            });
+
+            if (response.text) {
+                return JSON.parse(response.text.trim());
+            }
+            return [];
+        } catch (error) {
+            console.error("Triplet Extraction Error:", error);
+            return []; // Return empty on failure to avoid crashing the whole process
+        }
+    });
+};
+
+
 export const fetchModels = async () => [
     { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Preview)' },
     { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Preview)' }

@@ -6,7 +6,7 @@ import {
     BlenderIcon, LayersIcon, PuzzleIcon, SwapIcon, FaceSparkleIcon, PhotoRealismIcon, 
     ExpandIcon, ScissorsIcon, GridIcon, StoryboardIcon, PinIcon, LoreIcon, 
     LibraryIcon, ShuffleIcon, SettingsIcon, WritersRoomIcon, EditIcon, CharacterIcon,
-    TransitionIcon, DollyIcon, WarningIcon
+    TransitionIcon, DollyIcon, WarningIcon, SpeakerIcon
 } from './icons.tsx';
 import { hasCriticalKeys } from '../services/apiKeyService';
 
@@ -56,6 +56,9 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'bg-removal', type: 'link', label: 'BG Remover', view: 'background-removal', icon: ScissorsIcon },
     { id: 'qwen-edit', type: 'link', label: 'Qwen Edit', view: 'qwen-image-edit', icon: EditIcon },
     { id: 'topaz', type: 'link', label: 'Enhance (Topaz)', view: 'topaz', icon: MagicIcon },
+
+    { id: 'header-audio', type: 'header', label: 'Audio' },
+    { id: 'voice-lab', type: 'link', label: 'Voice Lab', view: 'voice-lab', icon: SpeakerIcon },
 
     { id: 'header-assets', type: 'header', label: 'Assets' },
     { id: 'grid', type: 'link', label: 'Project Vault', view: 'grid', icon: GridIcon },

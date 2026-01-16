@@ -1,4 +1,5 @@
-import { Agent, ImageState, GraphNode, GraphEdge } from '../types.ts';
+
+import { Agent, ImageState, GraphNode, GraphEdge, TripletEdge } from '../types.ts';
 
 export interface VectorRecord {
   id: number | string;
@@ -9,6 +10,11 @@ export interface VectorRecord {
   agentId?: string;
   // Compatibility with types.ts
   agent?: string; 
+  // FIX: Added missing fields to support lorepack operations.
+  permissions?: string;
+  agentHandle?: string;
+  numMarkId?: string;
+  metadata?: any;
 }
 
 export interface ChatLogRecord {
@@ -28,7 +34,7 @@ export interface ChatLogRecord {
 }
 
 const DB_NAME = 'mythos_vault';
-const DB_VERSION = 7; 
+const DB_VERSION = 10; 
 const STORE_VECTORS = 'vectors';
 const STORE_AGENT_CHAT = 'agentChatLogs';
 const STORE_AGENTS = 'agents';
@@ -36,6 +42,7 @@ const STORE_PLAYERS = 'players';
 const STORE_IMAGES = 'images';
 const STORE_GRAPH_NODES = 'graph_nodes';
 const STORE_GRAPH_EDGES = 'graph_edges';
+const STORE_TRIPLET_EDGES = 'edges'; // New store from lorepack.js
 
 class VectorDbService {
   private db: IDBDatabase | null = null;
@@ -87,6 +94,12 @@ class VectorDbService {
         if (!db.objectStoreNames.contains(STORE_GRAPH_EDGES)) {
             const store = db.createObjectStore(STORE_GRAPH_EDGES, { autoIncrement: true });
             store.createIndex('agentId', 'agentId', { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains(STORE_TRIPLET_EDGES)) {
+            const edgeStore = db.createObjectStore(STORE_TRIPLET_EDGES, { keyPath: 'id' });
+            edgeStore.createIndex('sourceId', 'sourceId', { unique: false });
+            edgeStore.createIndex('agentId', 'agentId', { unique: false });
         }
       };
 
@@ -310,34 +323,53 @@ class VectorDbService {
       });
   }
 
+  async addTripletEdges(edges: TripletEdge[]): Promise<void> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_TRIPLET_EDGES, 'readwrite');
+        const store = tx.objectStore(STORE_TRIPLET_EDGES);
+        edges.forEach(e => store.put(e));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async getTripletEdgesByAgent(agentId: string): Promise<TripletEdge[]> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_TRIPLET_EDGES, 'readonly');
+        const store = tx.objectStore(STORE_TRIPLET_EDGES);
+        const index = store.index('agentId');
+        const request = index.getAll(agentId);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+  }
+
   async deleteGraphForAgent(agentId: string): Promise<void> {
       const db = await this.open();
       return new Promise((resolve, reject) => {
-          const tx = db.transaction([STORE_GRAPH_NODES, STORE_GRAPH_EDGES], 'readwrite');
+          const tx = db.transaction([STORE_GRAPH_NODES, STORE_GRAPH_EDGES, STORE_TRIPLET_EDGES], 'readwrite');
           
-          const nodeStore = tx.objectStore(STORE_GRAPH_NODES);
-          const nodeIndex = nodeStore.index('agentId');
-          const nodeRequest = nodeIndex.openCursor(IDBKeyRange.only(agentId));
-          
-          nodeRequest.onsuccess = (e) => {
-              const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
-              if (cursor) {
-                  cursor.delete();
-                  cursor.continue();
-              }
+          const stores = {
+              [STORE_GRAPH_NODES]: tx.objectStore(STORE_GRAPH_NODES),
+              [STORE_GRAPH_EDGES]: tx.objectStore(STORE_GRAPH_EDGES),
+              [STORE_TRIPLET_EDGES]: tx.objectStore(STORE_TRIPLET_EDGES)
           };
 
-          const edgeStore = tx.objectStore(STORE_GRAPH_EDGES);
-          const edgeIndex = edgeStore.index('agentId');
-          const edgeRequest = edgeIndex.openCursor(IDBKeyRange.only(agentId));
-
-          edgeRequest.onsuccess = (e) => {
-              const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
-              if (cursor) {
-                  cursor.delete();
-                  cursor.continue();
+          Object.values(stores).forEach(store => {
+              if (store.indexNames.contains('agentId')) {
+                  const index = store.index('agentId');
+                  const request = index.openCursor(IDBKeyRange.only(agentId));
+                  request.onsuccess = (e) => {
+                      const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+                      if (cursor) {
+                          cursor.delete();
+                          cursor.continue();
+                      }
+                  };
               }
-          };
+          });
 
           tx.oncomplete = () => resolve();
           tx.onerror = () => reject(tx.error);

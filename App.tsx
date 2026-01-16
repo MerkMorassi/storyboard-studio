@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardStudio } from './components/DashboardStudio';
@@ -42,6 +43,7 @@ import { ScriptingStudio } from './components/ScriptingStudio';
 import { DesignStudio } from './components/DesignStudio';
 import { ArtStudio } from './components/ArtStudio';
 import { RosterStudio } from './components/RosterStudio';
+import { VoiceLab } from './components/VoiceLab.tsx';
 import { Agent, Project, ActiveView, ImageState } from './types';
 import { getGeminiApiKey, getHfApiKey, getTopazApiKey, saveGeminiApiKey, saveHfApiKey, saveTopazApiKey } from './services/apiKeyService';
 import { getAnimAgentsTeam } from './services/agentService';
@@ -204,7 +206,8 @@ export const App = () => {
             case 'knowledge': return <KnowledgeView agents={project.data.agents} onUpdateAgent={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} />;
             case 'automation': return <AutomationStudio config={project.data.automationConfig} onSave={(c) => updateProjectData({ automationConfig: c })} onTestWebhook={async () => true} />;
             case 'studio-players': return <RosterStudio rosterType='player' agents={project.data.studioPlayers} images={[]} onCreateEntity={(d) => { const newAgent = { ...d, id: `player_${Date.now()}` } as Agent; updateProjectData({ studioPlayers: [...project.data.studioPlayers, newAgent] }); return newAgent; }} onViewImage={() => {}} onUpdateEntity={(id, u) => updateProjectData({ studioPlayers: project.data.studioPlayers.map(p => p.id === id ? { ...p, ...u } : p) })} onDeleteEntity={(id) => updateProjectData({ studioPlayers: project.data.studioPlayers.filter(p => p.id !== id) })} onImageUpload={() => {}} onCallEntity={() => {}} />;
-            
+            case 'voice-lab': return <VoiceLab agents={project.data.agents} />;
+
             default: return <DashboardStudio project={project} onUpdateProject={(u) => setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, ...u } : p))} images={project.data.images} stats={{ storyboardFrames: project.data.storyboard.length, agents: project.data.agents.length, loreEntries: project.data.lore.length, inspirationImages: project.data.inspirationImages.length, dynamicPromptLists: project.data.dynamicPromptLists.length, promptTemplates: project.data.promptTemplates.length, imagesGenerated: project.data.images.length, totalProjects: projects.length, scriptsCount: project.data.scriptsBin.length }} onNavigate={handleNavigate} />;
         }
     };

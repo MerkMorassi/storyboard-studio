@@ -93,14 +93,13 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             // Fixed Model Name to 'gemini-2.5-flash-native-audio-preview-12-2025' for best reliability
+            // Removed inputAudioTranscription and outputAudioTranscription to prevent tokenizer errors
             sessionPromiseRef.current = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-12-2025',
                 config: {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: agent.voice || 'Kore' } } },
                     systemInstruction: agent.systemPrompt,
-                    inputAudioTranscription: {},
-                    outputAudioTranscription: {},
                 },
                 callbacks: {
                     onopen: () => {

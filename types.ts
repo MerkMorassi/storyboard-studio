@@ -1,7 +1,8 @@
 
+
 export type RAGProvider = 'cloud' | 'localhost' | 'browser';
 export type ModelEngine = 'gemini' | 'dolphin';
-export type ActiveView = 'dashboard' | 'projects' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'one-shot-cinematic' | 'image-generator' | 'generative-video' | 'transition-studio' | 'camera-movement' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'qwen-image-edit' | 'topaz' | 'grid' | 'story' | 'inspiration' | 'scripts-bin' | 'script-writer' | 'agents' | 'studio-players' | 'characters' | 'lore' | 'prompt-library' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'agent-workspace';
+export type ActiveView = 'dashboard' | 'projects' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'one-shot-cinematic' | 'image-generator' | 'generative-video' | 'transition-studio' | 'camera-movement' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'qwen-image-edit' | 'topaz' | 'grid' | 'story' | 'inspiration' | 'scripts-bin' | 'script-writer' | 'agents' | 'studio-players' | 'characters' | 'lore' | 'prompt-library' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'agent-workspace' | 'voice-lab';
 
 export type GridOverlayType = 'none' | 'basic' | 'triadic' | 'golden-basic' | 'golden-triadic';
 
@@ -296,6 +297,10 @@ export interface VectorRecord {
   agent: string; // The "handle" or author
   timestamp: number;
   permissions?: string; 
+  agentId?: string;
+  agentHandle?: string;
+  numMarkId?: string;
+  metadata?: any;
 }
 export type LorePackExport = VectorRecord[];
 
@@ -396,6 +401,18 @@ export interface GraphEdge {
   label: string;
   agentId: string;
 }
+
+export interface TripletEdge {
+    id: string;
+    type: 'edge';
+    agentId: string;
+    sourceId: string; // ID of the vector this triplet was extracted from
+    s: string; // subject
+    r: string; // relation
+    o: string; // object
+    timestamp: string;
+}
+
 
 export type PermMemory = 'READ_LORE' | 'WRITE_LORE' | 'MODIFY_LORE' | 'MANAGE_MEMORY';
 export type PermTools = 'EXECUTE_CODE' | 'ROUTE_EXTERNAL' | 'GENERATE_MEDIA' | 'COLLABORATE';
