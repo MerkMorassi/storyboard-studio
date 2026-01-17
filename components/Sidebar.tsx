@@ -14,7 +14,6 @@ import { hasCriticalKeys } from '../services/apiKeyService';
 interface SidebarProps {
     activeView: ActiveView;
     onNavigate: (view: ActiveView) => void;
-    onOpenSettings: () => void;
 }
 
 interface MenuItem {
@@ -74,12 +73,15 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'prompt-library', type: 'link', label: 'Prompt Library', view: 'prompt-library', icon: LibraryIcon },
     { id: 'dynamic-prompts', type: 'link', label: 'Dynamic Prompts', view: 'dynamic-prompts', icon: ShuffleIcon },
     { id: 'knowledge', type: 'link', label: 'LorePack Studio', view: 'knowledge', icon: LibraryIcon },
+    
+    { id: 'header-system', type: 'header', label: 'System' },
+    { id: 'model-settings', type: 'link', label: 'Model Settings', view: 'model-settings', icon: SettingsIcon },
 ];
 
 const SIDEBAR_COLLAPSED_KEY = 'mythos_sidebar_collapsed_v1';
 const MENU_ORDER_KEY = 'mythos_menu_order_v1';
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, onOpenSettings }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate }) => {
     const keysPresent = hasCriticalKeys();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [menuItems, setMenuItems] = useState(DEFAULT_MENU_ITEMS);
@@ -174,6 +176,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, onOpen
                         const isActive = activeView === item.view;
                         const Icon = item.icon || FolderIcon;
                         
+                        const isSettings = item.view === 'model-settings';
+                        
                         return (
                             <button
                                 key={item.id}
@@ -186,11 +190,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, onOpen
                                 className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-bold rounded-lg transition-all group ${isCollapsed ? 'justify-center' : ''} ${
                                     isActive 
                                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                                        : isSettings && !keysPresent
+                                        ? 'text-red-400 hover:bg-red-900/20'
                                         : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
                                 }`}
                             >
-                                <Icon className={`w-4 h-4 transition-colors flex-shrink-0 ${isActive ? 'text-white' : 'text-neutral-500 group-hover:text-white'}`} />
+                                <Icon className={`w-4 h-4 transition-colors flex-shrink-0 ${isActive ? 'text-white' : isSettings && !keysPresent ? 'text-red-400' : 'text-neutral-500 group-hover:text-white'}`} />
                                 {!isCollapsed && <span className="truncate">{item.label}</span>}
+                                {!isCollapsed && isSettings && !keysPresent && <WarningIcon className="w-4 h-4 text-red-400 animate-pulse ml-auto" />}
                             </button>
                         );
                     })}
@@ -198,17 +205,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onNavigate, onOpen
             </div>
 
             <div className={`p-4 border-t border-neutral-800 bg-neutral-900 transition-all duration-300`}>
-                <button 
-                    onClick={onOpenSettings}
-                    title={isCollapsed ? "System Settings" : undefined}
-                    className={`w-full flex items-center justify-between px-3 py-3 text-xs font-bold rounded-lg transition-all ${isCollapsed ? 'justify-center' : ''} ${!keysPresent ? 'bg-red-900/20 text-red-400 border border-red-500/50 hover:bg-red-900/40' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}
-                >
-                    <div className="flex items-center gap-3">
-                        <SettingsIcon className="w-4 h-4 flex-shrink-0" />
-                        {!isCollapsed && <span>System Settings</span>}
-                    </div>
-                    {!isCollapsed && !keysPresent && <WarningIcon className="w-4 h-4 animate-pulse" />}
-                </button>
                 <button onClick={toggleCollapse} className="w-full flex items-center justify-center gap-3 px-3 py-2 text-xs font-bold text-neutral-500 hover:text-white rounded-lg transition-all mt-2 hover:bg-neutral-800">
                     <ChevronLeftIcon className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} />
                 </button>

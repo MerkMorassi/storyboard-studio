@@ -36,7 +36,7 @@ import { PromptLibraryStudio } from './components/PromptLibraryStudio';
 import { DynamicPromptsStudio } from './components/DynamicPromptsStudio';
 import { AgentChatStudio } from './components/AgentChatStudio';
 import { KnowledgeView } from './components/KnowledgeView';
-import { SettingsModal } from './components/SettingsModal';
+import { ModelSettingsStudio } from './components/ModelSettingsStudio';
 import { GenericAgentStudio } from './components/GenericAgentStudio';
 import { CoreStudio } from './components/CoreStudio';
 import { IdeationStudio } from './components/IdeationStudio';
@@ -95,7 +95,6 @@ export const App = () => {
     const [activeView, setActiveView] = useState<ActiveView>('dashboard');
     const [activeProjectId, setActiveProjectId] = useState<string>(DEFAULT_PROJECT_ID);
     const [projects, setProjects] = useState<Project[]>([INITIAL_PROJECT]);
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
     // Load initial data
@@ -212,6 +211,7 @@ export const App = () => {
             case 'automation': return <AutomationStudio config={project.data.automationConfig} onSave={(c) => updateProjectData({ automationConfig: c })} onTestWebhook={async () => true} />;
             case 'studio-players': return <RosterStudio rosterType='player' agents={project.data.studioPlayers} images={[]} onCreateEntity={(d) => { const newAgent = { ...d, id: `player_${Date.now()}` } as Agent; updateProjectData({ studioPlayers: [...project.data.studioPlayers, newAgent] }); return newAgent; }} onViewImage={() => {}} onUpdateEntity={(id, u) => updateProjectData({ studioPlayers: project.data.studioPlayers.map(p => p.id === id ? { ...p, ...u } : p) })} onDeleteEntity={(id) => updateProjectData({ studioPlayers: project.data.studioPlayers.filter(p => p.id !== id) })} onImageUpload={() => {}} onCallEntity={() => {}} />;
             case 'voice-lab': return <VoiceLab agents={project.data.agents} />;
+            case 'model-settings': return <ModelSettingsStudio />;
 
             default: return <DashboardStudio project={project} onUpdateProject={(u) => setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, ...u } : p))} images={project.data.images} stats={{ storyboardFrames: project.data.storyboard.length, agents: project.data.agents.length, loreEntries: project.data.lore.length, inspirationImages: project.data.inspirationImages.length, dynamicPromptLists: project.data.dynamicPromptLists.length, promptTemplates: project.data.promptTemplates.length, imagesGenerated: project.data.images.length, totalProjects: projects.length, scriptsCount: project.data.scriptsBin.length }} onNavigate={handleNavigate} />;
         }
@@ -219,30 +219,10 @@ export const App = () => {
 
     return (
         <div className="flex h-screen bg-primary text-text-primary overflow-hidden">
-            <Sidebar activeView={activeView} onNavigate={handleNavigate} onOpenSettings={() => setIsSettingsOpen(true)} />
+            <Sidebar activeView={activeView} onNavigate={handleNavigate} />
             <div className="flex-grow flex flex-col min-w-0 bg-secondary/20">
                 {renderContent()}
             </div>
-            {/* FIX: Removed Gemini API Key from settings modal to enforce environment variable usage as per guidelines. */}
-            <SettingsModal
-                isOpen={isSettingsOpen}
-                onClose={() => setIsSettingsOpen(false)}
-                onSave={(topaz, hf, voiceLabUrl, dolphinUrl, cinematicCoreUrl, cameraDollyUrl) => {
-                    saveTopazApiKey(topaz);
-                    saveHfApiKey(hf);
-                    saveVoiceLabUrl(voiceLabUrl);
-                    saveDolphinUrl(dolphinUrl);
-                    saveCinematicCoreUrl(cinematicCoreUrl);
-                    saveCameraDollyUrl(cameraDollyUrl);
-                    setIsSettingsOpen(false);
-                }}
-                currentTopazApiKey={getTopazApiKey() || ''}
-                currentHfApiKey={getHfApiKey() || ''}
-                currentVoiceLabUrl={getVoiceLabUrl() || ''}
-                currentDolphinUrl={getDolphinUrl() || ''}
-                currentCinematicCoreUrl={getCinematicCoreUrl() || ''}
-                currentCameraDollyUrl={getCameraDollyUrl() || ''}
-            />
         </div>
     );
 };
