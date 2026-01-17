@@ -17,6 +17,7 @@ interface ErrorBoundaryState {
  */
 // FIX: Extended `Component` directly instead of `React.Component` to match the named import.
 // FIX: Added 'extends Component<...>' to make this a proper React component.
+// FIX: The `ErrorBoundary` class must extend `Component` to be a valid React class component and have access to `this.props` and `this.setState`.
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = {
     hasError: false,

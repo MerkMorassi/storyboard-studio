@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardStudio } from './components/DashboardStudio';
@@ -12,6 +14,7 @@ import { SimpleCinematicStudio } from './components/SimpleCinematicStudio';
 import { GenerativeVideoStudio } from './components/GenerativeVideoStudio';
 import { TransitionStudio } from './components/TransitionStudio';
 import { CameraMovementStudio } from './components/CameraMovementStudio';
+import { CameraMovesStudio } from './components/CameraMovesStudio';
 import { BlenderStudio } from './components/BlenderStudio';
 import { SceneCompositorStudio } from './components/SceneCompositorStudio';
 import { CompositeStudio } from './components/CompositeStudio';
@@ -43,7 +46,7 @@ import { ArtStudio } from './components/ArtStudio';
 import { RosterStudio } from './components/RosterStudio';
 import { VoiceLab } from './components/VoiceLab.tsx';
 import { Agent, Project, ActiveView, ImageState } from './types';
-import { getGeminiApiKey, getHfApiKey, getTopazApiKey, saveGeminiApiKey, saveHfApiKey, saveTopazApiKey, getVoiceLabUrl, saveVoiceLabUrl } from './services/apiKeyService';
+import { getHfApiKey, getTopazApiKey, saveHfApiKey, saveTopazApiKey, getVoiceLabUrl, saveVoiceLabUrl, getDolphinUrl, saveDolphinUrl, getCinematicCoreUrl, saveCinematicCoreUrl, getCameraDollyUrl, saveCameraDollyUrl } from './services/apiKeyService';
 import { getAnimAgentsTeam } from './services/agentService';
 import { vectorDb } from './services/vectorDbService';
 
@@ -51,8 +54,8 @@ const DEFAULT_PROJECT_ID = 'project-alpha';
 
 const INITIAL_PROJECT: Project = {
     id: DEFAULT_PROJECT_ID,
-    name: 'Untitled Production',
-    tagline: 'A new creative endeavor.',
+    name: 'New MythOS Production',
+    tagline: 'Film, TV, Audio & Digital Content Creation.',
     progress: 0,
     data: {
         images: [],
@@ -71,8 +74,10 @@ const INITIAL_PROJECT: Project = {
         greenScreenState: { source: null, resultUrl: null },
         backgroundRemovalState: { source: null, result: null },
         qwenImageEditState: { images: [null, null, null, null, null, null], result: null, prompt: '', negativePrompt: '', cfgScale: 4.0, seed: 0, randomizeSeed: true, width: 1024, height: 1024, steps: 25 },
-        generativeVideoState: { prompt: '', negativePrompt: '', image: null, lastImage: null, resultUrl: null, engine: '', externalUrl: '', steps: 25, duration: 4, guidanceScale: 7.5, guidanceScale2: 7.5, scheduler: '', fps: 24, seed: 0, randomizeSeed: true },
+        // FIX: Removed invalid 'scheduler' property from generativeVideoState.
+        generativeVideoState: { prompt: '', negativePrompt: '', image: null, lastImage: null, resultUrl: null, engine: '', externalUrl: '', steps: 25, duration: 4, guidanceScale: 7.5, guidanceScale2: 7.5, fps: 24, seed: 0, randomizeSeed: true },
         cameraMovementState: { source: null, prompt: '', negativePrompt: '', movementType: '', steps: 25, guidanceScale: 7.5, seed: 0, randomizeSeed: true, resultUrl: null },
+        cameraMovesState: { sourceVideo: null, prompt: 'A cinematic camera move around the subject', cameraType: '1', steps: 20, resultUrl: null },
         transitionState: { startImage: null, endImage: null, prompt: '', negativePrompt: '', duration: 4, steps: 25, guidanceScale: 7.5, guidanceScale2: 7.5, seed: 0, randomizeSeed: true, resultUrl: null },
         topazState: { activeMediaType: 'image', source: null, result: null, resultUrl: null, operation: 'enhance', parameters: { scale: 2, strength: 50 }, faceRecovery: true },
         directorState: {},
@@ -124,6 +129,7 @@ export const App = () => {
                     mimeType: asset.mimeType,
                     metadata: asset.metadata
                 };
+                // FIX: Corrected the nested spread to properly update the images array within the project's data.
                 return { ...p, data: { ...p.data, images: [newAsset, ...p.data.images] } };
             }
             return p;
@@ -178,6 +184,7 @@ export const App = () => {
             case 'generative-video': return <GenerativeVideoStudio apiKey={''} hfToken={getHfApiKey() || ''} videoState={project.data.generativeVideoState} onStateUpdate={s => updateProjectData({ generativeVideoState: s })} onAddImageToGrid={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddAssetToGrid={handleAddAssetToGrid} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
             case 'transition-studio': return <TransitionStudio state={project.data.transitionState} onStateUpdate={s => updateProjectData({ transitionState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} promptTemplates={project.data.promptTemplates} />;
             case 'camera-movement': return <CameraMovementStudio state={project.data.cameraMovementState} onStateUpdate={s => updateProjectData({ cameraMovementState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} />;
+            case 'camera-moves': return <CameraMovesStudio state={project.data.cameraMovesState} onStateUpdate={s => updateProjectData({ cameraMovesState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} hfToken={getHfApiKey() || ''} />;
             case 'blender': return <BlenderStudio sourceImages={project.data.blenderImages} resultImage={project.data.blenderResult} isLoading={false} error={null} onUpload={() => {}} onRemoveImage={() => {}} onGenerate={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} />;
             case 'scene-compositor': return <SceneCompositorStudio sceneState={project.data.sceneCompositorState} isLoading={false} error={null} onUpload={(t, f) => { const r = new FileReader(); r.onload = e => updateProjectData({ sceneCompositorState: { ...project.data.sceneCompositorState, [t]: { base64: (e.target?.result as string).split(',')[1], mimeType: f.type } } }); r.readAsDataURL(f); }} onRemoveImage={(t) => updateProjectData({ sceneCompositorState: { ...project.data.sceneCompositorState, [t]: null } })} onGenerate={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} onUpdateImage={(t, b, m) => updateProjectData({ sceneCompositorState: { ...project.data.sceneCompositorState, [t]: { base64: b, mimeType: m } } })} />;
             case 'composite': return <CompositeStudio state={project.data.compositeState} onStateUpdate={s => updateProjectData({ compositeState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} />;
@@ -216,20 +223,25 @@ export const App = () => {
             <div className="flex-grow flex flex-col min-w-0 bg-secondary/20">
                 {renderContent()}
             </div>
+            {/* FIX: Removed Gemini API Key from settings modal to enforce environment variable usage as per guidelines. */}
             <SettingsModal
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
-                onSave={(topaz, hf, gemini, voiceLabUrl) => {
+                onSave={(topaz, hf, voiceLabUrl, dolphinUrl, cinematicCoreUrl, cameraDollyUrl) => {
                     saveTopazApiKey(topaz);
                     saveHfApiKey(hf);
-                    saveGeminiApiKey(gemini);
                     saveVoiceLabUrl(voiceLabUrl);
+                    saveDolphinUrl(dolphinUrl);
+                    saveCinematicCoreUrl(cinematicCoreUrl);
+                    saveCameraDollyUrl(cameraDollyUrl);
                     setIsSettingsOpen(false);
                 }}
                 currentTopazApiKey={getTopazApiKey() || ''}
                 currentHfApiKey={getHfApiKey() || ''}
-                currentGeminiApiKey={getGeminiApiKey() || ''}
                 currentVoiceLabUrl={getVoiceLabUrl() || ''}
+                currentDolphinUrl={getDolphinUrl() || ''}
+                currentCinematicCoreUrl={getCinematicCoreUrl() || ''}
+                currentCameraDollyUrl={getCameraDollyUrl() || ''}
             />
         </div>
     );

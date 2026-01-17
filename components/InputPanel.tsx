@@ -50,9 +50,12 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
   const [seed, setSeed] = useState('');
   const [cameraAngle, setCameraAngle] = useState('Medium Shot');
   const [addLetterbox, setAddLetterbox] = useState(true);
-  const [model, setModel] = useState<GenerationOptions['model']>('gemini-2.5-flash-image');
+  
+  const [engine, setEngine] = useState<GenerationOptions['engine']>('mythos_sdxl');
+  const [geminiModel, setGeminiModel] = useState<GenerationOptions['geminiModel']>('gemini-2.5-flash-image');
+  const [deliveryMethod, setDeliveryMethod] = useState<GenerationOptions['deliveryMethod']>('internal');
+
   const [strength, setStrength] = useState(80); // For image-to-image
-  const [engine, setEngine] = useState<GenerationOptions['engine']>('internal');
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['prompt', 'settings']));
   const [maskData, setMaskData] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -151,8 +154,9 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
         seed,
         cameraAngle,
         addLetterbox,
-        model,
         engine,
+        geminiModel,
+        deliveryMethod,
     };
 
     if (editingImage) {
@@ -225,6 +229,11 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
         img.src = `data:${editingImage.mimeType};base64,${editingImage.base64}`;
         setMaskData(null);
     };
+  
+    const maxImages = engine === 'gemini' && geminiModel === 'imagen-4.0-generate-001' ? 8 : 16;
+    if (numImages > maxImages) {
+        setNumImages(maxImages);
+    }
 
   return (
     <form onSubmit={handleSubmit} className="h-full flex flex-col text-neutral-200">
@@ -293,8 +302,8 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                  <FormField label={`Images: ${numImages}`} className="col-span-2">
                     <div className="flex gap-2 items-center">
-                        <input type="range" min="1" max={model === 'imagen-4.0-generate-001' ? 8 : 16} value={numImages} onChange={(e) => setNumImages(parseInt(e.target.value))} className="w-full accent-blue-500" disabled={prompt.includes('[') && prompt.includes(']')} />
-                        <input type="number" min="1" max="16" value={numImages} onChange={(e) => setNumImages(parseInt(e.target.value))} className="w-12 bg-black border border-neutral-800 rounded-lg text-center text-sm p-1 text-white" />
+                        <input type="range" min="1" max={maxImages} value={numImages} onChange={(e) => setNumImages(parseInt(e.target.value))} className="w-full accent-blue-500" disabled={prompt.includes('[') && prompt.includes(']')} />
+                        <input type="number" min="1" max={maxImages} value={numImages} onChange={(e) => setNumImages(parseInt(e.target.value))} className="w-12 bg-black border border-neutral-800 rounded-lg text-center text-sm p-1 text-white" />
                     </div>
                 </FormField>
                  <FormField label="Aspect Ratio" className="col-span-2">
@@ -319,14 +328,22 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
                         {['Medium Shot', 'Close-up Shot', 'Wide Angle Shot', 'Establishing Shot', 'Point of View (POV)', 'Low Angle Shot', 'High Angle Shot', 'Dutch Angle', 'Over the Shoulder Shot', 'Long Shot', 'Extreme Close-up', 'Full Shot'].map(angle => <option key={angle} value={angle}>{angle}</option>)}
                     </select>
                 </FormField>
-                 <FormField label="Model Engine" className="col-span-2">
-                    <select value={model} onChange={(e) => setModel(e.target.value as any)} className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none cursor-pointer">
-                        <option value="gemini-2.5-flash-image">Gemini Flash Image (Fast, Versatile)</option>
-                        <option value="imagen-4.0-generate-001">Imagen 4 (High Quality)</option>
-                    </select>
-                </FormField>
                  <FormField label="Generation Engine" className="col-span-2">
                     <select value={engine} onChange={(e) => setEngine(e.target.value as any)} className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none cursor-pointer">
+                        <option value="mythos_sdxl">MythOS SDXL (Superior)</option>
+                        <option value="gemini">Google Gemini</option>
+                    </select>
+                </FormField>
+                {engine === 'gemini' && (
+                    <FormField label="Gemini Model" className="col-span-2">
+                        <select value={geminiModel} onChange={(e) => setGeminiModel(e.target.value as any)} className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none cursor-pointer">
+                            <option value="gemini-2.5-flash-image">Gemini Flash Image (Fast)</option>
+                            <option value="imagen-4.0-generate-001">Gemini Imagen 4 (High Quality)</option>
+                        </select>
+                    </FormField>
+                )}
+                 <FormField label="Delivery Method" className="col-span-2">
+                    <select value={deliveryMethod} onChange={(e) => setDeliveryMethod(e.target.value as any)} className="w-full bg-black border border-neutral-800 p-2 rounded-lg text-white font-bold focus:ring-2 focus:ring-brand outline-none cursor-pointer">
                         <option value="internal">Internal (This App)</option>
                         <option value="external">External (Webhook)</option>
                     </select>
@@ -347,7 +364,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onGenerate, isLoading, e
             disabled={isLoading}
             className="w-full py-3 font-bold text-white bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-600 disabled:cursor-wait transition-colors rounded-lg shadow-lg"
           >
-            {isLoading ? 'Generating...' : (engine === 'external' ? 'Send Generation Request' : 'Generate Images')}
+            {isLoading ? 'Generating...' : (deliveryMethod === 'external' ? 'Send Generation Request' : 'Generate Images')}
           </button>
       </div>
     </form>

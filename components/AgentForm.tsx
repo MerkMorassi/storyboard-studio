@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Agent, ModelEngine } from '../types.ts';
 import { getAvailableVoices } from '../services/agentService';
 
@@ -16,10 +16,23 @@ export const AgentForm: React.FC<AgentFormProps> = ({ agent, onCancel, onSave })
     const [bio, setBio] = useState(agent.bio || '');
     const [narrativeRole, setNarrativeRole] = useState(agent.narrativeRole || '');
     const [preferredEngine, setPreferredEngine] = useState<ModelEngine>(agent.preferredEngine || 'gemini');
+    const [voiceReference, setVoiceReference] = useState(agent.voiceReference || '');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleVoiceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file && file.type.startsWith('audio/')) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                setVoiceReference(event.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ name, systemPrompt, voice, bio, narrativeRole, preferredEngine });
+        onSave({ name, systemPrompt, voice, bio, narrativeRole, preferredEngine, voiceReference });
     };
 
     return (
@@ -46,6 +59,25 @@ export const AgentForm: React.FC<AgentFormProps> = ({ agent, onCancel, onSave })
                     <div>
                         <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">System Prompt (Directives)</label>
                         <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} rows={6} className="w-full bg-neutral-800 p-2.5 rounded border border-neutral-700 text-white font-mono text-xs" />
+                    </div>
+
+                    <div>
+                        <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">Voice Reference Sample (for Cloning)</label>
+                        <div className="flex items-center gap-3 bg-neutral-800 p-2 rounded border border-neutral-700">
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="px-4 py-2 text-xs font-bold bg-neutral-700 hover:bg-neutral-600 text-white rounded transition-colors"
+                            >
+                                Upload Audio
+                            </button>
+                            <input type="file" ref={fileInputRef} onChange={handleVoiceUpload} className="hidden" accept="audio/wav, audio/mpeg, audio/mp3" />
+                            {voiceReference ? (
+                                <audio src={voiceReference} controls className="h-8 w-full"></audio>
+                            ) : (
+                                <p className="text-xs text-neutral-500">No sample uploaded. (WAV/MP3)</p>
+                            )}
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

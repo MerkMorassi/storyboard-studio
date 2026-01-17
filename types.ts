@@ -4,9 +4,11 @@
 
 
 
+
+
 export type RAGProvider = 'cloud' | 'localhost' | 'browser';
 export type ModelEngine = 'gemini' | 'dolphin';
-export type ActiveView = 'dashboard' | 'projects' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'one-shot-cinematic' | 'image-generator' | 'generative-video' | 'transition-studio' | 'camera-movement' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'qwen-image-edit' | 'topaz' | 'grid' | 'story' | 'inspiration' | 'scripts-bin' | 'script-writer' | 'agents' | 'studio-players' | 'characters' | 'lore' | 'prompt-library' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'agent-workspace' | 'voice-lab';
+export type ActiveView = 'dashboard' | 'projects' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'one-shot-cinematic' | 'image-generator' | 'generative-video' | 'transition-studio' | 'camera-movement' | 'camera-moves' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'qwen-image-edit' | 'topaz' | 'grid' | 'story' | 'inspiration' | 'scripts-bin' | 'script-writer' | 'agents' | 'studio-players' | 'characters' | 'lore' | 'prompt-library' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'agent-workspace' | 'voice-lab';
 
 export type GridOverlayType = 'none' | 'basic' | 'triadic' | 'golden-basic' | 'golden-triadic';
 
@@ -90,8 +92,9 @@ export interface GenerationOptions {
   seed: string;
   cameraAngle: string;
   addLetterbox: boolean;
-  model: 'gemini-2.5-flash-image' | 'imagen-4.0-generate-001';
-  engine: 'internal' | 'external';
+  geminiModel: 'gemini-2.5-flash-image' | 'imagen-4.0-generate-001';
+  deliveryMethod: 'internal' | 'external';
+  engine: 'mythos_sdxl' | 'gemini';
   base64Image?: string;
   mimeType?: string;
   strength?: number;
@@ -134,6 +137,7 @@ export interface Project {
     qwenImageEditState: QwenImageEditState;
     generativeVideoState: GenerativeVideoState;
     cameraMovementState: CameraMovementState;
+    cameraMovesState: CameraMovesState;
     transitionState: TransitionState;
     topazState: TopazState;
     directorState: any;
@@ -234,7 +238,6 @@ export interface GenerativeVideoState {
   duration: number;
   guidanceScale: number;
   guidanceScale2: number;
-  scheduler: string;
   fps: number;
   seed: number;
   randomizeSeed: boolean;
@@ -249,6 +252,14 @@ export interface CameraMovementState {
   guidanceScale: number;
   seed: number;
   randomizeSeed: boolean;
+  resultUrl: string | null;
+}
+
+export interface CameraMovesState {
+  sourceVideo: { base64: string; mimeType: string } | null;
+  prompt: string;
+  cameraType: string;
+  steps: number;
   resultUrl: string | null;
 }
 
@@ -379,6 +390,7 @@ export interface AgentConfig {
   voicePitch?: number;
   accessLevel?: string;
   bio?: string;
+  seedImages?: { base64: string; mimeType: string }[];
 }
 
 export interface CloudFile {
@@ -487,7 +499,8 @@ export interface Agent {
   voiceReference?: string;
   studioConfig?: StudioConfig;
   actorProfile?: ActorProfile;
-  file_ids?: string[]; 
+  file_ids?: string[];
+  seedImages?: { base64: string; mimeType: string }[];
 }
 
 export interface LorePackHeader {
@@ -574,6 +587,33 @@ export interface CanonBlock {
     version: number;
     feedback?: string;
 }
+
+export interface GemmaConfig {
+  modelName: string;
+  apiKey: string;
+  parameters: {
+    temperature: number;
+    top_p: number;
+    top_k: number;
+    num_predict: number;
+  };
+  tools: {
+    allowedTools: string[];
+  };
+}
+
+export interface Message {
+  role: 'user' | 'assistant' | 'tool' | 'system';
+  content?: string;
+  images?: string[]; // base64
+  toolCalls?: { name: string; args: any; }[];
+  name?: string; // for tool role
+}
+
+export type StreamChunk = 
+  | { type: 'text'; content: string }
+  | { type: 'tool_call'; toolCall: { id: string; name: string; args: any; } };
+  
 // FIX: Resolved "subsequent property declaration" error by defining the `AIStudio` interface
 // directly within the `declare global` block. This ensures a single, non-conflicting
 // global type definition that is applied across the entire project.

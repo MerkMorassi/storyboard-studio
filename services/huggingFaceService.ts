@@ -1,8 +1,9 @@
+
 import { HfInference } from "@huggingface/inference";
+import { getCinematicCoreUrl } from './apiKeyService';
 
 // --- MYTHOS PROPRIETARY DOCKER CONFIGURATION ---
 // Root technical subdomain for the merkmorassi hardware.
-const PROPRIETARY_SUBDOMAIN = "https://merkmorassi-mythos-engine.hf.space";
 const CINEMATIC_MODEL = "stabilityai/stable-diffusion-xl-base-1.0";
 
 export interface SDXLParams {
@@ -31,6 +32,11 @@ export const generateImageSDXL = async (
 
   // --- PROPRIETARY HARDWARE CORE PATH ---
   if (params.useSuperiorEngine) {
+    const PROPRIETARY_SUBDOMAIN = getCinematicCoreUrl();
+    if (!PROPRIETARY_SUBDOMAIN) {
+        throw new Error("MythOS Cinematic Core URL is not configured in System Settings.");
+    }
+
     const payload = {
         prompt: params.prompt,
         negative_prompt: params.negative_prompt || "blurry, low quality, text, watermark, bad anatomy",

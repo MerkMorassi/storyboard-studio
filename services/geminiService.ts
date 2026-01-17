@@ -3,6 +3,7 @@ import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Content, Type, Modality,
 import { MythosData } from './mythosData';
 import { CONTENT_GUIDELINES } from './contentGuidelines';
 import { getGeminiApiKey } from './apiKeyService';
+import { GenerationOptions } from '../types';
 
 const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -82,6 +83,52 @@ const apiCallWithRetry = async <T>(apiFunction: () => Promise<T>, maxRetries = 3
         }
     }
     throw new Error("API call failed after multiple retries.");
+};
+
+export const generateImageFromGemini = async (options: GenerationOptions): Promise<Blob> => {
+    return apiCallWithRetry(async () => {
+        const ai = getClient();
+
+        if (options.geminiModel === 'imagen-4.0-generate-001') {
+            const response = await ai.models.generateImages({
+                model: 'imagen-4.0-generate-001',
+                prompt: options.prompt,
+                config: {
+                    numberOfImages: 1,
+                    outputMimeType: 'image/png',
+                    aspectRatio: options.aspectRatio,
+                    seed: options.seed ? parseInt(options.seed) : undefined,
+                },
+            });
+
+            if (response.generatedImages && response.generatedImages.length > 0) {
+                const base64 = response.generatedImages[0].image.imageBytes;
+                const res = await fetch('data:image/png;base64,' + base64);
+                return await res.blob();
+            }
+            throw new Error("Imagen 4 generation failed to return an image.");
+        } else { // gemini-2.5-flash-image
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image',
+                contents: { parts: [{ text: options.prompt }] },
+                config: {
+                    imageConfig: {
+                        aspectRatio: options.aspectRatio,
+                    },
+                    seed: options.seed ? parseInt(options.seed) : undefined,
+                },
+            });
+
+            const imagePart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+            if (imagePart && imagePart.inlineData) {
+                const base64 = imagePart.inlineData.data;
+                const mimeType = imagePart.inlineData.mimeType;
+                const res = await fetch(`data:${mimeType};base64,${base64}`);
+                return await res.blob();
+            }
+            throw new Error("Gemini Flash Image generation failed to return an image part.");
+        }
+    });
 };
 
 export interface ScribeInput {

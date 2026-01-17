@@ -18,10 +18,8 @@ import { getGeminiApiKey, getHfApiKey } from '../services/apiKeyService';
 import { ModelEngine } from '../types';
 import { generateImageSDXL } from '../services/huggingFaceService';
 import { blobToBase64 } from '../utils/imageUtils';
-
-// FIX: The local AIStudio interface and window augmentation were removed from this file.
-// They have been centralized in `types.ts` to resolve a TypeScript error about
-// subsequent property declarations having conflicting types.
+import { factoryService as lorepackService } from '../services/lorepack';
+import { generateImageMCP } from '../services/gradioService';
 
 interface AgentChatViewProps {
   agent: Agent;
@@ -165,12 +163,57 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
     }]);
   };
 
-  const handleSendMessage = async (files?: File[]) => {
+  const handleSendMessage = async (files?: File[], isToolCommand?: boolean) => {
+    let messageToSend = chatMessage;
+
+    // Handle user-initiated tool commands directly
+    const toolCommandRegex = /^Use the (.*?) tool with this prompt: "(.*)"$/s;
+    const toolMatch = messageToSend.match(toolCommandRegex);
+
+    if (toolMatch && toolMatch[1] && toolMatch[2]) {
+        const toolName = toolMatch[1];
+        const prompt = toolMatch[2];
+
+        setIsChatLoading(true);
+        setChatMessage('');
+        
+        setChatHistory(prev => [...prev, { id: `user-${Date.now()}`, role: 'user', parts: [{ text: messageToSend }] }]);
+        
+        setChatHistory(prev => [...prev, {
+            id: `tool-${Date.now()}`, role: 'model',
+            parts: [{ toolCode: { code: `Executing Tool: ${toolName}("${prompt.substring(0, 50)}...")` } }]
+        }]);
+
+        try {
+            let resultPart: ChatMessagePart | null = null;
+            if (toolName === 'image_studio_mcp') {
+                const blob = await generateImageMCP(prompt, getHfApiKey() || undefined);
+                const base64 = await blobToBase64(blob);
+                resultPart = { inlineData: { mimeType: blob.type, data: base64 } };
+            } else {
+                throw new Error(`User tool command '${toolName}' is not implemented.`);
+            }
+
+            if (resultPart) {
+                setChatHistory(prev => [...prev, {
+                    id: `model-result-${Date.now()}`, role: 'model',
+                    parts: [resultPart, { text: `Image generated via ${toolName} with prompt: "${prompt}"` }]
+                }]);
+            }
+        } catch (err: any) {
+            const errMsg = err.message || "Tool execution failed.";
+            setChatHistory(prev => [...prev, { id: `error-${Date.now()}`, role: 'model', parts: [{ text: `System Alert: ${errMsg}` }] }]);
+        } finally {
+            setIsChatLoading(false);
+        }
+        return; // End execution here, don't proceed to LLM
+    }
+    
     if (engine === 'gemini' && !chatSession) return;
-    if (!chatMessage.trim() && (!files || files.length === 0)) return;
+    if (!messageToSend.trim() && (!files || files.length === 0)) return;
     
     setIsChatLoading(true);
-    const currentMessage = chatMessage;
+    const currentMessage = messageToSend;
     setChatMessage('');
 
     try {
@@ -188,7 +231,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
       let promptWithExperience = currentMessage;
       let experienceCitation = "";
       
-      if (hasLorepack && currentMessage.trim()) {
+      if (hasLorepack && currentMessage.trim() && !isToolCommand) {
           const experience = await retrieveLivedExperience(agent.id, currentMessage);
           if (experience) {
               promptWithExperience = `[LOREPACK PERSPECTIVE INITIATED]\n\n<LIVED_EXPERIENCE>\n${experience.text}\n</LIVED_EXPERIENCE>\n\nDIRECTIVE: Respond to the following query using the above history/graph as your own memory:\n\n${currentMessage}`;
@@ -231,10 +274,8 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
                   const toolResultPart = { inlineData: { mimeType: blob.type, data: base64 } };
                   finalResponseParts.push(toolResultPart);
 
-                  const toolResponseResult = await chatSession!.sendToolResponse({
-                      functionResponses: { id: fc.id, name: fc.name, response: { result: "Image generated successfully.", image: toolResultPart } }
-                  });
-                  response = toolResponseResult as GenerateContentResponse;
+                  const toolResponseResult = await chatSession!.sendMessage({ message: [{ functionResponse: { name: fc.name, response: { result: "Image generated successfully." } } }] });
+                  response = toolResponseResult;
 
               } else if (fc.name === 'generateMythosVideo') {
                   const videoPrompt = fc.args.prompt;
@@ -303,17 +344,13 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
                   
                   generateVideoAsync(); // Fire and forget
 
-                  const toolResponseResult = await chatSession!.sendToolResponse({
-                      functionResponses: { id: fc.id, name: fc.name, response: { result: "Video generation has been initiated. I will post the result in the chat when it's ready." } }
-                  });
-                  response = toolResponseResult as GenerateContentResponse;
+                  const toolResponseResult = await chatSession!.sendMessage({ message: [{ functionResponse: { name: fc.name, response: { result: "Video generation has been initiated. I will post the result in the chat when it's ready." } } }] });
+                  response = toolResponseResult;
 
               } else {
                   // Fallback for unknown tools
-                  const toolResponseResult = await chatSession!.sendToolResponse({
-                      functionResponses: { id: fc.id, name: fc.name, response: { result: `Tool ${fc.name} not implemented.` } }
-                  });
-                  response = toolResponseResult as GenerateContentResponse;
+                  const toolResponseResult = await chatSession!.sendMessage({ message: [{ functionResponse: { name: fc.name, response: { result: `Tool ${fc.name} not implemented.` } } }] });
+                  response = toolResponseResult;
               }
           }
           finalResponseText = response.text || "";
@@ -330,12 +367,32 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
             handleGenerateAudio(finalResponseText, modelMessageId);
         }
       }
+
+      // Continuous Evolution: Ingest the turn into the LOREPACK
+      if (finalResponseText && agent.id && agent.name) {
+        lorepackService.ingestConversationalTurn(
+            agent.id,
+            agent.name,
+            currentMessage,
+            finalResponseText
+        ).catch(console.error); // Fire-and-forget
+      }
+
     } catch (err: any) {
       const errMsg = err.message || "Communication link unstable. Try again.";
       setChatHistory(prev => [...prev, { id: `error-${Date.now()}`, role: 'model', parts: [{ text: `System Alert: ${errMsg}` }] }]);
     } finally {
       setIsChatLoading(false);
     }
+  };
+
+  const handleSendToolCommand = (toolName: string, prompt: string) => {
+    const commandMessage = `Use the ${toolName} tool with this prompt: "${prompt}"`;
+    setChatMessage(commandMessage);
+    // Use a timeout to ensure state updates before sending
+    setTimeout(() => {
+        handleSendMessage([], true);
+    }, 0);
   };
 
   return (
@@ -401,7 +458,14 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
             <div ref={chatEndRef} />
         </div>
       <div className="mt-4 shrink-0 z-20">
-        <ChatInterface history={chatHistory} message={chatMessage} onMessageChange={setChatMessage} onSendMessage={handleSendMessage} isLoading={isChatLoading} />
+        <ChatInterface 
+            history={chatHistory} 
+            message={chatMessage} 
+            onMessageChange={setChatMessage} 
+            onSendMessage={handleSendMessage} 
+            isLoading={isChatLoading}
+            onSendToolCommand={handleSendToolCommand}
+        />
       </div>
     </div>
   );

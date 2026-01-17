@@ -2,10 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Client } from "@gradio/client";
 import { Agent } from '../types';
-import { getAgentConfig } from '../services/db';
 import { getHfApiKey } from '../services/apiKeyService';
 import { EXTERNAL_MODEL_ENDPOINTS } from '../services/externalRouter';
-import { SpeakerIcon, UploadIcon, WarningIcon, LoadingSpinner } from './icons';
+import { SpeakerIcon, UploadIcon, WarningIcon, LoadingSpinner, UserIcon } from './icons';
 
 interface VoiceLabProps {
     agents: Agent[];
@@ -43,6 +42,7 @@ export const VoiceLab: React.FC<VoiceLabProps> = ({ agents, onAudioGenerated }) 
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
+    const selectedAgent = agents.find(a => a.id === selectedAgentId);
 
     // 1. Load Agent's Saved Voice Reference on Selection
     useEffect(() => {
@@ -53,22 +53,25 @@ export const VoiceLab: React.FC<VoiceLabProps> = ({ agents, onAudioGenerated }) 
             setVoiceRefBlob(null);
             setVoiceRefUrl(null);
             setVoiceRefName('');
+            setError(null);
 
             try {
-                const config = await getAgentConfig(selectedAgentId);
                 const agent = agents.find(a => a.id === selectedAgentId);
-                const refString = config?.voiceReference || agent?.voiceReference;
+                const refString = agent?.voiceReference;
 
                 if (refString) {
                     const blob = await dataUrlToBlob(refString);
                     setVoiceRefBlob(blob);
-                    setVoiceRefUrl(refString); // Use the data URL for playback
+                    setVoiceRefUrl(refString);
                     setVoiceRefName('System Profile');
                     setIsUsingOverride(false);
+                } else {
+                     setVoiceRefBlob(null);
+                     setVoiceRefUrl(null);
                 }
             } catch (e) {
                 console.error("Failed to load agent voice config", e);
-                setError("Failed to load voice profile.");
+                setError("Failed to load voice profile audio.");
                 setStatus('ERROR');
             } finally {
                 setStatus('IDLE');
@@ -164,9 +167,16 @@ export const VoiceLab: React.FC<VoiceLabProps> = ({ agents, onAudioGenerated }) 
                 <div className="space-y-6 bg-neutral-800/50 p-6 border border-neutral-700 rounded-xl h-fit">
                     <div>
                         <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Target Voice Profile</label>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-3">
+                            {selectedAgent?.avatar ? (
+                                <img src={selectedAgent.avatar} alt={selectedAgent.name} className="w-12 h-12 rounded-full object-cover border-2 border-neutral-700 shrink-0" />
+                            ) : (
+                                <div className="w-12 h-12 rounded-full bg-neutral-700 flex items-center justify-center shrink-0 border-2 border-neutral-600">
+                                    <UserIcon className="w-6 h-6 text-neutral-500" />
+                                </div>
+                            )}
                             <select 
-                                className="w-full bg-neutral-800 border border-neutral-700 p-2 rounded-lg text-sm text-white"
+                                className="w-full bg-neutral-800 border border-neutral-700 p-3 rounded-lg text-sm text-white"
                                 value={selectedAgentId} 
                                 onChange={(e) => setSelectedAgentId(e.target.value)}
                                 disabled={isLoading}
@@ -175,7 +185,7 @@ export const VoiceLab: React.FC<VoiceLabProps> = ({ agents, onAudioGenerated }) 
                                     <option key={a.id} value={a.id}>{a.name.toUpperCase()}</option>
                                 ))}
                             </select>
-                            <button className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white text-sm font-bold rounded-lg" title="Upload Override Wav" onClick={() => fileInputRef.current?.click()}>
+                            <button className="px-4 py-3 bg-neutral-700 hover:bg-neutral-600 text-white text-sm font-bold rounded-lg" title="Upload Override Wav" onClick={() => fileInputRef.current?.click()}>
                                 <UploadIcon className="w-4 h-4" />
                             </button>
                             <input type="file" accept="audio/*" onChange={handleFileUpload} ref={fileInputRef} className="hidden" />

@@ -1,4 +1,5 @@
 
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -45,8 +46,11 @@ app.post('/api/rag', async (req, res) => {
     try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         // 1. Generate embedding for the query on the server
-        const model = ai.getGenerativeModel({ model: "text-embedding-004" });
-        const result = await model.embedContent(query);
+        // FIX: Updated to use the correct `ai.models.embedContent` method instead of the deprecated `getGenerativeModel`.
+        const result = await ai.models.embedContent({
+            model: 'text-embedding-004',
+            contents: { parts: [{ text: query }] }
+        });
         const queryVector = result.embedding.values;
 
         // 2. Search the Neural Vault (Filtered by Agent if provided)

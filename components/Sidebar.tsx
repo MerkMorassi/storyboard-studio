@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ActiveView } from '../types.ts';
 import { 
@@ -44,6 +45,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
 
     { id: 'header-vfx', type: 'header', label: 'VFX & Post' },
     { id: 'camera-movement', type: 'link', label: 'Camera Dolly (LTX)', view: 'camera-movement', icon: DollyIcon },
+    { id: 'camera-moves', type: 'link', label: 'Camera Moves (ReCam)', view: 'camera-moves', icon: DollyIcon },
     { id: 'transition', type: 'link', label: 'Transition Studio', view: 'transition-studio', icon: TransitionIcon },
     { id: 'blender', type: 'link', label: 'Blender', view: 'blender', icon: BlenderIcon },
     { id: 'compositor', type: 'link', label: 'Compositor', view: 'scene-compositor', icon: LayersIcon },

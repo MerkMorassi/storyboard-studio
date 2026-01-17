@@ -4,6 +4,7 @@ import { CameraMovementState } from '../types.ts';
 import { LoadingSpinner, DollyIcon, ClapperboardIcon, ChevronDownIcon, CameraLensIcon, ImageIcon } from './icons.tsx';
 import { AssetActions } from './AssetActions';
 import { getGradioClient } from '../services/gradioService';
+import { getCameraDollyUrl } from '../services/apiKeyService';
 
 interface CameraMovementStudioProps {
     state: CameraMovementState;
@@ -54,6 +55,7 @@ export const CameraMovementStudio: React.FC<CameraMovementStudioProps> = ({
                 steps: 50
             });
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,7 +95,12 @@ export const CameraMovementStudio: React.FC<CameraMovementStudioProps> = ({
 
         try {
             const imgBlob = await base64ToBlob(state.source.base64, state.source.mimeType);
-            const client = await getGradioClient("prithivMLmods/LTX-2-LoRAs-Camera-Control-Dolly", { hfToken });
+            
+            const cameraDollyEndpoint = getCameraDollyUrl();
+            if (!cameraDollyEndpoint) {
+                throw new Error("Camera Dolly (LTX) URL is not configured in System Settings.");
+            }
+            const client = await getGradioClient(cameraDollyEndpoint, { hfToken });
             
             setProgress('Generating camera move...');
             

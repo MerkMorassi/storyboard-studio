@@ -4,6 +4,8 @@ import { GenerationOptions, PromptTemplate, DynamicPromptList, Agent, ImageState
 import { InputPanel } from './InputPanel.tsx';
 import { ImageGrid } from './ImageGrid.tsx';
 import { generateImageSDXL } from '../services/huggingFaceService.ts';
+import { generateImageFromGemini } from '../services/geminiService.ts';
+import { refineNsfwPrompt } from '../services/dolphinService.ts';
 import { blobToBase64 } from '../utils/imageUtils.ts';
 import { ImageIcon } from './icons.tsx';
 
@@ -17,6 +19,10 @@ interface ImageGeneratorStudioProps {
     onAddToInspiration: (base64: string) => void;
     onCreateAgent: (data: Partial<Agent>) => Agent;
 }
+
+const nsfwKeywords = [
+    'nude', 'naked', 'nsfw', 'explicit', 'sexy', 'sex', 'porn', 'erotic', 'lust', 'seductive', 'boudoir'
+];
 
 export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
     hfToken,
@@ -44,43 +50,62 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
         try {
             const imagePromises: Promise<ImageState>[] = [];
             const numImages = options.numImages > 0 ? options.numImages : 1;
+            
+            let finalPrompt = options.prompt;
+            let finalEngine = options.engine;
+            
+            const isNsfw = nsfwKeywords.some(kw => options.prompt.toLowerCase().includes(kw));
+            if (isNsfw) {
+                setError("NSFW prompt detected. Switching to specialized uncensored engine and refining prompt with Dolphin.");
+                finalEngine = 'mythos_sdxl';
+                finalPrompt = await refineNsfwPrompt(options.prompt, hfToken);
+            }
 
             for (let i = 0; i < numImages; i++) {
                 const seed = options.seed ? parseInt(options.seed, 10) + i : Math.floor(Math.random() * 2147483647);
                 if (i === 0) setLastUsedSeed(String(seed));
 
-                const { width, height } = ((ar: string) => {
-                    switch(ar) {
-                        case '16:9': return { width: 1024, height: 576 };
-                        case '9:16': return { width: 576, height: 1024 };
-                        case '1:1': return { width: 1024, height: 1024 };
-                        case '2.39:1': return { width: 1536, height: 640 };
-                        default: return { width: 1024, height: 1024 };
-                    }
-                })(options.aspectRatio);
+                const currentOptions: GenerationOptions = { ...options, prompt: finalPrompt, seed: String(seed) };
 
-                imagePromises.push(
-                    generateImageSDXL({
-                        prompt: options.prompt,
-                        negative_prompt: options.negativePrompt,
-                        width,
-                        height,
-                        seed: seed,
-                        guidance_scale: options.guidanceScale,
-                        useSuperiorEngine: true,
-                    }, hfToken).then(async (blob) => {
-                        const base64 = await blobToBase64(blob);
-                        const newImage: ImageState = {
-                            id: `img_${Date.now()}_${i}`,
-                            type: 'image',
-                            base64,
-                            mimeType: blob.type,
-                            isUpscaling: false,
-                            metadata: { ...options, seed, width, height }
-                        };
-                        return newImage;
-                    })
-                );
+                const generationPromise = (async () => {
+                    let blob: Blob;
+                    if (finalEngine === 'mythos_sdxl') {
+                        const { width, height } = ((ar: string) => {
+                            switch(ar) {
+                                case '16:9': return { width: 1024, height: 576 };
+                                case '9:16': return { width: 576, height: 1024 };
+                                case '1:1': return { width: 1024, height: 1024 };
+                                case '2.39:1': return { width: 1536, height: 640 };
+                                default: return { width: 1024, height: 1024 };
+                            }
+                        })(currentOptions.aspectRatio);
+
+                        blob = await generateImageSDXL({
+                            prompt: currentOptions.prompt,
+                            negative_prompt: currentOptions.negativePrompt,
+                            width,
+                            height,
+                            seed,
+                            guidance_scale: currentOptions.guidanceScale,
+                            useSuperiorEngine: true,
+                        }, hfToken);
+                    } else { // gemini
+                        blob = await generateImageFromGemini(currentOptions);
+                    }
+                    
+                    const base64 = await blobToBase64(blob);
+                    const newImage: ImageState = {
+                        id: `img_${Date.now()}_${i}`,
+                        type: 'image',
+                        base64,
+                        mimeType: blob.type,
+                        isUpscaling: false,
+                        metadata: { ...currentOptions, seed }
+                    };
+                    return newImage;
+                })();
+
+                imagePromises.push(generationPromise);
             }
 
             const newImages = await Promise.all(imagePromises);

@@ -34,6 +34,78 @@ export const getGradioClient = async (spaceId: string, options?: GradioOptions):
 };
 
 /**
+ * Generates an image using the external Image Studio (MCP) Gradio API.
+ * @param prompt The text prompt for image generation.
+ * @param hfToken Optional Hugging Face token for authentication.
+ * @returns A promise that resolves to the generated image as a Blob.
+ */
+export const generateImageMCP = async (prompt: string, hfToken?: string): Promise<Blob> => {
+    const MCP_URL = 'https://edbanshee-wan22-14b-lightning-14b-i2v-ui.hf.space/gradio_api/mcp/';
+
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+    };
+    if (hfToken) {
+        headers['Authorization'] = `Bearer ${hfToken}`;
+    }
+
+    // Standard Gradio API payload format
+    const payload = {
+        "data": [
+            prompt,
+            "low quality, blurry, watermark, text", // Default negative prompt
+            7.5, // guidance_scale
+            25, // num_inference_steps
+            1024, // width
+            1024, // height
+            -1 // seed (-1 for random)
+        ]
+    };
+
+    const response = await fetch(MCP_URL, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`MCP Tool request failed with status ${response.status}: ${errorText}`);
+    }
+
+    const json = await response.json();
+    
+    if (json.data && Array.isArray(json.data) && json.data[0]) {
+        const output = json.data[0];
+        let imageUrl: string;
+
+        if (typeof output === 'string' && output.startsWith('http')) {
+            imageUrl = output;
+        } else if (typeof output === 'object' && output.url) {
+            imageUrl = output.url;
+        } else {
+            // Handle cases where it might be a different structure
+            const potentialUrl = (output as any)?.image?.url || (output as any)?.path;
+            if (potentialUrl) {
+                imageUrl = potentialUrl;
+            } else {
+                 throw new Error('MCP Tool returned an unexpected data format.');
+            }
+        }
+
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+            throw new Error(`Failed to download the generated image from ${imageUrl}`);
+        }
+        return imageResponse.blob();
+
+    } else {
+        throw new Error('MCP Tool did not return valid data.');
+    }
+};
+
+
+/**
  * Helper to directly run a prediction against a Gradio endpoint.
  */
 export const predictGradio = async (spaceId: string, endpoint: string, payload: any, options?: GradioOptions): Promise<any> => {

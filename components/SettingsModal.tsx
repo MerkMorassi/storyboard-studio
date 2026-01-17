@@ -1,28 +1,45 @@
+
 import React, { useState, useEffect } from 'react';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (topazApiKey: string, hfApiKey: string, geminiApiKey: string, voiceLabUrl: string) => void;
+  onSave: (topazApiKey: string, hfApiKey: string, voiceLabUrl: string, dolphinUrl: string, cinematicCoreUrl: string, cameraDollyUrl: string) => void;
   currentTopazApiKey: string;
   currentHfApiKey: string;
-  currentGeminiApiKey: string;
   currentVoiceLabUrl: string;
+  currentDolphinUrl: string;
+  currentCinematicCoreUrl: string;
+  currentCameraDollyUrl: string;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave, currentTopazApiKey, currentHfApiKey, currentGeminiApiKey, currentVoiceLabUrl }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  currentTopazApiKey, 
+  currentHfApiKey, 
+  currentVoiceLabUrl,
+  currentDolphinUrl,
+  currentCinematicCoreUrl,
+  currentCameraDollyUrl
+}) => {
   const [topazApiKeyInput, setTopazApiKeyInput] = useState(currentTopazApiKey);
   const [hfApiKeyInput, setHfApiKeyInput] = useState(currentHfApiKey);
-  const [geminiApiKeyInput, setGeminiApiKeyInput] = useState(currentGeminiApiKey);
   const [voiceLabUrlInput, setVoiceLabUrlInput] = useState(currentVoiceLabUrl);
+  const [dolphinUrlInput, setDolphinUrlInput] = useState(currentDolphinUrl);
+  const [cinematicCoreUrlInput, setCinematicCoreUrlInput] = useState(currentCinematicCoreUrl);
+  const [cameraDollyUrlInput, setCameraDollyUrlInput] = useState(currentCameraDollyUrl);
   const [showKeys, setShowKeys] = useState(false);
 
   useEffect(() => {
     setTopazApiKeyInput(currentTopazApiKey);
     setHfApiKeyInput(currentHfApiKey);
-    setGeminiApiKeyInput(currentGeminiApiKey);
     setVoiceLabUrlInput(currentVoiceLabUrl);
-  }, [currentTopazApiKey, currentHfApiKey, currentGeminiApiKey, currentVoiceLabUrl, isOpen]);
+    setDolphinUrlInput(currentDolphinUrl);
+    setCinematicCoreUrlInput(currentCinematicCoreUrl);
+    setCameraDollyUrlInput(currentCameraDollyUrl);
+  }, [currentTopazApiKey, currentHfApiKey, currentVoiceLabUrl, currentDolphinUrl, currentCinematicCoreUrl, currentCameraDollyUrl, isOpen]);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -41,7 +58,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   }
 
   const handleSave = () => {
-    onSave(topazApiKeyInput.trim(), hfApiKeyInput.trim(), geminiApiKeyInput.trim(), voiceLabUrlInput.trim());
+    onSave(
+      topazApiKeyInput.trim(), 
+      hfApiKeyInput.trim(), 
+      voiceLabUrlInput.trim(),
+      dolphinUrlInput.trim(),
+      cinematicCoreUrlInput.trim(),
+      cameraDollyUrlInput.trim()
+    );
   };
 
   return (
@@ -72,20 +96,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         </div>
         
         <div className="space-y-8">
-          {/* Gemini Key */}
-          <div>
-            <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3">
-              Google Gemini API Key (Critical)
+          {/* FIX: Removed Gemini API Key from settings modal to enforce environment variable usage. */}
+          <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-xl">
+            <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">
+              Google Gemini API Key
             </label>
-            <input
-              type={showKeys ? "text" : "password"}
-              value={geminiApiKeyInput}
-              onChange={(e) => setGeminiApiKeyInput(e.target.value)}
-              placeholder="AI Studio Key (AI...)"
-              className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
-            />
-            <p className="text-[10px] text-neutral-600 mt-2 italic px-1">
-              Required for all text, reasoning, and standard agent operations.
+            <p className="text-sm text-neutral-300 font-mono">
+                Loaded from <code className="bg-black/40 px-1.5 py-0.5 rounded-md text-blue-300">.env</code> file.
+            </p>
+            <p className="text-[10px] text-neutral-500 mt-2 italic px-1">
+              Required for all text, reasoning, and standard agent operations. Not editable in UI.
             </p>
           </div>
 
@@ -111,7 +131,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
           {/* Voice Lab URL */}
           <div>
             <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
-              Voice Lab URL (Gradio)
+              Voice Lab URL (Chatterbox)
             </label>
             <input
               type={showKeys ? "text" : "password"}
@@ -120,9 +140,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               placeholder="Enter HF Space or Gradio URL for XTTS"
               className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
             />
-            <p className="text-[10px] text-neutral-600 mt-2 italic px-1">
-              Required for the Voice Lab Studio. Points to a Gradio service running a voice synthesis model like XTTSv2.
-            </p>
+          </div>
+          
+          {/* Dolphin URL */}
+          <div>
+            <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
+              Mythos Dolphin URL
+            </label>
+            <input
+              type={showKeys ? "text" : "password"}
+              value={dolphinUrlInput}
+              onChange={(e) => setDolphinUrlInput(e.target.value)}
+              placeholder="Enter HF Space URL for Dolphin LLM"
+              className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
+            />
+          </div>
+
+          {/* Cinematic Core URL */}
+          <div>
+            <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
+              MythOS Cinematic Core URL
+            </label>
+            <input
+              type={showKeys ? "text" : "password"}
+              value={cinematicCoreUrlInput}
+              onChange={(e) => setCinematicCoreUrlInput(e.target.value)}
+              placeholder="Enter HF Space URL for Image Engine"
+              className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
+            />
+          </div>
+
+          {/* Camera Dolly URL */}
+          <div>
+            <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
+              Camera Dolly (LTX) URL
+            </label>
+            <input
+              type={showKeys ? "text" : "password"}
+              value={cameraDollyUrlInput}
+              onChange={(e) => setCameraDollyUrlInput(e.target.value)}
+              placeholder="Enter HF Space URL for LTX-2"
+              className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-neutral-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm shadow-inner"
+            />
           </div>
 
           {/* Topaz */}

@@ -1,8 +1,11 @@
+
 // Keys for LocalStorage
 const TOPAZ_API_KEY_STORAGE_KEY = 'mythos_topaz_v2';
 const HF_API_KEY_STORAGE_KEY = 'mythos_hf_v2';
-const GEMINI_API_KEY_STORAGE_KEY = 'mythos_gemini_v2';
 const VOICE_LAB_URL_STORAGE_KEY = 'mythos_voicelab_url_v1';
+const DOLPHIN_URL_STORAGE_KEY = 'mythos_dolphin_url_v1';
+const CINEMATIC_CORE_URL_STORAGE_KEY = 'mythos_cinematic_core_url_v1';
+const CAMERA_DOLLY_URL_STORAGE_KEY = 'mythos_camera_dolly_url_v1';
 
 /**
  * Helper to get value from Env (Vite or Process) or Null
@@ -24,29 +27,18 @@ const getEnvValue = (key: string): string | null => {
 };
 
 // --- GEMINI ---
-export const saveGeminiApiKey = (key: string): void => {
-    try {
-        if (!key) {
-            localStorage.removeItem(GEMINI_API_KEY_STORAGE_KEY);
-        } else {
-            localStorage.setItem(GEMINI_API_KEY_STORAGE_KEY, key.trim());
-        }
-    } catch (error) {
-        console.error("Persistence Failure (Gemini):", error);
-    }
-};
+// FIX: Removed saveGeminiApiKey as per guidelines to not allow user-input keys.
+// The API key must be provided via environment variables.
 
 export const getGeminiApiKey = (): string | null => {
-    // 1. Priority: Environment Variables
-    const envKey = getEnvValue('VITE_GEMINI_API_KEY') || getEnvValue('GEMINI_API_KEY') || getEnvValue('API_KEY');
-    if (envKey) return envKey;
-
-    // 2. Fallback: LocalStorage
-    try {
-        return localStorage.getItem(GEMINI_API_KEY_STORAGE_KEY);
-    } catch (error) {
-        return null;
+    // FIX: Per guidelines, API key MUST be obtained exclusively from `process.env.API_KEY`.
+    // The vite.config.ts file defines this environment variable for the browser.
+    // Local storage and other env vars are not permitted as a source.
+    const apiKey = process.env.API_KEY;
+    if (apiKey && apiKey.trim() !== '') {
+        return apiKey.trim();
     }
+    return null;
 };
 
 // --- TOPAZ ---
@@ -115,9 +107,85 @@ export const getVoiceLabUrl = (): string | null => {
     if (envKey) return envKey;
 
     try {
-        return localStorage.getItem(VOICE_LAB_URL_STORAGE_KEY);
+        const stored = localStorage.getItem(VOICE_LAB_URL_STORAGE_KEY);
+        return stored || "https://merkmorassi-chatterbox.hf.space";
     } catch (error) {
-        return null;
+        return "https://merkmorassi-chatterbox.hf.space";
+    }
+};
+
+// --- DOLPHIN LLM ---
+export const saveDolphinUrl = (url: string): void => {
+    try {
+        if (!url) {
+            localStorage.removeItem(DOLPHIN_URL_STORAGE_KEY);
+        } else {
+            localStorage.setItem(DOLPHIN_URL_STORAGE_KEY, url.trim());
+        }
+    } catch (error) {
+        console.error("Persistence Failure (Dolphin URL):", error);
+    }
+};
+
+export const getDolphinUrl = (): string | null => {
+    const envKey = getEnvValue('VITE_DOLPHIN_URL') || getEnvValue('DOLPHIN_URL');
+    if (envKey) return envKey;
+
+    try {
+        const stored = localStorage.getItem(DOLPHIN_URL_STORAGE_KEY);
+        return stored || "https://merkmorassi-mythos-dolphin.hf.space";
+    } catch (error) {
+        return "https://merkmorassi-mythos-dolphin.hf.space";
+    }
+};
+
+// --- CINEMATIC CORE ---
+export const saveCinematicCoreUrl = (url: string): void => {
+    try {
+        if (!url) {
+            localStorage.removeItem(CINEMATIC_CORE_URL_STORAGE_KEY);
+        } else {
+            localStorage.setItem(CINEMATIC_CORE_URL_STORAGE_KEY, url.trim());
+        }
+    } catch (error) {
+        console.error("Persistence Failure (Cinematic Core URL):", error);
+    }
+};
+
+export const getCinematicCoreUrl = (): string | null => {
+    const envKey = getEnvValue('VITE_CINEMATIC_CORE_URL') || getEnvValue('CINEMATIC_CORE_URL');
+    if (envKey) return envKey;
+
+    try {
+        const stored = localStorage.getItem(CINEMATIC_CORE_URL_STORAGE_KEY);
+        return stored || "https://merkmorassi-mythos-engine.hf.space";
+    } catch (error) {
+        return "https://merkmorassi-mythos-engine.hf.space";
+    }
+};
+
+// --- CAMERA DOLLY (LTX) ---
+export const saveCameraDollyUrl = (url: string): void => {
+    try {
+        if (!url) {
+            localStorage.removeItem(CAMERA_DOLLY_URL_STORAGE_KEY);
+        } else {
+            localStorage.setItem(CAMERA_DOLLY_URL_STORAGE_KEY, url.trim());
+        }
+    } catch (error) {
+        console.error("Persistence Failure (Camera Dolly URL):", error);
+    }
+};
+
+export const getCameraDollyUrl = (): string => {
+    const envKey = getEnvValue('VITE_CAMERA_DOLLY_URL') || getEnvValue('CAMERA_DOLLY_URL');
+    if (envKey) return envKey;
+
+    try {
+        const stored = localStorage.getItem(CAMERA_DOLLY_URL_STORAGE_KEY);
+        return stored || "https://prithivmlmods-ltx-2-loras-camera-control-dolly.hf.space/";
+    } catch (error) {
+        return "https://prithivmlmods-ltx-2-loras-camera-control-dolly.hf.space/";
     }
 };
 

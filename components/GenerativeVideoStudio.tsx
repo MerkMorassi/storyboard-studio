@@ -47,15 +47,6 @@ const SPEED_OPTIONS = [
     { label: 'Fast', value: 'fast, dynamic' }
 ];
 
-const SCHEDULER_OPTIONS = [
-    { label: 'UniPCMultistep', value: 'UniPCMultistep' },
-    { label: 'DDIM', value: 'DDIM' },
-    { label: 'DPMSolverMultistep', value: 'DPMSolverMultistep' },
-    { label: 'EulerAncestralDiscrete', value: 'EulerAncestralDiscrete' },
-    { label: 'EulerDiscrete', value: 'EulerDiscrete' },
-    { label: 'PNDMScheduler', value: 'PNDMScheduler' },
-];
-
 export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({ 
     apiKey, // Kept for consistency
     hfToken,
@@ -71,11 +62,9 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState<string>('');
     const [showAdvanced, setShowAdvanced] = useState(true); // Default open to show all options
-    const [usedFallback, setUsedFallback] = useState(false); // Track if fallback was used
     const [cameraMovement, setCameraMovement] = useState<string>(''); // Local state for camera movement
     const [movementSpeed, setMovementSpeed] = useState<string>(SPEED_OPTIONS[1].value); // Default Medium
     const [lastInjectedCamera, setLastInjectedCamera] = useState<string>('');
-    const [fallbackWarning, setFallbackWarning] = useState<string | null>(null);
     
     const videoRef = useRef<HTMLVideoElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
@@ -92,7 +81,6 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
             guidanceScale2: videoState.guidanceScale2 === undefined ? 1 : videoState.guidanceScale2, // Low noise
             seed: videoState.seed === undefined ? 42 : videoState.seed,
             randomizeSeed: videoState.randomizeSeed === undefined ? true : videoState.randomizeSeed,
-            scheduler: videoState.scheduler === undefined ? 'UniPCMultistep' : videoState.scheduler,
             fps: videoState.fps === undefined ? 16 : videoState.fps,
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,22 +164,14 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
         
         setIsLoading(true);
         setError(null);
-        setUsedFallback(false);
-        setFallbackWarning(null);
         setProgress('Initializing connection to Wan 2.2 model...');
         onStateUpdate({ ...videoState, resultUrl: null });
 
         try {
-            // Prepare inputs
             const inputImageBlob = await base64ToBlob(videoState.image.base64, videoState.image.mimeType);
-            
-            // Default Negative Prompt (English)
             const DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, static, blurry details, subtitles, bad style, artwork, painting, still image, overall gray, worst quality, low quality, JPEG compression artifacts, ugly, deformed, extra fingers, poorly drawn hands, poorly drawn faces, malformed, disfigured, malformed limbs, fused fingers, motionless image, cluttered background";
-
-            // Use the prompt from the text area (which now includes camera movement)
             const finalPrompt = videoState.prompt || "make this image come alive, cinematic motion, smooth animation";
 
-            // Define payload for linoyts/wan2-2-i2v-rCM
             const payload: any = { 
                 input_image: inputImageBlob, 
                 prompt: finalPrompt, 		
@@ -201,38 +181,12 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                 guidance_scale: videoState.guidanceScale || 5, 		
                 guidance_scale_2: videoState.guidanceScale2 || 1, 
                 seed: videoState.randomizeSeed ? -1 : (videoState.seed || 42),
-                scheduler: videoState.scheduler || 'UniPCMultistep',
                 fps: videoState.fps || 16,
             };
 
-            let result: any;
-
-            try {
-                // Primary Attempt: linoyts/wan2-2-i2v-rCM
-                setProgress('Generating video (Wan 2.2 I2V Lightning)...');
-                const client = await getGradioClient("linoyts/wan2-2-i2v-rCM", { hfToken });
-                result = await client.predict("/generate_video", payload);
-            } catch (primaryError) {
-                console.warn("Primary space failed, switching to fallback:", primaryError);
-                
-                // Fallback Attempt: zerogpu-aoti/wan2-2-fp8da-aoti-faster
-                setProgress('Primary busy. Switching to Fallback Server (Wan 2.2 Faster)...');
-                setUsedFallback(true);
-                
-                const FALLBACK_MAX_DURATION = 6;
-                const fallbackPayload = { ...payload };
-                if (fallbackPayload.duration_seconds > FALLBACK_MAX_DURATION) {
-                    setFallbackWarning(`Fallback model maximum duration is ${FALLBACK_MAX_DURATION}s. Your video will be clamped to ${FALLBACK_MAX_DURATION}s.`);
-                    fallbackPayload.duration_seconds = FALLBACK_MAX_DURATION;
-                }
-                
-                // Fallback specific adjustments
-                fallbackPayload.scheduler = videoState.scheduler || 'UniPCMultistep'; 
-                fallbackPayload.flow_shift = 3; 
-
-                const client = await getGradioClient("zerogpu-aoti/wan2-2-fp8da-aoti-faster", { hfToken });
-                result = await client.predict("/generate_video", fallbackPayload);
-            }
+            setProgress('Generating video (Wan 2.2 I2V Lightning)...');
+            const client = await getGradioClient("https://edbanshee-wan22-14b-lightning-14b-i2v-ui.hf.space/", { hfToken });
+            const result = await client.predict("/generate_video", payload);
 
             if (result && result.data && result.data.length > 0) {
                 const videoData = result.data[0];
@@ -436,18 +390,6 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                                     <input type="range" min="0" max="10" step="0.5" value={videoState.guidanceScale2 || 1} onChange={(e) => onStateUpdate({ ...videoState, guidanceScale2: parseFloat(e.target.value) })} className="w-full accent-brand" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-400 mb-1">Scheduler</label>
-                                    <select
-                                        value={videoState.scheduler || 'UniPCMultistep'}
-                                        onChange={(e) => onStateUpdate({ ...videoState, scheduler: e.target.value })}
-                                        className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand transition-all cursor-pointer hover:border-neutral-500"
-                                    >
-                                        {SCHEDULER_OPTIONS.map((opt, i) => (
-                                            <option key={i} value={opt.value}>{opt.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
                                     <label className="block text-xs text-neutral-400 mb-1">Seed</label>
                                     <div className="flex gap-2">
                                         <input 
@@ -494,16 +436,6 @@ export const GenerativeVideoStudio: React.FC<GenerativeVideoStudioProps> = ({
                             </div>
                         ) : videoState.resultUrl ? (
                             <div className="w-full h-full flex flex-col">
-                                {usedFallback && (
-                                    <div className="absolute top-4 right-4 z-10 bg-yellow-900/80 text-yellow-200 text-xs px-3 py-1 rounded-full border border-yellow-500/30 backdrop-blur-md shadow-lg">
-                                        Fallback Mode (Max 6s)
-                                    </div>
-                                )}
-                                {fallbackWarning && (
-                                    <div className="absolute top-16 right-4 z-10 bg-orange-900/80 text-orange-200 text-xs px-3 py-1 rounded-full border border-orange-500/30 backdrop-blur-md shadow-lg">
-                                        {fallbackWarning}
-                                    </div>
-                                )}
                                 <video 
                                     ref={videoRef}
                                     src={videoState.resultUrl} 

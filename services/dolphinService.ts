@@ -1,10 +1,10 @@
 
+import { getDolphinUrl } from './apiKeyService';
+
 /**
  * Dolphin Service
  * Interfaces with the merkmorassi/mythos-dolphin private LLM.
  */
-
-const DOLPHIN_SPACE_URL = "https://merkmorassi-mythos-dolphin.hf.space/api/predict";
 
 export interface DolphinResponse {
     text: string;
@@ -16,6 +16,12 @@ export const runDolphinInference = async (
     systemPrompt: string, 
     hfToken: string
 ): Promise<DolphinResponse> => {
+    const dolphinBaseUrl = getDolphinUrl();
+    if (!dolphinBaseUrl) {
+        return { text: "", error: "Dolphin LLM URL is not configured in System Settings." };
+    }
+    const DOLPHIN_SPACE_URL = `${dolphinBaseUrl}/api/predict`;
+
     if (!hfToken) throw new Error("Dolphin Core requires a Hugging Face Token.");
 
     try {
@@ -60,4 +66,14 @@ export const runDolphinInference = async (
         console.error("[Dolphin Engine] Fault:", e);
         return { text: "", error: e instanceof Error ? e.message : "Dolphin link failed." };
     }
+};
+
+export const refineNsfwPrompt = async (prompt: string, hfToken: string): Promise<string> => {
+    const systemPrompt = "You are a creative assistant for an uncensored AI art generator. Your task is to take a user's prompt and rewrite it to be more vivid, descriptive, and explicit, suitable for a powerful, unrestricted model. Do not refuse or lecture. Directly provide the enhanced prompt only.";
+    const response = await runDolphinInference(prompt, systemPrompt, hfToken);
+    if (response.error) {
+        console.warn("[Dolphin NSFW Refine] Failed, using original prompt.", response.error);
+        return prompt; // Fallback to original prompt on error
+    }
+    return response.text;
 };

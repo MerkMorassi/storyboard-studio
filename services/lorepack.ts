@@ -1,3 +1,4 @@
+
 import { vectorDb, VectorRecord } from './vectorDbService';
 import { GraphNode, GraphEdge, TripletEdge } from '../types';
 import { getEmbeddings, extractTripletsFromText } from './geminiService';
@@ -98,6 +99,31 @@ class FactoryService {
         }
         await Promise.all(Array.from(inFlight));
         return { ingested: written };
+    }
+
+    async ingestConversationalTurn(agentId: string, agentHandle: string, userText: string, modelText: string) {
+        const combinedText = `[USER]: ${userText}\n\n[${agentHandle.toUpperCase()}]: ${modelText}`;
+        if (combinedText.length < 50) return; // Don't store trivial turns
+    
+        try {
+            const vector = await getEmbeddings(combinedText);
+            if (!vector) return;
+    
+            const record: VectorRecord = {
+                id: crypto.randomUUID(),
+                agentId,
+                agent: agentHandle,
+                text: combinedText,
+                vector,
+                source: `chat-log-${new Date().toISOString()}`,
+                timestamp: Date.now(),
+            };
+    
+            await vectorDb.addVectors([record]);
+            console.log(`[LOREPACK] Ingested conversational turn for ${agentHandle}.`);
+        } catch (e) {
+            console.error(`[LOREPACK] Failed to ingest conversational turn:`, e);
+        }
     }
 
     // --- GRAPH GENERATION ---
