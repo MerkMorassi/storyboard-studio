@@ -1,10 +1,16 @@
 
 
+
+
+
+
+
+
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardStudio } from './components/DashboardStudio';
 import { ProjectsStudio } from './components/ProjectsStudio';
-import { TeamStudio } from './components/TeamStudio';
 import { AutomationStudio } from './components/AutomationStudio';
 import { DirectorStudio } from './modules/director/DirectorStudio';
 import { ScriptWriterStudio } from './components/ScriptWriterStudio';
@@ -45,10 +51,13 @@ import { DesignStudio } from './components/DesignStudio';
 import { ArtStudio } from './components/ArtStudio';
 import { RosterStudio } from './components/RosterStudio';
 import { VoiceLab } from './components/VoiceLab.tsx';
+import { ImageModal } from './components/ImageModal.tsx';
 import { Agent, Project, ActiveView, ImageState } from './types';
 import { getHfApiKey, getTopazApiKey, saveHfApiKey, saveTopazApiKey, getVoiceLabUrl, saveVoiceLabUrl, getDolphinUrl, saveDolphinUrl, getCinematicCoreUrl, saveCinematicCoreUrl, getCameraDollyUrl, saveCameraDollyUrl } from './services/apiKeyService';
 import { getAnimAgentsTeam } from './services/agentService';
 import { vectorDb } from './services/vectorDbService';
+import { AgentsStudio } from './components/AgentsStudio.tsx';
+import { WanimateStudio } from './components/WanimateStudio.tsx';
 
 const DEFAULT_PROJECT_ID = 'project-alpha';
 
@@ -87,15 +96,41 @@ const INITIAL_PROJECT: Project = {
         lore: [],
         dynamicPromptLists: [],
         promptTemplates: [],
+        wanimateState: {
+            inputImage: null,
+            lastImage: null,
+            prompt: "make this image come alive, cinematic motion, smooth animation",
+            steps: 6,
+            negativePrompt: "static, details fuzzy, subtitles, style, artwork, painting, still image, worst quality, low quality, JPEG artifacts, ugly, deformed, extra fingers, poorly drawn hands, poorly drawn faces, malformed, disfigured, malformed limbs, fused fingers, motionless image, cluttered background",
+            durationSeconds: 3.5,
+            guidanceScale: 1,
+            guidanceScale2: 1,
+            seed: 42,
+            randomizeSeed: true,
+            quality: 6,
+            scheduler: 'UniPCMultistep',
+            flowShift: 3,
+            frameMultiplier: '16',
+            resultUrl: null,
+        },
         automationConfig: { ragEnabled: false, ragProvider: 'browser', ragApiKey: '', ragBaseUrl: '', ragKnowledgeBoxId: '', ragLocalhostUrl: '', webhookUrls: [] }
     }
 };
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
 
 export const App = () => {
     const [activeView, setActiveView] = useState<ActiveView>('dashboard');
     const [activeProjectId, setActiveProjectId] = useState<string>(DEFAULT_PROJECT_ID);
     const [projects, setProjects] = useState<Project[]>([INITIAL_PROJECT]);
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+    const [viewingImage, setViewingImage] = useState<ImageState | null>(null);
 
     // Load initial data
     useEffect(() => {
@@ -116,7 +151,7 @@ export const App = () => {
         ));
     };
 
-    const handleAddAssetToGrid = (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string; metadata?: any }, targetProjectId?: string) => {
+    const handleAddAssetToGrid = (asset: { type: 'image' | 'video'; base64?: string; url?: string; mimeType?: string; metadata?: any, agentId?: string }, targetProjectId?: string) => {
         const pid = targetProjectId || activeProjectId;
         setProjects(prev => prev.map(p => {
             if (p.id === pid) {
@@ -126,10 +161,26 @@ export const App = () => {
                     base64: asset.base64,
                     url: asset.url,
                     mimeType: asset.mimeType,
-                    metadata: asset.metadata
+                    metadata: asset.metadata,
+                    agentId: asset.agentId
                 };
-                // FIX: Corrected the nested spread to properly update the images array within the project's data.
-                return { ...p, data: { ...p.data, images: [newAsset, ...p.data.images] } };
+                
+                if (asset.agentId) {
+                    // Find the agent and add the asset to their private media gallery
+                    const updatedAgents = p.data.agents.map(agent => {
+                        if (agent.id === asset.agentId) {
+                            return {
+                                ...agent,
+                                media: [newAsset, ...(agent.media || [])]
+                            };
+                        }
+                        return agent;
+                    });
+                    return { ...p, data: { ...p.data, agents: updatedAgents } };
+                } else {
+                    // Add to the global project vault
+                    return { ...p, data: { ...p.data, images: [newAsset, ...p.data.images] } };
+                }
             }
             return p;
         }));
@@ -161,7 +212,7 @@ export const App = () => {
         switch (activeView) {
             case 'dashboard': return <DashboardStudio project={project} onUpdateProject={(u) => setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, ...u } : p))} images={project.data.images} stats={{ storyboardFrames: project.data.storyboard.length, agents: project.data.agents.length, loreEntries: project.data.lore.length, inspirationImages: project.data.inspirationImages.length, dynamicPromptLists: project.data.dynamicPromptLists.length, promptTemplates: project.data.promptTemplates.length, imagesGenerated: project.data.images.length, totalProjects: projects.length, scriptsCount: project.data.scriptsBin.length }} onNavigate={handleNavigate} />;
             case 'projects': return <ProjectsStudio projects={projects} activeProjectId={activeProjectId} onSelectProject={setActiveProjectId} onCreateProject={(d) => setProjects(prev => [...prev, { ...INITIAL_PROJECT, id: `proj_${Date.now()}`, name: d.name, tagline: d.tagline, thumbnail: d.thumbnail }])} onRenameProject={(id, name) => setProjects(prev => prev.map(p => p.id === id ? { ...p, name } : p))} onDeleteProject={(id) => { setProjects(prev => prev.filter(p => p.id !== id)); if (activeProjectId === id && projects.length > 1) setActiveProjectId(projects[0].id); }} />;
-            case 'team': return <TeamStudio team={project.data.agents} onUpdateAgent={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} onNavigate={handleNavigate} onCallAgent={(a) => { setSelectedAgentId(a.id); setActiveView('agent-workspace'); }} />;
+            case 'agents': return <AgentsStudio agents={project.data.agents} images={project.data.images} onCreateEntity={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}`, media: [] } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }} onViewImage={setViewingImage} onUpdateEntity={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} onDeleteEntity={(id) => updateProjectData({ agents: project.data.agents.filter(a => a.id !== id) })} onImageUpload={async (id, file) => { const b64 = await fileToBase64(file); updateProjectData({ agents: project.data.agents.map(a => a.id === id ? {...a, avatar: b64} : a) }) }} onCallEntity={(a) => { setSelectedAgentId(a.id); setActiveView('agent-workspace'); }} />;
             case 'agent-workspace': return selectedAgentId ? <GenericAgentStudio agent={project.data.agents.find(a => a.id === selectedAgentId)!} onNavigate={handleNavigate} onCallAgent={() => {}} /> : <div className="p-10 text-center text-neutral-500">Agent Not Found</div>;
             
             // Core Agents
@@ -181,6 +232,7 @@ export const App = () => {
             case 'one-shot-cinematic': return <SimpleCinematicStudio hfToken={getHfApiKey() || ''} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} project={project} />;
             case 'mythos-cinematic-engine': return <MythosCinematicStudio hfToken={getHfApiKey() || ''} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onClearInitialPrompt={() => {}} />;
             case 'generative-video': return <GenerativeVideoStudio apiKey={''} hfToken={getHfApiKey() || ''} videoState={project.data.generativeVideoState} onStateUpdate={s => updateProjectData({ generativeVideoState: s })} onAddImageToGrid={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddAssetToGrid={handleAddAssetToGrid} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
+            case 'wanimate-studio': return <WanimateStudio state={project.data.wanimateState} onStateUpdate={s => updateProjectData({ wanimateState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} hfToken={getHfApiKey() || ''} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
             case 'transition-studio': return <TransitionStudio state={project.data.transitionState} onStateUpdate={s => updateProjectData({ transitionState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} promptTemplates={project.data.promptTemplates} />;
             case 'camera-movement': return <CameraMovementStudio state={project.data.cameraMovementState} onStateUpdate={s => updateProjectData({ cameraMovementState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} />;
             case 'camera-moves': return <CameraMovesStudio state={project.data.cameraMovesState} onStateUpdate={s => updateProjectData({ cameraMovesState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} hfToken={getHfApiKey() || ''} />;
@@ -197,7 +249,7 @@ export const App = () => {
             case 'topaz': return <TopazStudio topazState={project.data.topazState} isLoading={false} error={null} onStateUpdate={s => updateProjectData({ topazState: s })} onGenerate={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onAddAssetToGrid={handleAddAssetToGrid} progress="" />;
             
             // Assets
-            case 'grid': return <ImageGrid images={project.data.images} isLoading={false} error={null} onViewImage={() => {}} gridOverlay='none' onGridOverlayChange={() => {}} onEditImage={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onUpscaleImage={() => {}} agents={project.data.agents} onAssignAgentToImage={(iid, aid) => updateProjectData({ images: project.data.images.map(i => i.id === iid ? { ...i, agentId: aid || undefined } : i) })} onCreateAgent={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}` } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }} agentFilter='' onAgentFilterChange={() => {}} awaitingExternalGeneration={false} />;
+            case 'grid': return <ImageGrid images={project.data.images} isLoading={false} error={null} onViewImage={() => {}} gridOverlay='none' onGridOverlayChange={() => {}} onEditImage={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onUpscaleImage={() => {}} agents={project.data.agents} onAssignAgentToImage={(iid, aid) => updateProjectData({ images: project.data.images.map(i => i.id === iid ? { ...i, agentId: aid || undefined } : i) })} onCreateAgent={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}` } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }} agentFilter='' onAgentFilterChange={() => {}} awaitingExternalGeneration={false} showGridSelectors={false} />;
             case 'story': return <Storyboard frames={project.data.storyboard} onUpdateNote={(id, notes) => updateProjectData({ storyboard: project.data.storyboard.map(f => f.id === id ? { ...f, notes } : f) })} onRemove={(id) => updateProjectData({ storyboard: project.data.storyboard.filter(f => f.id !== id) })} onReorder={(s, e) => { const list = [...project.data.storyboard]; const [removed] = list.splice(s, 1); list.splice(e, 0, removed); updateProjectData({ storyboard: list }); }} />;
             case 'inspiration': return <InspirationBoard images={project.data.inspirationImages} onUpload={(f) => { const r = new FileReader(); r.onload = e => handleAddToInspiration((e.target?.result as string).split(',')[1]); r.readAsDataURL(f); }} onRemove={(id) => updateProjectData({ inspirationImages: project.data.inspirationImages.filter(i => i.id !== id) })} onUseAsGuide={() => {}} />;
             case 'scripts-bin': return <ScriptingStudio agent={project.data.agents.find(a => a.id === 'agent-scripting')!} onNavigate={handleNavigate} onCallAgent={() => {}} scriptText={project.data.scriptText} scriptsBin={project.data.scriptsBin} onDeleteScript={(id) => updateProjectData({ scriptsBin: project.data.scriptsBin.filter(s => s.id !== id) })} onScriptUpload={(f) => { const r = new FileReader(); r.onload = e => updateProjectData({ scriptText: e.target?.result as string }); r.readAsText(f); }} defaultTab="bin" />;
@@ -223,6 +275,18 @@ export const App = () => {
             <div className="flex-grow flex flex-col min-w-0 bg-secondary/20">
                 {renderContent()}
             </div>
+             {viewingImage && (
+                <ImageModal 
+                    image={viewingImage}
+                    onClose={() => setViewingImage(null)}
+                    onEdit={() => {}}
+                    onAddToStoryboard={(b64) => { handleAddToStoryboard(b64); setViewingImage(null); }}
+                    onAddToInspiration={(b64) => { handleAddToInspiration(b64); setViewingImage(null); }}
+                    agents={project.data.agents}
+                    onAssignAgentToImage={(iid, aid) => updateProjectData({ images: project.data.images.map(i => i.id === iid ? { ...i, agentId: aid || undefined } : i) })}
+                    onCreateAgent={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}` } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }}
+                />
+            )}
         </div>
     );
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Character } from '../types.ts';
 // FIX: Corrected icon imports to use their individual files and added missing EditIcon.
@@ -40,20 +41,26 @@ const CharacterForm: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <form onSubmit={handleSubmit} className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 w-full max-w-lg space-y-4">
-                <h3 className="text-lg font-bold text-white mb-2">{character ? 'Edit Character' : 'Create New Character'}</h3>
-                <div className="flex items-center gap-4">
-                    <div className="w-24 h-24 rounded-full bg-neutral-800 flex items-center justify-center overflow-hidden border border-neutral-700 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                        {avatar ? <img src={avatar} alt={name} className="w-full h-full object-cover" /> : <UserIcon className="w-12 h-12 text-neutral-600" />}
-                    </div>
-                    <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} className="hidden" accept="image/*" />
-                    <div className="flex-grow space-y-3">
-                        <input value={name} onChange={e => setName(e.target.value)} placeholder="Character Name" className="w-full bg-neutral-800 p-2 rounded" required />
-                        <input value={archetype} onChange={e => setArchetype(e.target.value)} placeholder="Archetype (e.g., The Hero)" className="w-full bg-neutral-800 p-2 rounded" />
-                    </div>
+            <form onSubmit={handleSubmit} className="bg-neutral-900 border border-neutral-700 rounded-xl w-full max-w-lg flex flex-col max-h-[90vh] shadow-2xl">
+                <div className="p-6 pb-4 flex-shrink-0 border-b border-neutral-800">
+                    <h3 className="text-lg font-bold text-white">{character ? 'Edit Character' : 'Create New Character'}</h3>
                 </div>
-                <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description, traits, backstory..." rows={5} className="w-full bg-neutral-800 p-2 rounded" />
-                <div className="flex justify-end gap-3">
+
+                <div className="px-6 py-4 flex-grow overflow-y-auto space-y-4 custom-scrollbar">
+                    <div className="flex items-center gap-4">
+                        <div className="w-24 h-24 rounded-full bg-neutral-800 flex items-center justify-center overflow-hidden border border-neutral-700 cursor-pointer flex-shrink-0" onClick={() => fileInputRef.current?.click()}>
+                            {avatar ? <img src={avatar} alt={name} className="w-full h-full object-cover" /> : <UserIcon className="w-12 h-12 text-neutral-600" />}
+                        </div>
+                        <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} className="hidden" accept="image/*" />
+                        <div className="flex-grow space-y-3">
+                            <input value={name} onChange={e => setName(e.target.value)} placeholder="Character Name" className="w-full bg-neutral-800 p-2 rounded" required />
+                            <input value={archetype} onChange={e => setArchetype(e.target.value)} placeholder="Archetype (e.g., The Hero)" className="w-full bg-neutral-800 p-2 rounded" />
+                        </div>
+                    </div>
+                    <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description, traits, backstory..." rows={8} className="w-full bg-neutral-800 p-2 rounded" />
+                </div>
+                
+                <div className="p-6 pt-4 flex justify-end gap-3 border-t border-neutral-800 flex-shrink-0">
                     <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-neutral-300">Cancel</button>
                     <button type="submit" className="px-4 py-2 text-sm font-bold bg-blue-600 text-white rounded">Save</button>
                 </div>

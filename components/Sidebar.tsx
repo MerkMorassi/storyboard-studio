@@ -1,4 +1,8 @@
 
+
+
+
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ActiveView } from '../types.ts';
 import { 
@@ -28,7 +32,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'header-main', type: 'header', label: 'Production' },
     { id: 'dashboard', type: 'link', label: 'Dashboard', view: 'dashboard', icon: DashboardIcon },
     { id: 'projects', type: 'link', label: 'Projects', view: 'projects', icon: FolderIcon },
-    { id: 'team', type: 'link', label: 'Team', view: 'team', icon: AgentsIcon },
+    { id: 'agents', type: 'link', label: 'Agents', view: 'agents', icon: AgentsIcon },
     { id: 'automation', type: 'link', label: 'Automation', view: 'automation', icon: AutomationIcon },
     
     { id: 'header-agents', type: 'header', label: 'Agents' },
@@ -41,6 +45,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'one-shot', type: 'link', label: 'One-Shot Cinematic', view: 'one-shot-cinematic', icon: MagicIcon },
     { id: 'mythos-cinematic', type: 'link', label: 'MythOS Cinematic', view: 'mythos-cinematic-engine', icon: CameraLensIcon },
     { id: 'generative-video', type: 'link', label: 'Video Creator', view: 'generative-video', icon: ClapperboardIcon },
+    { id: 'wanimate-studio', type: 'link', label: 'Wanimate Studio', view: 'wanimate-studio', icon: ClapperboardIcon },
 
     { id: 'header-vfx', type: 'header', label: 'VFX & Post' },
     { id: 'camera-movement', type: 'link', label: 'Camera Dolly (LTX)', view: 'camera-movement', icon: DollyIcon },

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { LoadingSpinner, BasicGridOverlay, TriadicGridOverlay, BasicGoldenRatioGridOverlay, TriadicGoldenRatioGridOverlay, EditIcon, AddToStoryIcon, PinIcon, DownloadIcon, UpscaleIcon, CharacterIcon, AutomationIcon, VideoIcon } from './icons.tsx';
 import { GridOverlayType, ImageState, Agent } from '../types.ts';
@@ -21,6 +22,7 @@ interface ImageGridProps {
   agentFilter: string;
   onAgentFilterChange: (filter: string) => void;
   awaitingExternalGeneration: boolean;
+  showGridSelectors?: boolean;
 }
 
 const gridOptions: { id: GridOverlayType; label: string }[] = [
@@ -126,7 +128,7 @@ const AssignAgentControl: React.FC<{
     );
 };
 
-export const ImageGrid: React.FC<ImageGridProps> = ({ images, isLoading, error, onViewImage, gridOverlay, onGridOverlayChange, onEditImage, onAddToStoryboard, onAddToInspiration, onUpscaleImage, agents, onAssignAgentToImage, onCreateAgent, agentFilter, onAgentFilterChange, awaitingExternalGeneration }) => {
+export const ImageGrid: React.FC<ImageGridProps> = ({ images, isLoading, error, onViewImage, gridOverlay, onGridOverlayChange, onEditImage, onAddToStoryboard, onAddToInspiration, onUpscaleImage, agents, onAssignAgentToImage, onCreateAgent, agentFilter, onAgentFilterChange, awaitingExternalGeneration, showGridSelectors = true }) => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
@@ -183,7 +185,7 @@ export const ImageGrid: React.FC<ImageGridProps> = ({ images, isLoading, error, 
   };
 
   return (
-    <div>
+    <div className="p-6 h-full overflow-y-auto custom-scrollbar">
         <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-4">
              <div className="relative w-full sm:w-auto flex-grow max-w-xs">
                 <input
@@ -197,24 +199,26 @@ export const ImageGrid: React.FC<ImageGridProps> = ({ images, isLoading, error, 
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
                 </div>
             </div>
-            <div className="flex items-center justify-end gap-2 flex-wrap">
-                <span className="text-sm text-neutral-400 hidden md:inline">Composition Grids:</span>
-                {gridOptions.map(option => (
-                    <button
-                        key={option.id}
-                        onClick={() => onGridOverlayChange(option.id)}
-                        className={`px-3 py-1 text-sm font-medium transition-colors duration-200 rounded-md ${
-                            gridOverlay === option.id
-                                ? 'bg-neutral-700 text-white shadow-md'
-                                : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-                        }`}
-                    >
-                        {option.label}
-                    </button>
-                ))}
-            </div>
+            {showGridSelectors && (
+                <div className="flex items-center justify-end gap-2 flex-wrap">
+                    <span className="text-sm text-neutral-400 hidden md:inline">Composition Grids:</span>
+                    {gridOptions.map(option => (
+                        <button
+                            key={option.id}
+                            onClick={() => onGridOverlayChange(option.id)}
+                            className={`px-3 py-1 text-sm font-medium transition-colors duration-200 rounded-md ${
+                                gridOverlay === option.id
+                                    ? 'bg-neutral-700 text-white shadow-md'
+                                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                            }`}
+                        >
+                            {option.label}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
-        {gridOverlay !== 'none' && (
+        {showGridSelectors && gridOverlay !== 'none' && (
             <p className="text-xs text-neutral-300 h-4 text-right mb-2">{compositionHint[gridOverlay]}</p>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">

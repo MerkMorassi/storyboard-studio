@@ -1,7 +1,11 @@
 
+
+
+
+
 export type RAGProvider = 'cloud' | 'localhost' | 'browser';
 export type ModelEngine = 'gemini' | 'dolphin';
-export type ActiveView = 'dashboard' | 'projects' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'one-shot-cinematic' | 'image-generator' | 'generative-video' | 'transition-studio' | 'camera-movement' | 'camera-moves' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'qwen-image-edit' | 'topaz' | 'grid' | 'story' | 'inspiration' | 'scripts-bin' | 'script-writer' | 'agents' | 'studio-players' | 'characters' | 'lore' | 'prompt-library' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'agent-workspace' | 'voice-lab' | 'model-settings';
+export type ActiveView = 'dashboard' | 'projects' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'one-shot-cinematic' | 'image-generator' | 'generative-video' | 'transition-studio' | 'camera-movement' | 'camera-moves' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'qwen-image-edit' | 'topaz' | 'grid' | 'story' | 'inspiration' | 'scripts-bin' | 'script-writer' | 'agents' | 'studio-players' | 'characters' | 'lore' | 'prompt-library' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'agent-workspace' | 'voice-lab' | 'model-settings' | 'wanimate-studio';
 
 export type GridOverlayType = 'none' | 'basic' | 'triadic' | 'golden-basic' | 'golden-triadic';
 
@@ -104,6 +108,25 @@ export interface AutomationConfig {
   webhookUrls: string[];
 }
 
+export interface WanimateState {
+  inputImage: { base64: string; mimeType: string } | null;
+  lastImage: { base64: string; mimeType: string } | null;
+  prompt: string;
+  steps: number;
+  negativePrompt: string;
+  durationSeconds: number;
+  guidanceScale: number;
+  guidanceScale2: number;
+  seed: number;
+  randomizeSeed: boolean;
+  quality: number;
+  scheduler: 'UniPCMultistep' | 'DPM++ 2M SDE Karras' | 'DPM++ 2M Karras' | 'Euler a';
+  flowShift: number;
+  frameMultiplier: '16' | '24' | '30';
+  resultUrl: string | null;
+}
+
+
 export interface Project {
   id: string;
   name: string;
@@ -141,6 +164,7 @@ export interface Project {
     dynamicPromptLists: DynamicPromptList[];
     promptTemplates: PromptTemplate[];
     automationConfig: AutomationConfig;
+    wanimateState: WanimateState;
     mythosPrompt?: string;
   };
 }
@@ -479,12 +503,12 @@ export interface Agent {
   actorName?: string;
   actorContact?: string;
   preferredEngine?: ModelEngine;
+  agentClass?: AgentClass;
+  department?: AgentDepartment;
+  media?: ImageState[];
 
   // New RAG/Soma fields (Optional for now)
   handle?: string;
-  agentClass?: AgentClass;
-  department?: AgentDepartment;
-  title?: string;
   system_instruction?: string; // New RAG uses this
   pronouns?: string;
   accessLevel?: string;

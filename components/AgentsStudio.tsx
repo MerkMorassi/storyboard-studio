@@ -7,9 +7,8 @@ import { getAvailableVoices } from '../services/agentService';
 import { UserIcon } from './icons/UserIcon.tsx';
 
 interface RosterStudioProps {
-    rosterType: 'ai' | 'player';
     agents: Agent[];
-    images: ImageState[];
+    images: ImageState[]; // This is the global project vault, kept for potential future use
     onCreateEntity: (data: Partial<Agent>) => Agent;
     onViewImage: (image: ImageState) => void;
     onUpdateEntity: (agentId: string, updates: Partial<Agent>) => void;
@@ -20,23 +19,18 @@ interface RosterStudioProps {
 
 const ProfileModal: React.FC<{
     agent: Agent;
-    rosterType: 'ai' | 'player';
-    assignedImages: ImageState[];
+    assignedImages: ImageState[]; // Now represents agent.media
     onClose: () => void;
     onSave: (updatedAgent: Partial<Agent>) => void;
     onImageUpload: (agentId: string, file: File) => void;
     onViewImage: (image: ImageState) => void;
-}> = ({ agent, rosterType, assignedImages, onClose, onSave, onImageUpload, onViewImage }) => {
+}> = ({ agent, assignedImages, onClose, onSave, onImageUpload, onViewImage }) => {
     const [isEditing, setIsEditing] = useState(false);
     
     // Form State
     const [name, setName] = useState(agent.name);
     const [bio, setBio] = useState(agent.bio || '');
     const [narrativeRole, setNarrativeRole] = useState(agent.narrativeRole || '');
-    // Player-specific
-    const [actorName, setActorName] = useState(agent.actorName || '');
-    const [actorContact, setActorContact] = useState(agent.actorContact || '');
-    // AI-specific
     const [systemPrompt, setSystemPrompt] = useState(agent.systemPrompt || '');
     const [voice, setVoice] = useState(agent.voice || 'Kore');
 
@@ -46,23 +40,20 @@ const ProfileModal: React.FC<{
         setName(agent.name);
         setBio(agent.bio || '');
         setNarrativeRole(agent.narrativeRole || '');
-        setActorName(agent.actorName || '');
-        setActorContact(agent.actorContact || '');
         setSystemPrompt(agent.systemPrompt || '');
         setVoice(agent.voice || 'Kore');
     }, [agent]);
 
     const handleSave = () => {
         onSave({
-            name, bio, narrativeRole, actorName, actorContact, systemPrompt, voice
+            name, bio, narrativeRole, systemPrompt, voice
         });
         setIsEditing(false);
     };
 
-    const isAI = rosterType === 'ai';
-    const title = isAI ? 'Agent Configuration' : 'Player Profile';
-    const subtitle = isAI ? 'Core Directives & Details' : 'Studio Contract & Details';
-    const saveButtonText = isAI ? 'Save Configuration' : 'Update Contract';
+    const title = 'Agent Configuration';
+    const subtitle = 'Core Directives & Private Gallery';
+    const saveButtonText = 'Save Configuration';
     
     return (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-md">
@@ -115,7 +106,7 @@ const ProfileModal: React.FC<{
                         </div>
                         
                         <div className="space-y-2">
-                            <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Gallery ({assignedImages.length})</h4>
+                            <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Private Gallery ({assignedImages.length})</h4>
                             <div className="grid grid-cols-3 gap-2">
                                 {assignedImages.map((img) => (
                                     <div key={img.id} className="aspect-square bg-neutral-800 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500" onClick={() => onViewImage(img)}>
@@ -133,48 +124,28 @@ const ProfileModal: React.FC<{
                     <div className="w-3/5 p-8 overflow-y-auto">
                         {isEditing ? (
                             <div className="space-y-6">
-                                {/* Name */}
                                 <div>
-                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">{isAI ? 'Agent Name' : 'Player Name'}</label>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Agent Name</label>
                                     <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full bg-neutral-800 p-3 rounded-lg text-xl font-bold" />
                                 </div>
-                                {/* Bio */}
                                 <div>
-                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">{isAI ? 'Agent Bio' : 'Biography'}</label>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Agent Bio</label>
                                     <textarea value={bio} onChange={e => setBio(e.target.value)} rows={4} className="w-full bg-neutral-800 p-3 rounded-lg" />
                                 </div>
-                                {/* Role/Specialty */}
                                 <div>
-                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">{isAI ? 'Specialty' : 'Typical Roles'}</label>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Specialty</label>
                                     <input type="text" value={narrativeRole} onChange={e => setNarrativeRole(e.target.value)} className="w-full bg-neutral-800 p-3 rounded-lg" />
                                 </div>
-                                
-                                {isAI ? (
-                                    <>
-                                        <div>
-                                            <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">System Prompt (Directives)</label>
-                                            <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} rows={8} className="w-full bg-neutral-800 p-3 rounded-lg font-mono text-xs" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Voice Model</label>
-                                            <select value={voice} onChange={e => setVoice(e.target.value)} className="w-full bg-neutral-800 p-3 rounded-lg">
-                                                {getAvailableVoices().map(v => <option key={v.name} value={v.name}>{v.label}</option>)}
-                                            </select>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Real Name / Model</label>
-                                            <input type="text" value={actorName} onChange={e => setActorName(e.target.value)} className="w-full bg-neutral-800 p-3 rounded-lg" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Representation / Link</label>
-                                            <input type="text" value={actorContact} onChange={e => setActorContact(e.target.value)} className="w-full bg-neutral-800 p-3 rounded-lg" />
-                                        </div>
-                                    </div>
-                                )}
-
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">System Prompt (Directives)</label>
+                                    <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} rows={8} className="w-full bg-neutral-800 p-3 rounded-lg font-mono text-xs" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Voice Model</label>
+                                    <select value={voice} onChange={e => setVoice(e.target.value)} className="w-full bg-neutral-800 p-3 rounded-lg">
+                                        {getAvailableVoices().map(v => <option key={v.name} value={v.name}>{v.label}</option>)}
+                                    </select>
+                                </div>
                                 <div className="pt-4 flex justify-end">
                                     <button onClick={handleSave} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg">{saveButtonText}</button>
                                 </div>
@@ -189,30 +160,16 @@ const ProfileModal: React.FC<{
                                     <h4 className="text-xs font-bold text-neutral-500 uppercase mb-3 tracking-widest">Biography</h4>
                                     <p className="text-neutral-300 leading-relaxed">{agent.bio || 'No biography available.'}</p>
                                 </div>
-                                {isAI && (
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
-                                            <span className="block text-[10px] text-neutral-500 font-bold uppercase mb-1">Voice</span>
-                                            <span className="text-white font-mono text-sm">{agent.voice}</span>
-                                        </div>
-                                        <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
-                                            <span className="block text-[10px] text-neutral-500 font-bold uppercase mb-1">ID</span>
-                                            <span className="text-neutral-400 font-mono text-xs truncate">{agent.id}</span>
-                                        </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
+                                        <span className="block text-[10px] text-neutral-500 font-bold uppercase mb-1">Voice</span>
+                                        <span className="text-white font-mono text-sm">{agent.voice}</span>
                                     </div>
-                                )}
-                                {!isAI && (
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
-                                            <span className="block text-[10px] text-neutral-500 font-bold uppercase mb-1">Actor</span>
-                                            <span className="text-white">{agent.actorName || 'N/A'}</span>
-                                        </div>
-                                        <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
-                                            <span className="block text-[10px] text-neutral-500 font-bold uppercase mb-1">Contact</span>
-                                            <span className="text-white truncate">{agent.actorContact || 'N/A'}</span>
-                                        </div>
+                                    <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
+                                        <span className="block text-[10px] text-neutral-500 font-bold uppercase mb-1">ID</span>
+                                        <span className="text-neutral-400 font-mono text-xs truncate">{agent.id}</span>
                                     </div>
-                                )}
+                                </div>
                            </div>
                         )}
                     </div>
@@ -296,16 +253,14 @@ const CreateEntityForm: React.FC<{
     );
 };
 
-export const RosterStudio: React.FC<RosterStudioProps> = ({ rosterType, agents, images, onCreateEntity, onViewImage, onUpdateEntity, onDeleteEntity, onImageUpload, onCallEntity }) => {
+export const AgentsStudio: React.FC<RosterStudioProps> = ({ agents, onCreateEntity, onViewImage, onUpdateEntity, onDeleteEntity, onImageUpload, onCallEntity }) => {
     const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
 
-    const title = rosterType === 'ai' ? 'AI Agents' : 'Studio Players';
-    const description = rosterType === 'ai' 
-        ? 'Manage your specialized AI crew. Inspect their directives or sign new, custom agents to your team.'
-        : 'Manage your exclusive roster of contract actors, voice talent, and digital doubles for your productions.';
-    const emptyStateTitle = rosterType === 'ai' ? 'No Agents Found' : 'No Players Under Contract';
-    const emptyStateDescription = rosterType === 'ai' ? 'Create an agent to begin.' : 'Sign a player to the studio roster to begin.';
-    const Icon = rosterType === 'ai' ? AutomationIcon : UserIcon;
+    const title = 'AI Agents';
+    const description = 'Manage your specialized AI crew. Inspect their directives or sign new, custom agents to your team.';
+    const emptyStateTitle = 'No Agents Found';
+    const emptyStateDescription = 'Create an agent to begin.';
+    const Icon = AutomationIcon;
 
     return (
         <div className="p-6 max-w-7xl mx-auto w-full space-y-8 h-full overflow-y-auto">
@@ -313,7 +268,7 @@ export const RosterStudio: React.FC<RosterStudioProps> = ({ rosterType, agents, 
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">{title}</h2>
                 <p className="text-neutral-400">{description}</p>
                 <div className="mt-6">
-                    <CreateEntityForm rosterType={rosterType} onCreateEntity={onCreateEntity} />
+                    <CreateEntityForm rosterType='ai' onCreateEntity={onCreateEntity} />
                 </div>
             </div>
 
@@ -331,7 +286,7 @@ export const RosterStudio: React.FC<RosterStudioProps> = ({ rosterType, agents, 
                         <CastingCard
                             key={agent.id}
                             agent={agent}
-                            images={images.filter(img => img.agentId === agent.id)}
+                            images={agent.media || []}
                             onClick={() => setSelectedAgent(agent)}
                             onDelete={() => onDeleteEntity(agent.id)}
                             onCall={() => onCallEntity(agent)}
@@ -343,8 +298,8 @@ export const RosterStudio: React.FC<RosterStudioProps> = ({ rosterType, agents, 
             {selectedAgent && (
                 <ProfileModal 
                     agent={selectedAgent}
-                    rosterType={rosterType}
-                    assignedImages={images.filter(img => img.agentId === selectedAgent.id)}
+                    // FIX: Removed invalid `rosterType` prop from ProfileModal call.
+                    assignedImages={selectedAgent.media || []}
                     onClose={() => setSelectedAgent(null)}
                     onSave={(updated) => onUpdateEntity(selectedAgent.id, updated)}
                     onImageUpload={onImageUpload}

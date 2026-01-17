@@ -1,4 +1,6 @@
 
+
+
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Content, Type, Modality, FunctionDeclaration } from "@google/genai";
 import { MythosData } from './mythosData';
 import { CONTENT_GUIDELINES } from './contentGuidelines';
@@ -61,6 +63,23 @@ export const mythosTools: FunctionDeclaration[] = [
                 }
             },
             required: ['prompt']
+        }
+    },
+    {
+        name: 'list_my_media',
+        description: 'List all media assets in your private gallery, showing their IDs and descriptions.',
+        parameters: { type: Type.OBJECT, properties: {}, required: [] }
+    },
+    {
+        name: 'share_media_from_gallery',
+        description: "Share a media asset from your private gallery directly into the chat. Use 'list_my_media' first to find the ID.",
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                media_id: { type: Type.STRING, description: 'The ID of the media asset to share.' },
+                caption: { type: Type.STRING, description: 'An optional caption to include with the media.' }
+            },
+            required: ['media_id']
         }
     }
 ];

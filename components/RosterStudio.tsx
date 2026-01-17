@@ -369,7 +369,10 @@ export const RosterStudio: React.FC<RosterStudioProps> = ({ rosterType, agents, 
                     rosterType={rosterType}
                     assignedImages={images.filter(img => img.agentId === selectedAgent.id)}
                     onClose={() => setSelectedAgentId(null)}
-                    onSave={(updated) => onUpdateEntity(selectedAgent.id, updated)}
+                    onSave={(updated) => {
+                        onUpdateEntity(selectedAgent.id, updated);
+                        setSelectedAgentId(null);
+                    }}
                     onImageUpload={onImageUpload}
                     onViewImage={onViewImage}
                 />
