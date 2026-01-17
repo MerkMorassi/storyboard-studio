@@ -144,7 +144,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
   useEffect(() => { if (chatHistory.length > 0) saveHistory(chatHistory); }, [chatHistory, saveHistory]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [chatHistory, isChatLoading, liveTranscript, viewMode]);
   
-  const getAudioContext = () => { /* ... (existing code) ... */ return new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 }); };
+  const getAudioContext = () => { if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 }); return audioContextRef.current; };
   const playAudio = useCallback((messageId: string) => { /* ... */ }, []);
   const stopAudio = useCallback((messageId: string) => { /* ... */ }, []);
   const handleGenerateAudio = async (textToSpeak: string, messageId: string) => { /* ... */ };
@@ -162,6 +162,18 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
         parts: [{ text: messageText }]
     }]);
   };
+  
+    const handleToggleCallView = () => {
+        if (viewMode === 'chat') {
+            getAudioContext(); // Ensure audio context is ready
+            setViewMode('call');
+        } else {
+            if (isLive) {
+                stopLiveChat();
+            }
+            setViewMode('chat');
+        }
+    };
 
   const handleSendMessage = async (files?: File[], isToolCommand?: boolean) => {
     let messageToSend = chatMessage;
@@ -490,44 +502,87 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
                         Dolphin
                     </button>
                  </div>
-                 <button onClick={() => { getAudioContext(); setViewMode('call'); }} className="p-2 bg-secondary border border-accent text-text-secondary hover:text-green-400 rounded-xl transition-colors"><PhoneIcon className="w-5 h-5" /></button>
+                 <button 
+                    onClick={handleToggleCallView}
+                    className="p-2 bg-secondary border border-accent text-text-secondary rounded-xl transition-colors"
+                    title={viewMode === 'chat' ? 'Switch to Voice Call' : 'Switch to Text Chat'}
+                 >
+                    {viewMode === 'chat' ? <PhoneIcon className="w-5 h-5 text-green-400" /> : <ChatIcon className="w-5 h-5 text-blue-400" />}
+                 </button>
                  <button onClick={async () => { if (confirm(`Clear history for ${agent.name}?`)) { await vectorDb.deleteAgentChat(agent.id); setChatHistory([]); } }} className="p-2 bg-secondary border border-accent text-text-secondary hover:text-red-400 rounded-xl transition-colors"><TrashIcon className="w-5 h-5" /></button>
             </div>
         </div>
 
-        {engine === 'dolphin' && (
+        {engine === 'dolphin' && viewMode === 'chat' && (
             <div className="mb-4 bg-orange-900/10 border border-orange-500/20 px-4 py-2 rounded-lg flex items-center justify-center gap-2 animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
                 <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em]">Dolphin Core Active — A10G Hardware Bypass Enabled</span>
             </div>
         )}
 
-        <div className="flex-grow flex flex-col space-y-4 overflow-y-auto min-h-0 pr-2 custom-scrollbar">
-             {chatHistory.map((msg) => (
-              <ChatMessage key={msg.id} message={msg} agent={agent} audioState={messageAudioStates[msg.id]} onPlayAudio={() => playAudio(msg.id)} onStopAudio={() => stopAudio(msg.id)} onGenerateAudio={(text) => handleGenerateAudio(text, msg.id)} />
-            ))}
-            {isChatLoading && (
-                <div className="flex justify-start">
-                    <div className="flex items-center gap-4 bg-secondary/30 border border-accent rounded-xl p-4 shadow-sm w-full">
-                        <LoadingSpinner className="w-5 h-5 text-blue-500" />
-                        <span className="text-sm font-semibold text-text-secondary animate-pulse">
-                            {engine === 'dolphin' ? 'Handshaking with HF A10G...' : 'Consulting LOREPACK...'}
-                        </span>
-                    </div>
+        {viewMode === 'call' ? (
+            <div className="flex-grow flex flex-col items-center justify-center text-center p-4">
+                <div className="mb-6">
+                    <img 
+                        src={agent.avatar || `https://ui-avatars.com/api/?name=${agent.name}&background=171717&color=e5e5e5`} 
+                        alt={agent.name} 
+                        className="w-32 h-32 rounded-full object-cover border-4 border-neutral-700 mx-auto shadow-lg"
+                    />
+                    <h2 className="text-2xl font-bold text-white mt-4">{agent.name}</h2>
+                    <p className="text-neutral-400">Live Voice Call</p>
                 </div>
-            )}
-            <div ref={chatEndRef} />
-        </div>
-      <div className="mt-4 shrink-0 z-20">
-        <ChatInterface 
-            history={chatHistory} 
-            message={chatMessage} 
-            onMessageChange={setChatMessage} 
-            onSendMessage={handleSendMessage} 
-            isLoading={isChatLoading}
-            onSendToolCommand={handleSendToolCommand}
-        />
-      </div>
+
+                <div className="w-full max-w-2xl min-h-[120px] bg-secondary/30 border border-accent rounded-xl p-4 text-left mb-6 space-y-2 text-sm">
+                    <p><span className="font-bold text-neutral-500 uppercase text-xs">You:</span> <span className="text-neutral-300">{liveTranscript.user}</span></p>
+                    <div className="h-px bg-accent"></div>
+                    <p><span className="font-bold text-blue-400 uppercase text-xs">{agent.name}:</span> <span className="text-white">{liveTranscript.model}</span></p>
+                </div>
+
+                <div className="flex flex-col items-center gap-4">
+                    <button
+                        onClick={isLive ? stopLiveChat : startLiveChat}
+                        className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 border-4 ${
+                            isLive ? 'bg-red-600 border-red-400 hover:bg-red-500' : 'bg-green-600 border-green-400 hover:bg-green-500'
+                        }`}
+                    >
+                        <div className={`relative w-full h-full flex items-center justify-center ${isLive ? 'animate-pulse' : ''}`}>
+                            {isLive ? <MicOffIcon className="w-10 h-10 text-white" /> : <MicIcon className="w-10 h-10 text-white" />}
+                        </div>
+                    </button>
+                    <p className="text-xs text-neutral-500 uppercase font-bold tracking-widest">{connectionState}</p>
+                </div>
+            </div>
+        ) : (
+            <div className="flex-grow flex flex-col space-y-4 overflow-y-auto min-h-0 pr-2 custom-scrollbar">
+                {chatHistory.map((msg) => (
+                <ChatMessage key={msg.id} message={msg} agent={agent} audioState={messageAudioStates[msg.id]} onPlayAudio={() => playAudio(msg.id)} onStopAudio={() => stopAudio(msg.id)} onGenerateAudio={(text) => handleGenerateAudio(text, msg.id)} />
+                ))}
+                {isChatLoading && (
+                    <div className="flex justify-start">
+                        <div className="flex items-center gap-4 bg-secondary/30 border border-accent rounded-xl p-4 shadow-sm w-full">
+                            <LoadingSpinner className="w-5 h-5 text-blue-500" />
+                            <span className="text-sm font-semibold text-text-secondary animate-pulse">
+                                {engine === 'dolphin' ? 'Handshaking with HF A10G...' : 'Consulting LOREPACK...'}
+                            </span>
+                        </div>
+                    </div>
+                )}
+                <div ref={chatEndRef} />
+            </div>
+        )}
+
+        {viewMode === 'chat' && (
+            <div className="mt-4 shrink-0 z-20">
+                <ChatInterface 
+                    history={chatHistory} 
+                    message={chatMessage} 
+                    onMessageChange={setChatMessage} 
+                    onSendMessage={handleSendMessage} 
+                    isLoading={isChatLoading}
+                    onSendToolCommand={handleSendToolCommand}
+                />
+            </div>
+        )}
     </div>
   );
 };
