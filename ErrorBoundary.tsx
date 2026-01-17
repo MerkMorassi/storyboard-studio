@@ -1,14 +1,17 @@
+
 // FIX: Switched to named imports from 'react' to ensure proper type resolution for class components.
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { CrashReport } from './components/CrashReport';
 
 interface ErrorBoundaryProps {
+  // FIX: Use named import 'ReactNode' directly.
   children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  // FIX: Use named import 'ErrorInfo' directly.
   errorInfo: ErrorInfo | null;
 }
 
@@ -30,6 +33,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { hasError: true, error };
   }
 
+  // FIX: Use named import 'ErrorInfo' directly.
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log the error for diagnostic purposes.
     console.error("Uncaught error in ErrorBoundary:", error, errorInfo);

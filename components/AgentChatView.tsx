@@ -185,28 +185,89 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
         }]);
 
         try {
-            let resultPart: ChatMessagePart | null = null;
-            if (toolName === 'image_studio_mcp') {
-                const blob = await generateImageMCP(prompt, getHfApiKey() || undefined);
-                const base64 = await blobToBase64(blob);
-                resultPart = { inlineData: { mimeType: blob.type, data: base64 } };
-            } else {
-                throw new Error(`User tool command '${toolName}' is not implemented.`);
-            }
+            if (toolName === 'image_studio_mcp' || toolName === 'generateMythosImage') {
+                const blob = toolName === 'generateMythosImage'
+                    ? await generateImageSDXL({ prompt, useSuperiorEngine: true }, getHfApiKey() || '')
+                    : await generateImageMCP(prompt, getHfApiKey() || undefined);
 
-            if (resultPart) {
+                const base64 = await blobToBase64(blob);
+                const resultPart = { inlineData: { mimeType: blob.type, data: base64 } };
+
                 setChatHistory(prev => [...prev, {
                     id: `model-result-${Date.now()}`, role: 'model',
                     parts: [resultPart, { text: `Image generated via ${toolName} with prompt: "${prompt}"` }]
                 }]);
+                setIsChatLoading(false);
+
+            } else if (toolName === 'generateMythosVideo') {
+                const videoPrompt = prompt;
+                
+                setChatHistory(prev => [...prev, {
+                    id: `status-${Date.now()}`, role: 'model',
+                    parts: [{ text: `🎥 Video generation initiated for: "${videoPrompt}". This may take several minutes...` }]
+                }]);
+                
+                setIsChatLoading(false); // It's a background task
+
+                const generateVideoAsync = async () => {
+                    try {
+                        if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+                            const hasKey = await window.aistudio.hasSelectedApiKey();
+                            if (!hasKey && typeof window.aistudio.openSelectKey === 'function') {
+                                await window.aistudio.openSelectKey();
+                            }
+                        }
+                        
+                        const apiKey = getGeminiApiKey();
+                        if (!apiKey) throw new Error("A configured Gemini API key is required for video generation.");
+                        const ai = new GoogleGenAI({ apiKey });
+
+                        let operation = await ai.models.generateVideos({
+                            model: 'veo-3.1-fast-generate-preview',
+                            prompt: videoPrompt,
+                            config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
+                        });
+
+                        while (!operation.done) {
+                            await new Promise(resolve => setTimeout(resolve, 10000));
+                            operation = await ai.operations.getVideosOperation({ operation: operation });
+                        }
+
+                        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+                        if (!downloadLink) throw new Error("Video generation completed, but no download link was provided.");
+
+                        const videoResponse = await fetch(`${downloadLink}&key=${apiKey}`);
+                        if (!videoResponse.ok) throw new Error(`Failed to download generated video. Status: ${videoResponse.status}`);
+                        
+                        const videoBlob = await videoResponse.blob();
+                        const base64 = await blobToBase64(videoBlob);
+                        
+                        const videoPart = { inlineData: { mimeType: videoBlob.type || 'video/mp4', data: base64 } };
+                        
+                        setChatHistory(prev => [...prev, {
+                            id: `video-result-${Date.now()}`, role: 'model',
+                            parts: [videoPart, { text: `Video generated for prompt: "${videoPrompt}"` }]
+                        }]);
+                    } catch (err: any) {
+                        let errMsg = err.message || "Video generation failed.";
+                        if (errMsg.includes("Requested entity was not found")) {
+                            errMsg = "Video generation failed: The selected API Key is invalid or does not have access to the Veo model. Please select a valid key from a paid GCP project. See [ai.google.dev/gemini-api/docs/billing](https://ai.google.dev/gemini-api/docs/billing) for more info.";
+                        }
+                        setChatHistory(prev => [...prev, { id: `error-${Date.now()}`, role: 'model', parts: [{ text: `System Alert: ${errMsg}` }] }]);
+                    }
+                };
+                
+                generateVideoAsync();
+
+            } else {
+                throw new Error(`User tool command '${toolName}' is not implemented.`);
             }
         } catch (err: any) {
             const errMsg = err.message || "Tool execution failed.";
             setChatHistory(prev => [...prev, { id: `error-${Date.now()}`, role: 'model', parts: [{ text: `System Alert: ${errMsg}` }] }]);
-        } finally {
             setIsChatLoading(false);
         }
-        return; // End execution here, don't proceed to LLM
+        return; 
     }
     
     if (engine === 'gemini' && !chatSession) return;
