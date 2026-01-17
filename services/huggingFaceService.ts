@@ -1,6 +1,7 @@
 
 import { HfInference } from "@huggingface/inference";
 import { getCinematicCoreUrl } from './apiKeyService';
+import { getGradioClient } from './gradioService';
 
 // --- MYTHOS PROPRIETARY DOCKER CONFIGURATION ---
 // Root technical subdomain for the merkmorassi hardware.
@@ -19,7 +20,7 @@ export interface SDXLParams {
 
 /**
  * Primary Generation Function
- * Direct-links to the merkmorassi hardware cluster.
+ * Direct-links to the merkmorassi hardware cluster or uses standard HF Inference as a fallback.
  */
 export const generateImageSDXL = async (
   params: SDXLParams,
@@ -32,112 +33,95 @@ export const generateImageSDXL = async (
 
   // --- PROPRIETARY HARDWARE CORE PATH ---
   if (params.useSuperiorEngine) {
-    const PROPRIETARY_SUBDOMAIN = getCinematicCoreUrl();
-    if (!PROPRIETARY_SUBDOMAIN) {
+    const CINEMATIC_CORE_URL = getCinematicCoreUrl();
+    if (!CINEMATIC_CORE_URL) {
         throw new Error("MythOS Cinematic Core URL is not configured in System Settings.");
     }
 
     const payload = {
         prompt: params.prompt,
         negative_prompt: params.negative_prompt || "blurry, low quality, text, watermark, bad anatomy",
-        seed: params.seed || Math.floor(Math.random() * 2147483647),
+        seed: params.seed === undefined ? -1 : params.seed, // -1 is a common convention for random seed in Gradio spaces
         width: params.width || 1024,
         height: params.height || 1024,
         guidance_scale: params.guidance_scale || 7.5,
         num_inference_steps: params.num_inference_steps || 40
     };
 
-    const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${hfToken}`,
-        'X-Wait-For-Model': 'true',
-        'Accept': 'image/png, application/json' 
-    };
+    try {
+        console.log(`[MythOS] Connecting to GPU Core via Gradio Client: ${CINEMATIC_CORE_URL}...`);
+        const client = await getGradioClient(CINEMATIC_CORE_URL, { hfToken });
+        
+        // Probe for the correct API endpoint name, as it can vary.
+        const endpointsToTry = ["/generate_image", "/predict", "/infer", "/generate", "/run"];
+        let result: any = null;
+        let lastEndpointError: any = null;
 
-    console.log(`[MythOS] Direct-Linking to GPU Core: ${PROPRIETARY_SUBDOMAIN}...`);
-    
-    // Probing sequence: Try standard endpoints in order
-    const endpointsToProbe = [
-        `${PROPRIETARY_SUBDOMAIN}/generate`,
-        `${PROPRIETARY_SUBDOMAIN}/`,
-        `${PROPRIETARY_SUBDOMAIN}/predict`,
-        `${PROPRIETARY_SUBDOMAIN}/api/generate`
-    ];
-
-    let lastError: Error | null = null;
-
-    for (const endpoint of endpointsToProbe) {
-        try {
-            console.log(`[MythOS] Probing endpoint: ${endpoint}`);
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(payload),
-                cache: 'no-store'
-            });
-
-            if (response.status === 404) {
-                console.warn(`[MythOS] 404 at ${endpoint}, trying next...`);
-                continue; // Try next endpoint
-            }
-
-            const contentType = response.headers.get('content-type') || '';
-
-            // Check for HTML response (Cold Boot / Error Page)
-            if (contentType.includes('text/html')) {
-                const status = response.status;
-                if (status === 401 || status === 403) {
-                    throw new Error(`Access Denied (${status}). HF Token lacks permissions.`);
+        for (const endpoint of endpointsToTry) {
+            try {
+                console.log(`[MythOS] Probing endpoint: ${endpoint}`);
+                result = await client.predict(endpoint, payload);
+                if (result?.data) {
+                    console.log(`[MythOS] Success at endpoint: ${endpoint}`);
+                    break; // Found a working endpoint
                 }
-                if (response.headers.get('x-error-code') === 'SPACE_SLEEPING') {
-                    throw new Error("Hardware Sleeping. Visit space to wake.");
+            } catch (e: any) {
+                lastEndpointError = e;
+                if (e.message && (e.message.includes("Not a valid endpoint") || e.message.includes("404"))) {
+                    console.warn(`[MythOS] Endpoint ${endpoint} not found, trying next...`);
+                    continue; // This is an expected error during probing, so we continue.
                 }
-                // If HTML but 200/500, it's likely a generic UI page, not our API
-                console.warn(`[MythOS] Received HTML at ${endpoint}, skipping.`);
-                continue; 
+                // If it's a different error (e.g., auth, processing timeout), we should stop and throw it.
+                throw e;
             }
-
-            // Check for JSON response
-            if (contentType.includes('application/json')) {
-                const json = await response.json();
-                if (json.error || json.detail) {
-                    throw new Error(`Engine Error: ${json.error || json.detail}`);
-                }
-                // If it returns status but no image, treat as failure for this endpoint
-                if (json.status === "ONLINE" && !json.image) {
-                     console.warn(`[MythOS] Endpoint ${endpoint} returned status only.`);
-                     continue;
-                }
-                // Some endpoints return { image: "base64..." }
-                if (json.image || json.images) {
-                     // Handle base64 response if necessary, but preferred is direct blob
-                     // For now, assume blob return is standard for this specific engine unless wrapped
-                }
-            }
-
-            if (response.ok) {
-                console.log(`[MythOS] Connection Successful at ${endpoint}`);
-                return await response.blob();
-            }
-            
-            throw new Error(`Engine Fault (${response.status}) at ${endpoint}`);
-
-        } catch (err) {
-            lastError = err instanceof Error ? err : new Error("Unknown error");
-            // If it's a specific logic error (like Access Denied), stop trying
-            if (lastError.message.includes("Access Denied") || lastError.message.includes("Hardware Sleeping")) {
-                throw lastError;
-            }
-            // Otherwise continue loop
         }
-    }
 
-    // If we get here, all endpoints failed
-    console.error("[MythOS] All probes failed.");
-    throw lastError || new Error("Space Path Not Found (404). The Docker container is not listening on known API routes.");
+        if (!result || !result.data) {
+             throw new Error(`Could not find a valid API endpoint on the space. Tried: ${endpointsToTry.join(', ')}. Last error: ${lastEndpointError?.message}`);
+        }
+        
+        // Gradio client returns data in `result.data`. For images, it's often an array with one element.
+        if (result.data[0]) {
+            const output = result.data[0];
+            let imageUrl = '';
+            
+            // Handle various possible Gradio output formats
+            if (typeof output === 'string' && output.startsWith('http')) {
+                imageUrl = output;
+            } else if (output?.url) {
+                imageUrl = output.url;
+            } else if (output?.image?.url) {
+                 imageUrl = output.image.url;
+            } else {
+                 throw new Error("Gradio client returned an unexpected data format for the image.");
+            }
+
+            const imageResponse = await fetch(imageUrl);
+            if (!imageResponse.ok) {
+                throw new Error(`Failed to download the generated image from: ${imageUrl}`);
+            }
+            return imageResponse.blob();
+
+        } else {
+            throw new Error("MythOS Core returned no data in the response.");
+        }
+    } catch (err) {
+        // Re-throw the error with more context
+        console.error("[MythOS Core] Gradio Client Error:", err);
+        const msg = err instanceof Error ? err.message : "An unknown error occurred with the Cinematic Core.";
+        if (msg.includes("Space is sleeping")) {
+            throw new Error("Hardware Sleeping. Visit the space URL to wake the GPU, then try again.");
+        }
+        // This makes the original error more specific.
+        if (msg.includes("Could not find a valid API endpoint")) {
+             throw new Error("Space Path Not Found (404). The Docker container is not listening on known API routes.");
+        }
+        throw new Error(msg);
+    }
   }
 
-  // --- STANDARD FALLBACK ---
+  // --- STANDARD FALLBACK (Official HF Inference API) ---
+  console.log("[MythOS] Using Standard HF Inference Fallback.");
   try {
     const hf = new HfInference(hfToken);
     return await hf.textToImage({
@@ -154,6 +138,8 @@ export const generateImageSDXL = async (
         headers: { "X-Wait-For-Model": "true" } 
     });
   } catch (err) {
-    throw new Error("Standard neural link failed.");
+    console.error("Standard HF Inference Error:", err);
+    throw new Error("Standard neural link failed. The model may be loading or an invalid HF token was provided.");
   }
 };
+    
