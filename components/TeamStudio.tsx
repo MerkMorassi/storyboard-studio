@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Agent, ActiveView, ImageState } from '../types.ts';
-import { AgentsIcon, EditIcon, CloseIcon, CameraLensIcon, PhoneIcon, ChatIcon, UploadIcon, UserIcon } from './icons.tsx';
+import { CloseIcon, PhoneIcon, EditIcon, CameraLensIcon, UploadIcon, UserIcon, AgentsIcon, ChatIcon } from './icons.tsx';
 import { getAvailableVoices } from '../services/agentService.ts';
 
 interface TeamStudioProps {
@@ -14,13 +13,21 @@ interface TeamStudioProps {
     onViewImage: (image: ImageState) => void;
 }
 
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+
 const ProfileModal: React.FC<{
     agent: Agent;
     assignedImages: ImageState[];
     onClose: () => void;
     onSave: (updatedAgent: Partial<Agent>) => void;
-    onViewImage: (image: ImageState) => void;
     onAvatarUpload: (file: File) => void;
+    onViewImage: (image: ImageState) => void;
 }> = ({ agent, assignedImages, onClose, onSave, onViewImage, onAvatarUpload }) => {
     const [isEditing, setIsEditing] = useState(false);
     
@@ -92,7 +99,7 @@ const ProfileModal: React.FC<{
                                         if (e.target.files?.[0]) {
                                             onAvatarUpload(e.target.files[0]);
                                         }
-                                    }}
+                                    }} 
                                 />
                             </div>
                             <h3 className="text-xl font-bold text-white text-center">{name}</h3>
@@ -155,7 +162,6 @@ const ProfileModal: React.FC<{
                                         {getAvailableVoices().map(v => <option key={v.name} value={v.name}>{v.label}</option>)}
                                     </select>
                                 </div>
-
                                 <div className="pt-4 flex justify-end">
                                     <button onClick={handleSave} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg">Save Configuration</button>
                                 </div>
@@ -188,7 +194,6 @@ const ProfileModal: React.FC<{
         </div>
     );
 };
-
 
 const AgentCard: React.FC<{
     agent: Agent;
@@ -279,6 +284,7 @@ const AgentCard: React.FC<{
                     <button 
                         className="flex-1 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 font-bold text-xs uppercase rounded transition-colors flex items-center justify-center gap-2 border border-neutral-600"
                     >
+                        {/* FIX: Imported the missing ChatIcon component. */}
                         <ChatIcon className="w-3 h-3" /> Enter Office
                     </button>
                 </div>
@@ -290,15 +296,11 @@ const AgentCard: React.FC<{
 export const TeamStudio: React.FC<TeamStudioProps> = ({ team, images, onUpdateAgent, onUpdateAgentAvatar, onNavigate, onCallAgent, onViewImage }) => {
     const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
 
-    const handleCardClick = (agent: Agent) => {
-        onNavigate('agent-workspace', agent.id);
-    };
-
     return (
         <div className="p-6 max-w-7xl mx-auto w-full space-y-8 h-full overflow-y-auto">
             <div className="mb-8">
-                <h2 className="text-3xl font-bold text-neutral-200 mb-2">Agent Roster</h2>
-                <p className="text-neutral-400">Manage your specialized AI crew, their directives, and their creative output.</p>
+                <h2 className="text-3xl font-bold text-neutral-200 mb-2">Production Team</h2>
+                <p className="text-neutral-400">The core MythOS agent team responsible for project execution.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -306,7 +308,7 @@ export const TeamStudio: React.FC<TeamStudioProps> = ({ team, images, onUpdateAg
                     <AgentCard
                         key={agent.id}
                         agent={agent}
-                        onClick={() => handleCardClick(agent)}
+                        onClick={() => onNavigate('agent-workspace', agent.id)}
                         onEdit={() => setEditingAgent(agent)}
                         onCall={() => onCallAgent(agent)}
                         onUpdateAgentAvatar={(file) => onUpdateAgentAvatar(agent.id, file)}

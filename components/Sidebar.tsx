@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ActiveView } from '../types.ts';
 import { 
@@ -13,7 +6,7 @@ import {
     BlenderIcon, LayersIcon, PuzzleIcon, SwapIcon, FaceSparkleIcon, PhotoRealismIcon, 
     ExpandIcon, ScissorsIcon, GridIcon, StoryboardIcon, PinIcon, LoreIcon, 
     LibraryIcon, ShuffleIcon, SettingsIcon, WritersRoomIcon, EditIcon, CharacterIcon,
-    TransitionIcon, DollyIcon, WarningIcon, SpeakerIcon, ChevronLeftIcon
+    TransitionIcon, DollyIcon, WarningIcon, SpeakerIcon, ChevronLeftIcon, UserIcon
 } from './icons.tsx';
 import { hasCriticalKeys } from '../services/apiKeyService';
 
@@ -34,7 +27,9 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'header-main', type: 'header', label: 'Production' },
     { id: 'dashboard', type: 'link', label: 'Dashboard', view: 'dashboard', icon: DashboardIcon },
     { id: 'projects', type: 'link', label: 'Projects', view: 'projects', icon: FolderIcon },
-    { id: 'agents', type: 'link', label: 'Agents', view: 'agents', icon: AgentsIcon },
+    { id: 'team', type: 'link', label: 'Production Team', view: 'team', icon: AgentsIcon },
+    { id: 'agents', type: 'link', label: 'AI Agents', view: 'agents', icon: AgentsIcon },
+    { id: 'studio-players', type: 'link', label: 'Studio Players', view: 'studio-players', icon: UserIcon },
     { id: 'automation', type: 'link', label: 'Automation', view: 'automation', icon: AutomationIcon },
     
     { id: 'header-agents', type: 'header', label: 'Agents' },

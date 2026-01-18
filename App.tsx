@@ -48,6 +48,7 @@ import { getHfApiKey, getTopazApiKey, saveHfApiKey, saveTopazApiKey, getVoiceLab
 import { getAnimAgentsTeam } from './services/agentService';
 import { vectorDb } from './services/vectorDbService';
 import { AgentsStudio } from './components/AgentsStudio.tsx';
+import { TeamStudio } from './components/TeamStudio.tsx';
 import { WanimateStudio } from './components/WanimateStudio.tsx';
 import { DubbingStudio } from './components/DubbingStudio.tsx';
 import { factoryService as lorepackService } from './services/lorepack.ts';
@@ -221,6 +222,29 @@ export const App = () => {
         switch (activeView) {
             case 'dashboard': return <DashboardStudio project={project} onUpdateProject={(u) => setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, ...u } : p))} images={project.data.images} stats={{ storyboardFrames: project.data.storyboard.length, agents: project.data.agents.length, loreEntries: project.data.lore.length, inspirationImages: project.data.inspirationImages.length, dynamicPromptLists: project.data.dynamicPromptLists.length, promptTemplates: project.data.promptTemplates.length, imagesGenerated: project.data.images.length, totalProjects: projects.length, scriptsCount: project.data.scriptsBin.length }} onNavigate={handleNavigate} />;
             case 'projects': return <ProjectsStudio projects={projects} activeProjectId={activeProjectId} onSelectProject={setActiveProjectId} onCreateProject={(d) => setProjects(prev => [...prev, { ...INITIAL_PROJECT, id: `proj_${Date.now()}`, name: d.name, tagline: d.tagline, thumbnail: d.thumbnail }])} onRenameProject={(id, name) => setProjects(prev => prev.map(p => p.id === id ? { ...p, name } : p))} onDeleteProject={(id) => { setProjects(prev => prev.filter(p => p.id !== id)); if (activeProjectId === id && projects.length > 1) setActiveProjectId(projects[0].id); }} />;
+            case 'team': return <TeamStudio 
+               team={getAnimAgentsTeam()} 
+               images={project.data.images} 
+               onUpdateAgent={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} 
+               onUpdateAgentAvatar={async (id, file) => { const b64 = await fileToBase64(file); updateProjectData({ agents: project.data.agents.map(a => a.id === id ? {...a, avatar: b64} : a) }) }}
+               onNavigate={handleNavigate} 
+               onCallAgent={(a) => { 
+                   const coreViews: {[key: string]: ActiveView} = {
+                       'agent-core': 'core',
+                       'agent-ideation': 'ideation',
+                       'agent-scripting': 'scripting',
+                       'agent-design': 'design',
+                       'agent-art': 'art'
+                   };
+                   if (a.id in coreViews) {
+                       handleNavigate(coreViews[a.id]);
+                   } else {
+                       setSelectedAgentId(a.id);
+                       setActiveView('agent-workspace'); 
+                   }
+               }} 
+               onViewImage={setViewingImage}
+           />;
             case 'agents': return <AgentsStudio agents={project.data.agents} images={project.data.images} onCreateEntity={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}`, media: [] } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }} onViewImage={setViewingImage} onUpdateEntity={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} onDeleteEntity={(id) => updateProjectData({ agents: project.data.agents.filter(a => a.id !== id) })} onImageUpload={async (id, file) => { const b64 = await fileToBase64(file); updateProjectData({ agents: project.data.agents.map(a => a.id === id ? {...a, avatar: b64} : a) }) }} onCallEntity={(a) => { setSelectedAgentId(a.id); setActiveView('agent-workspace'); }} />;
             case 'agent-workspace': return selectedAgentId ? <GenericAgentStudio agent={project.data.agents.find(a => a.id === selectedAgentId)!} onNavigate={handleNavigate} onCallAgent={() => {}} /> : <div className="p-10 text-center text-neutral-500">Agent Not Found</div>;
             
