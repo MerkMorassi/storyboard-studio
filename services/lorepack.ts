@@ -1,7 +1,8 @@
-
 import { vectorDb, VectorRecord } from './vectorDbService';
 import { GraphNode, GraphEdge, TripletEdge } from '../types';
 import { getEmbeddings, extractTripletsFromText } from './geminiService';
+
+const LAST_SYNC_KEY = 'mythos_lorepack_last_sync';
 
 class FactoryService {
 
@@ -291,6 +292,53 @@ class FactoryService {
 
         await writeBatches();
         return { success: true, importedVectors: totalVectors, importedEdges: totalEdges };
+    }
+
+    // --- SERVER SYNC ---
+    async syncLorepackToServer() {
+        console.log('[LOREPACK SYNC] Starting periodic sync to server...');
+        const lastSyncTimestamp = parseInt(localStorage.getItem(LAST_SYNC_KEY) || '0', 10);
+        const now = Date.now();
+
+        try {
+            const allVectors = await vectorDb.getAllVectors();
+            const allEdges = await vectorDb.getAllTripletEdges();
+
+            const newVectors = allVectors.filter(v => v.timestamp > lastSyncTimestamp);
+            const newEdges = allEdges.filter(e => new Date(e.timestamp).getTime() > lastSyncTimestamp);
+
+            if (newVectors.length === 0 && newEdges.length === 0) {
+                console.log('[LOREPACK SYNC] No new data to sync.');
+                localStorage.setItem(LAST_SYNC_KEY, String(now)); // Update timestamp to avoid re-checking empty data
+                return;
+            }
+
+            console.log(`[LOREPACK SYNC] Found ${newVectors.length} new vectors and ${newEdges.length} new edges to sync.`);
+
+            const nodesToSync = [
+                ...newVectors.map(v => ({ ...v, type: 'vector' })),
+                ...newEdges.map(e => ({ ...e, type: 'edge' }))
+            ];
+            
+            const response = await fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nodes: nodesToSync })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server sync failed with status ${response.status}: ${errorText}`);
+            }
+
+            const result = await response.json();
+            console.log(`[LOREPACK SYNC] Successfully synced ${nodesToSync.length} items. Server total vault size: ${result.vaultSize}`);
+            
+            localStorage.setItem(LAST_SYNC_KEY, String(now));
+
+        } catch (error) {
+            console.error('[LOREPACK SYNC] Error syncing with server:', error);
+        }
     }
 }
 

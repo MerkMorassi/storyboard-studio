@@ -346,6 +346,10 @@ class VectorDbService {
     });
   }
 
+  async getAllTripletEdges(): Promise<TripletEdge[]> {
+    return this.getAllItems<TripletEdge>(STORE_TRIPLET_EDGES);
+  }
+
   async deleteGraphForAgent(agentId: string): Promise<void> {
       const db = await this.open();
       return new Promise((resolve, reject) => {
@@ -362,7 +366,7 @@ class VectorDbService {
                   const index = store.index('agentId');
                   const request = index.openCursor(IDBKeyRange.only(agentId));
                   request.onsuccess = (e) => {
-                      const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+                      const cursor = (e.target as IDBRequest<IDBCursorWithValue | null>).result;
                       if (cursor) {
                           cursor.delete();
                           cursor.continue();

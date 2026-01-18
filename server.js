@@ -1,5 +1,3 @@
-
-
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -12,6 +10,8 @@ const PORT = process.env.PORT || 4000;
 // Neural Vault: In-memory vector store (swap for ChromaDB/Pinecone in production)
 let NEURAL_VAULT = [];
 const VAULT_PATH = path.join(__dirname, 'neural_vault.json');
+let GRAPH_VAULT = []; // For graph edges
+const GRAPH_PATH = path.join(__dirname, 'graph_vault.json');
 
 // Initialize Vault from disk if it exists
 if (fs.existsSync(VAULT_PATH)) {
@@ -22,6 +22,15 @@ if (fs.existsSync(VAULT_PATH)) {
         console.error("[NEURAL VAULT] Restore failed, starting fresh.");
     }
 }
+if (fs.existsSync(GRAPH_PATH)) {
+    try {
+        GRAPH_VAULT = JSON.parse(fs.readFileSync(GRAPH_PATH, 'utf8'));
+        console.log(`[GRAPH VAULT] Restored ${GRAPH_VAULT.length} edges from disk.`);
+    } catch (e) {
+        console.error("[GRAPH VAULT] Restore failed, starting fresh.");
+    }
+}
+
 
 // Helper: Cosine Similarity for the RAG Engine
 function cosineSimilarity(vecA, vecB) {
@@ -81,21 +90,31 @@ app.post('/api/rag', async (req, res) => {
 // --- COREPACK / LOREPACK SYNC ENDPOINT ---
 // Endpoint to receive LOREPACKS exported from the browser for permanent studio storage.
 app.post('/api/sync', (req, res) => {
-    const { nodes, overwrite = false } = req.body; // nodes is an array of {text, vector, source, agentId}
+    const { nodes, overwrite = false } = req.body; 
 
     if (!Array.isArray(nodes)) {
-        return res.status(400).json({ error: "Invalid LorePack format." });
+        return res.status(400).json({ error: "Invalid LorePack format. Expected 'nodes' array." });
     }
 
-    if (overwrite) NEURAL_VAULT = nodes;
-    else NEURAL_VAULT = [...NEURAL_VAULT, ...nodes];
+    const newVectors = nodes.filter(n => n.type === 'vector');
+    const newEdges = nodes.filter(n => n.type === 'edge');
 
-    // Deduplicate by content hash or ID if needed here
+    if (overwrite) {
+        NEURAL_VAULT = newVectors;
+        GRAPH_VAULT = newEdges;
+    } else {
+        NEURAL_VAULT.push(...newVectors);
+        GRAPH_VAULT.push(...newEdges);
+    }
     
-    fs.writeFileSync(VAULT_PATH, JSON.stringify(NEURAL_VAULT), 'utf8');
-    console.log(`[SYNC] Ingested ${nodes.length} nodes. Vault size: ${NEURAL_VAULT.length}`);
+    // Deduplication logic could be added here if needed
     
-    res.json({ success: true, vaultSize: NEURAL_VAULT.length });
+    fs.writeFileSync(VAULT_PATH, JSON.stringify(NEURAL_VAULT, null, 2), 'utf8');
+    fs.writeFileSync(GRAPH_PATH, JSON.stringify(GRAPH_VAULT, null, 2), 'utf8');
+    
+    console.log(`[SYNC] Ingested ${newVectors.length} vectors and ${newEdges.length} edges. Vault sizes: [Vectors: ${NEURAL_VAULT.length}, Edges: ${GRAPH_VAULT.length}]`);
+    
+    res.json({ success: true, vaultSize: NEURAL_VAULT.length + GRAPH_VAULT.length });
 });
 
 // Priority: Serve static files from 'dist' folder (standard Vite output)
@@ -131,7 +150,9 @@ app.listen(PORT, () => {
   MYTHOS STUDIO SERVER ONLINE
   Port: ${PORT}
   Neural Vault Status: ACTIVE (${NEURAL_VAULT.length} nodes)
+  Graph Vault Status: ACTIVE (${GRAPH_VAULT.length} edges)
   RAG API: http://localhost:${PORT}/api/rag
+  Sync API: http://localhost:${PORT}/api/sync
   --------------------------------------------------
   `);
 });

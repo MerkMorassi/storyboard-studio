@@ -1,14 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardStudio } from './components/DashboardStudio';
@@ -61,6 +50,7 @@ import { vectorDb } from './services/vectorDbService';
 import { AgentsStudio } from './components/AgentsStudio.tsx';
 import { WanimateStudio } from './components/WanimateStudio.tsx';
 import { DubbingStudio } from './components/DubbingStudio.tsx';
+import { factoryService as lorepackService } from './services/lorepack.ts';
 
 const DEFAULT_PROJECT_ID = 'project-alpha';
 
@@ -139,13 +129,25 @@ export const App = () => {
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
     const [viewingImage, setViewingImage] = useState<ImageState | null>(null);
 
-    // Load initial data
+    // Load initial data & set up periodic sync
     useEffect(() => {
         const loadData = async () => {
             // Here you would load from DB/Storage
             // For now, using in-memory default
         };
         loadData();
+
+        // Set up periodic sync to the server
+        const syncInterval = setInterval(() => {
+            lorepackService.syncLorepackToServer();
+        }, 5 * 60 * 1000); // Sync every 5 minutes
+
+        // Initial sync on app load
+        lorepackService.syncLorepackToServer();
+
+        return () => {
+            clearInterval(syncInterval); // Cleanup on component unmount
+        };
     }, []);
 
     const project = projects.find(p => p.id === activeProjectId) || projects[0];
