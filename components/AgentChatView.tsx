@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Agent } from '../services/agentService';
 import { Chat, Part, Content, GenerateContentResponse, GoogleGenAI } from '@google/genai';
@@ -73,7 +74,8 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
   const audioSourceRefs = useRef<Record<string, AudioBufferSourceNode | null>>({});
   const chatEndRef = useRef<HTMLDivElement>(null);
   
-  const { isLive, connectionState, liveTranscript, startLiveChat, stopLiveChat } = useLiveChat(agent);
+  // FIX: Provide the missing options object as the second argument to the `useLiveChat` hook to resolve the "Expected 2 arguments, but got 1" error.
+  const { isLive, connectionState, liveTranscript, startLiveChat, stopLiveChat } = useLiveChat(agent, { isMicMuted: false, isSpeakerMuted: false, onTurnComplete: () => {} });
 
   useEffect(() => { setEngine(agent.preferredEngine || 'gemini'); }, [agent.preferredEngine]);
 

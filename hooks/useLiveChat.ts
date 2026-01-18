@@ -1,20 +1,24 @@
-
-
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenAIBlob } from '@google/genai';
 import { Agent } from '../services/agentService';
 import { decode, decodeAudioData, encode } from '../utils/audio';
 import { mythosTools } from '../services/geminiService';
 import { retrieveLivedExperience } from '../services/localRagService';
 
-interface LiveTranscript {
+export interface LiveTranscript {
     user: string;
     model: string;
 }
 
-type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
+export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
 
-export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTranscript) => void) => {
+interface UseLiveChatOptions {
+    isMicMuted: boolean;
+    isSpeakerMuted: boolean;
+    onTurnComplete: (turn: LiveTranscript) => void;
+}
+
+export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnComplete }: UseLiveChatOptions) => {
     const [isLive, setIsLive] = useState(false);
     const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
     const [liveTranscript, setLiveTranscript] = useState<LiveTranscript>({ user: '', model: '' });
@@ -30,6 +34,9 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
     const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
     const transcriptBufferRef = useRef<LiveTranscript>({ user: '', model: '' });
 
+    const isMicMutedRef = useRef(isMicMuted);
+    useEffect(() => { isMicMutedRef.current = isMicMuted; }, [isMicMuted]);
+
     const stopLiveChat = useCallback(async () => {
         setIsLive(false);
         setConnectionState('idle');
@@ -37,17 +44,19 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
         mediaStreamRef.current?.getTracks().forEach(track => track.stop());
         mediaStreamRef.current = null;
 
-        scriptProcessorRef.current?.disconnect();
-        mediaStreamSourceRef.current?.disconnect();
-        scriptProcessorRef.current = null;
-        mediaStreamSourceRef.current = null;
+        if (scriptProcessorRef.current && mediaStreamSourceRef.current) {
+            mediaStreamSourceRef.current.disconnect();
+            scriptProcessorRef.current.disconnect();
+            scriptProcessorRef.current = null;
+            mediaStreamSourceRef.current = null;
+        }
 
-        if (inputAudioContextRef.current) {
-            await inputAudioContextRef.current.close();
+        if (inputAudioContextRef.current && inputAudioContextRef.current.state !== 'closed') {
+            await inputAudioContextRef.current.close().catch(console.error);
             inputAudioContextRef.current = null;
         }
-        if (outputAudioContextRef.current) {
-            await outputAudioContextRef.current.close();
+        if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
+            await outputAudioContextRef.current.close().catch(console.error);
             outputAudioContextRef.current = null;
         }
         
@@ -66,10 +75,8 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
             sessionPromiseRef.current = null;
         }
 
-        const final = { ...transcriptBufferRef.current };
         transcriptBufferRef.current = { user: '', model: '' };
         setLiveTranscript({ user: '', model: '' });
-        return final;
     }, []);
 
     const startLiveChat = useCallback(async () => {
@@ -78,11 +85,9 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
         if (!process.env.API_KEY) {
             console.error("Missing API Key for Live Session");
             setConnectionState('error');
-            setIsLive(false);
             return;
         }
 
-        setIsLive(true);
         setConnectionState('connecting');
 
         try {
@@ -92,12 +97,12 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
             inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
             outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             nextStartTimeRef.current = 0;
+            setIsLive(true);
 
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             const systemInstructionWithTools = `${agent.systemPrompt}\n\nYou have access to your LOREPACK (memory). If you need to recall specific facts, events, or details about your history or knowledge, you MUST use the 'lorepack_search' tool to find relevant context before answering.`;
 
-            // Fixed Model Name to 'gemini-2.5-flash-native-audio-preview-12-2025' for best reliability
             sessionPromiseRef.current = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-12-2025',
                 config: {
@@ -122,6 +127,8 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
                         scriptProcessorRef.current = scriptProcessor;
 
                         scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
+                            if (isMicMutedRef.current) return;
+
                             const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
                             const int16 = new Int16Array(inputData.length);
                             for (let i = 0; i < inputData.length; i++) {
@@ -157,87 +164,57 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
                         }
                         
                         if (message.serverContent?.turnComplete) {
-                            if (onTurnComplete && (transcriptBufferRef.current.user || transcriptBufferRef.current.model)) {
+                            if (onTurnComplete && (transcriptBufferRef.current.user.trim() || transcriptBufferRef.current.model.trim())) {
                                 onTurnComplete({ ...transcriptBufferRef.current });
                             }
                             transcriptBufferRef.current = { user: '', model: '' };
                             setLiveTranscript({ user: '', model: '' });
                         }
 
-                        // Handle tool calls
                         if (message.toolCall) {
                             const session = await sessionPromiseRef.current;
                             if (!session) return;
-
                             for (const fc of message.toolCall.functionCalls) {
                                 if (fc.name === 'lorepack_search' && fc.args.query) {
-                                    console.log('[Live Chat] LOREPACK Search triggered:', fc.args.query);
-                                    
                                     const experience = await retrieveLivedExperience(agent.id, fc.args.query);
-                                    const context = experience ? experience.text : "No relevant experience found in LOREPACK for that query.";
-                                    
-                                    session.sendToolResponse({
-                                      functionResponses: {
-                                        id: fc.id,
-                                        name: fc.name,
-                                        response: { result: context },
-                                      }
-                                    });
+                                    const context = experience ? experience.text : "No relevant experience found.";
+                                    session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: context } } });
                                 } else {
-                                     console.warn(`[Live Chat] Unhandled tool call: ${fc.name}`);
-                                     session.sendToolResponse({
-                                       functionResponses: {
-                                         id: fc.id,
-                                         name: fc.name,
-                                         response: { result: `Tool ${fc.name} is not implemented in this voice context.` },
-                                       }
-                                     });
+                                     session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: `Tool ${fc.name} not implemented in voice.` } } });
                                 }
                             }
                         }
 
                         const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-                        if (base64Audio && outputAudioContextRef.current) {
+                        if (base64Audio && outputAudioContextRef.current && !isSpeakerMuted) {
                             const audioCtx = outputAudioContextRef.current;
                             nextStartTimeRef.current = Math.max(nextStartTimeRef.current, audioCtx.currentTime);
-
                             const audioBuffer = await decodeAudioData(decode(base64Audio), audioCtx, 24000, 1);
                             const source = audioCtx.createBufferSource();
                             source.buffer = audioBuffer;
                             source.connect(audioCtx.destination);
-                            source.addEventListener('ended', () => {
-                                audioSourcesRef.current.delete(source);
-                            });
+                            source.addEventListener('ended', () => audioSourcesRef.current.delete(source));
                             source.start(nextStartTimeRef.current);
                             nextStartTimeRef.current += audioBuffer.duration;
                             audioSourcesRef.current.add(source);
                         }
 
-                        const interrupted = message.serverContent?.interrupted;
-                        if (interrupted) {
+                        if (message.serverContent?.interrupted) {
                             audioSourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
                             audioSourcesRef.current.clear();
                             nextStartTimeRef.current = 0;
                         }
                     },
-                    onerror: (e: any) => {
-                        console.error('Live chat service error:', e);
-                        setConnectionState('error');
-                        setIsLive(false);
-                    },
-                    onclose: () => {
-                        console.log('Live Session Closed by Server');
-                        setConnectionState('idle');
-                        setIsLive(false);
-                    },
+                    onerror: (e: any) => { console.error('Live chat error:', e); setConnectionState('error'); stopLiveChat(); },
+                    onclose: () => { console.log('Live Session Closed'); setConnectionState('idle'); setIsLive(false); },
                 },
             });
         } catch (err) {
-            console.error('Failed to initiate live chat:', err);
+            console.error('Failed to start live chat:', err);
             setConnectionState('error');
             setIsLive(false);
         }
-    }, [isLive, agent.id, agent.voice, agent.systemPrompt, stopLiveChat, onTurnComplete]);
+    }, [isLive, agent.id, agent.voice, agent.systemPrompt, stopLiveChat, onTurnComplete, isSpeakerMuted]);
 
     return { isLive, connectionState, liveTranscript, startLiveChat, stopLiveChat };
 };
