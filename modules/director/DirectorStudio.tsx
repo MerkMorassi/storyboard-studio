@@ -5,7 +5,8 @@ import { MediaInput } from '../../components/MediaInput';
 import { 
     AnalyzerIcon, CameraLensIcon, ChatIcon, ImageIcon, ClapperboardIcon, 
     StoryboardIcon, PinIcon, BlenderIcon, LayersIcon, SwapIcon, 
-    PhotoRealismIcon, MagicIcon, FaceSparkleIcon, PuzzleIcon, ExpandIcon, ScissorsIcon, WandIcon, EditIcon
+    PhotoRealismIcon, MagicIcon, FaceSparkleIcon, PuzzleIcon, ExpandIcon, ScissorsIcon, WandIcon, EditIcon,
+    TransitionIcon, DollyIcon
 } from '../../components/icons';
 import { PlusIcon } from '../../components/icons/PlusIcon';
 import { analyzeImage, analyzeVideo } from './service';
@@ -265,22 +266,34 @@ ${result.composition}
                                     onClick={() => navigateTo('image-generator')}
                                 />
                                 <StudioCard 
-                                    title="Video Creator" 
-                                    description="Turn images into cinematic video clips using Wan 2.2."
-                                    icon={<ClapperboardIcon className="w-6 h-6"/>}
-                                    onClick={() => navigateTo('generative-video')}
-                                />
-                                <StudioCard 
-                                    title="Storyboard" 
-                                    description="Assemble your generated assets into a narrative sequence."
-                                    icon={<StoryboardIcon className="w-6 h-6"/>}
-                                    onClick={() => navigateTo('story')}
+                                    title="One-Shot Cinematic" 
+                                    description="Generate a single, high-quality cinematic shot with a pre-defined style from a simple prompt."
+                                    icon={<MagicIcon className="w-6 h-6"/>}
+                                    onClick={() => navigateTo('one-shot-cinematic')}
                                 />
                                 <StudioCard 
                                     title="UHD Generator" 
                                     description="Create massive 4K+ detailed renders for final assets."
                                     icon={<PhotoRealismIcon className="w-6 h-6"/>}
                                     onClick={() => navigateTo('photorealism')}
+                                />
+                                <StudioCard 
+                                    title="Video Creator" 
+                                    description="Turn images into cinematic video clips using Wan 2.2."
+                                    icon={<ClapperboardIcon className="w-6 h-6"/>}
+                                    onClick={() => navigateTo('generative-video')}
+                                />
+                                <StudioCard 
+                                    title="Wanimate Studio" 
+                                    description="Create continuous video by animating from a start frame to an optional end frame."
+                                    icon={<ClapperboardIcon className="w-6 h-6"/>}
+                                    onClick={() => navigateTo('wanimate-studio')}
+                                />
+                                <StudioCard 
+                                    title="Storyboard" 
+                                    description="Assemble your generated assets into a narrative sequence."
+                                    icon={<StoryboardIcon className="w-6 h-6"/>}
+                                    onClick={() => navigateTo('story')}
                                 />
                             </div>
                         </div>
@@ -289,6 +302,24 @@ ${result.composition}
                         <div>
                             <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-4 border-b border-neutral-800 pb-2">VFX & Post-Production</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                 <StudioCard 
+                                    title="Camera Dolly (LTX)"
+                                    description="Apply professional camera movements like dolly, crane, and pan to static images."
+                                    icon={<DollyIcon className="w-6 h-6"/>}
+                                    onClick={() => navigateTo('camera-movement')}
+                                />
+                                <StudioCard 
+                                    title="Camera Moves (ReCam)"
+                                    description="Apply simulated camera movements (orbit, pan, tilt) to existing video clips."
+                                    icon={<DollyIcon className="w-6 h-6"/>}
+                                    onClick={() => navigateTo('camera-moves')}
+                                />
+                                <StudioCard 
+                                    title="Transition Studio" 
+                                    description="Generate a smooth video transition between a start and end keyframe."
+                                    icon={<TransitionIcon className="w-6 h-6"/>}
+                                    onClick={() => navigateTo('transition-studio')}
+                                />
                                 <StudioCard 
                                     title="Blender" 
                                     description="Mix concepts and styles from multiple images."

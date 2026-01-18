@@ -1,8 +1,8 @@
-
 import { Agent, ImageState, GraphNode, GraphEdge, TripletEdge } from '../types.ts';
 
 export interface VectorRecord {
-  id: number | string;
+  // FIX: Changed id type from number | string to just string to align with types.ts and usage.
+  id: string;
   text: string;
   vector: number[];
   source: string;

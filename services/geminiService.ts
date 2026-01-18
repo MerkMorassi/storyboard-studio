@@ -1,6 +1,8 @@
 
 
 
+
+
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Content, Type, Modality, FunctionDeclaration } from "@google/genai";
 import { MythosData } from './mythosData';
 import { CONTENT_GUIDELINES } from './contentGuidelines';
@@ -80,6 +82,20 @@ export const mythosTools: FunctionDeclaration[] = [
                 caption: { type: Type.STRING, description: 'An optional caption to include with the media.' }
             },
             required: ['media_id']
+        }
+    },
+    {
+        name: 'lorepack_search',
+        description: "Searches the agent's private LOREPACK (lived experience, memory) to find context relevant to a user's query. Use this to answer questions about past events, specific knowledge, or personal history.",
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                query: {
+                    type: Type.STRING,
+                    description: "The user's question or topic to search for in the LOREPACK."
+                }
+            },
+            required: ['query']
         }
     }
 ];

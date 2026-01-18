@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { getGeminiApiKey, getHfApiKey, getTopazApiKey, getVoiceLabUrl, getDolphinUrl, getCinematicCoreUrl, getCameraDollyUrl, saveHfApiKey, saveTopazApiKey, saveVoiceLabUrl, saveDolphinUrl, saveCinematicCoreUrl, saveCameraDollyUrl } from '../services/apiKeyService';
 import { geminiClient } from './models/Gemini';
@@ -97,21 +96,27 @@ export const ModelSettingsStudio: React.FC = () => {
                     <h2 className="text-xl font-black text-white uppercase tracking-tight border-b border-neutral-800 pb-4 mb-4">External Services & Keys</h2>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* FIX: Changed FormField to wrap the input element to provide the required 'children' prop. */}
                         <FormField label="Hugging Face Access Token" description="Required for specialized GPU tasks (Flux, Video, Outpainting, Private Models).">
                             <input type={showKeys ? "text" : "password"} value={hfApiKey} onChange={e => setHfApiKey(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
+                        {/* FIX: Changed FormField to wrap the input element to provide the required 'children' prop. */}
                         <FormField label="Topaz Labs API Key" description="Required for professional-grade upscaling and video enhancement.">
                             <input type={showKeys ? "text" : "password"} value={topazApiKey} onChange={e => setTopazApiKey(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
+                        {/* FIX: Changed FormField to wrap the input element to provide the required 'children' prop. */}
                         <FormField label="Voice Lab URL (Chatterbox)">
                             <input type={showKeys ? "text" : "text"} value={voiceLabUrl} onChange={e => setVoiceLabUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
+                        {/* FIX: Changed FormField to wrap the input element to provide the required 'children' prop. */}
                         <FormField label="Mythos Dolphin URL">
                             <input type={showKeys ? "text" : "text"} value={dolphinUrl} onChange={e => setDolphinUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
+                        {/* FIX: Changed FormField to wrap the input element to provide the required 'children' prop. */}
                         <FormField label="MythOS Cinematic Core URL">
                             <input type={showKeys ? "text" : "text"} value={cinematicCoreUrl} onChange={e => setCinematicCoreUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
+                        {/* FIX: Changed FormField to wrap the input element to provide the required 'children' prop. */}
                         <FormField label="Camera Dolly (LTX) URL">
                             <input type={showKeys ? "text" : "text"} value={cameraDollyUrl} onChange={e => setCameraDollyUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>

@@ -1,6 +1,7 @@
 
-import { LoreEntry } from '../types.ts';
+import { LoreEntry, VectorRecord } from '../types.ts';
 import { getEmbeddings } from './geminiService'; // Use centralized service
+import { vectorDb } from './vectorDbService';
 
 // MYTHOS Local RAG Implementation
 // Uses IndexedDB for storage and Gemini text-embedding-004 for vectors.
@@ -217,6 +218,37 @@ function chunkText(text: string, targetSize = 600, overlap = 50): string[] {
     
     return chunks.filter(chunk => chunk.length > 0);
 }
+
+export const retrieveLivedExperience = async (agentId: string, query: string): Promise<{ text: string, sources: string[] } | null> => {
+    try {
+        const allVectors: VectorRecord[] = await vectorDb.getVectorsByAgent(agentId);
+        if (allVectors.length === 0) return null;
+
+        let contextText = "";
+        const sources = new Set<string>();
+
+        const queryVector = await getEmbedding(query);
+        if (!queryVector) return null;
+
+        const scored = allVectors.map(v => ({
+            ...v,
+            score: cosineSimilarity(queryVector, v.vector)
+        }));
+        
+        const relevant = scored.sort((a, b) => b.score - a.score).slice(0, 5).filter(v => v.score > 0.55);
+        if (relevant.length > 0) {
+            contextText += relevant.map(v => `[EXPERIENCE NODE: ${v.source}]\n${v.text}`).join('\n\n') + "\n\n";
+            relevant.forEach(v => sources.add(v.source));
+        }
+
+        if (!contextText.trim()) return null;
+        
+        return { text: contextText, sources: Array.from(sources) };
+    } catch (e) {
+        console.error("[LOREPACK] Retrieval Fault", e);
+        return null;
+    }
+};
 
 // --- Public API ---
 

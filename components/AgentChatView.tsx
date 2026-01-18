@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Agent } from '../services/agentService';
 import { Chat, Part, Content, GenerateContentResponse, GoogleGenAI } from '@google/genai';
@@ -20,6 +21,7 @@ import { generateImageSDXL } from '../services/huggingFaceService';
 import { blobToBase64 } from '../utils/imageUtils';
 import { factoryService as lorepackService } from '../services/lorepack';
 import { generateImageMCP } from '../services/gradioService';
+import { retrieveLivedExperience } from '../services/localRagService';
 
 interface AgentChatViewProps {
   agent: Agent;
@@ -51,38 +53,6 @@ const fileToPart = async (file: File): Promise<Part> => {
             data: base64
         }
     };
-};
-
-
-const retrieveLivedExperience = async (agentId: string, query: string): Promise<{ text: string, sources: string[] } | null> => {
-    try {
-        const allVectors = await vectorDb.getVectorsByAgent(agentId);
-        if (allVectors.length === 0) return null;
-
-        let contextText = "";
-        const sources = new Set<string>();
-
-        const queryVector = await getEmbeddings(query);
-        if (!queryVector) return null;
-
-        const scored = allVectors.map(v => ({
-            ...v,
-            score: cosineSimilarity(queryVector, v.vector)
-        })).sort((a, b) => b.score - a.score);
-        
-        const relevant = scored.slice(0, 5).filter(v => v.score > 0.55); // Increased threshold
-        if (relevant.length > 0) {
-            contextText += relevant.map(v => `[EXPERIENCE NODE: ${v.source}]\n${v.text}`).join('\n\n') + "\n\n";
-            relevant.forEach(v => sources.add(v.source));
-        }
-
-        if (!contextText.trim()) return null;
-        
-        return { text: contextText, sources: Array.from(sources) };
-    } catch (e) {
-        console.error("[LOREPACK] Retrieval Fault", e);
-        return null;
-    }
 };
 
 export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode = 'chat', onClose }) => {

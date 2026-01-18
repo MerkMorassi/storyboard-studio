@@ -1,8 +1,11 @@
 
+
 import { useState, useRef, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenAIBlob } from '@google/genai';
 import { Agent } from '../services/agentService';
 import { decode, decodeAudioData, encode } from '../utils/audio';
+import { mythosTools } from '../services/geminiService';
+import { retrieveLivedExperience } from '../services/localRagService';
 
 interface LiveTranscript {
     user: string;
@@ -92,14 +95,18 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
 
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
+            const systemInstructionWithTools = `${agent.systemPrompt}\n\nYou have access to your LOREPACK (memory). If you need to recall specific facts, events, or details about your history or knowledge, you MUST use the 'lorepack_search' tool to find relevant context before answering.`;
+
             // Fixed Model Name to 'gemini-2.5-flash-native-audio-preview-12-2025' for best reliability
-            // Removed inputAudioTranscription and outputAudioTranscription to prevent tokenizer errors
             sessionPromiseRef.current = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-12-2025',
                 config: {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: agent.voice || 'Kore' } } },
-                    systemInstruction: agent.systemPrompt,
+                    systemInstruction: systemInstructionWithTools,
+                    tools: [{ functionDeclarations: mythosTools }],
+                    outputAudioTranscription: {},
+                    inputAudioTranscription: {},
                 },
                 callbacks: {
                     onopen: () => {
@@ -157,6 +164,38 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
                             setLiveTranscript({ user: '', model: '' });
                         }
 
+                        // Handle tool calls
+                        if (message.toolCall) {
+                            const session = await sessionPromiseRef.current;
+                            if (!session) return;
+
+                            for (const fc of message.toolCall.functionCalls) {
+                                if (fc.name === 'lorepack_search' && fc.args.query) {
+                                    console.log('[Live Chat] LOREPACK Search triggered:', fc.args.query);
+                                    
+                                    const experience = await retrieveLivedExperience(agent.id, fc.args.query);
+                                    const context = experience ? experience.text : "No relevant experience found in LOREPACK for that query.";
+                                    
+                                    session.sendToolResponse({
+                                      functionResponses: {
+                                        id: fc.id,
+                                        name: fc.name,
+                                        response: { result: context },
+                                      }
+                                    });
+                                } else {
+                                     console.warn(`[Live Chat] Unhandled tool call: ${fc.name}`);
+                                     session.sendToolResponse({
+                                       functionResponses: {
+                                         id: fc.id,
+                                         name: fc.name,
+                                         response: { result: `Tool ${fc.name} is not implemented in this voice context.` },
+                                       }
+                                     });
+                                }
+                            }
+                        }
+
                         const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
                         if (base64Audio && outputAudioContextRef.current) {
                             const audioCtx = outputAudioContextRef.current;
@@ -198,7 +237,7 @@ export const useLiveChat = (agent: Agent, onTurnComplete?: (transcript: LiveTran
             setConnectionState('error');
             setIsLive(false);
         }
-    }, [isLive, agent.voice, agent.systemPrompt, stopLiveChat, onTurnComplete]);
+    }, [isLive, agent.id, agent.voice, agent.systemPrompt, stopLiveChat, onTurnComplete]);
 
     return { isLive, connectionState, liveTranscript, startLiveChat, stopLiveChat };
 };
