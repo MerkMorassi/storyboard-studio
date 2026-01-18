@@ -38,6 +38,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [generatedImages, setGeneratedImages] = useState<ImageState[]>([]);
     const [lastUsedSeed, setLastUsedSeed] = useState<string | undefined>();
+    const [progressMessage, setProgressMessage] = useState('');
     
     const [gridOverlay, setGridOverlay] = useState<any>('none');
     const [agentFilter, setAgentFilter] = useState('');
@@ -46,6 +47,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
         setIsLoading(true);
         setError(null);
         setGeneratedImages([]);
+        setProgressMessage('Initializing generation...');
 
         try {
             const imagePromises: Promise<ImageState>[] = [];
@@ -56,7 +58,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
             
             const isNsfw = nsfwKeywords.some(kw => options.prompt.toLowerCase().includes(kw));
             if (isNsfw) {
-                setError("NSFW prompt detected. Switching to specialized uncensored engine and refining prompt with Dolphin.");
+                setProgressMessage('NSFW prompt detected. Refining with Dolphin...');
                 finalEngine = 'mythos_sdxl';
                 finalPrompt = await refineNsfwPrompt(options.prompt, hfToken);
             }
@@ -68,6 +70,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                 const currentOptions: GenerationOptions = { ...options, prompt: finalPrompt, seed: String(seed) };
 
                 const generationPromise = (async () => {
+                    setProgressMessage(`Generating image ${i + 1} of ${numImages}...`);
                     let blob: Blob;
                     if (finalEngine === 'mythos_sdxl') {
                         const { width, height } = ((ar: string) => {
@@ -108,6 +111,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                 imagePromises.push(generationPromise);
             }
 
+            setProgressMessage(`Downloading ${numImages} generated images...`);
             const newImages = await Promise.all(imagePromises);
             setGeneratedImages(newImages);
             newImages.forEach(img => onAddAssetToGrid(img));
@@ -117,6 +121,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
             setError(e instanceof Error ? e.message : "An unknown error occurred during image generation.");
         } finally {
             setIsLoading(false);
+            setProgressMessage('');
         }
     };
 
@@ -146,6 +151,7 @@ export const ImageGeneratorStudio: React.FC<ImageGeneratorStudioProps> = ({
                     images={generatedImages}
                     isLoading={isLoading}
                     error={error}
+                    progressMessage={progressMessage}
                     onViewImage={() => {}} // This grid is for display only
                     gridOverlay={gridOverlay}
                     onGridOverlayChange={setGridOverlay}

@@ -15,7 +15,7 @@ interface SimpleCinematicStudioProps {
 }
 
 // --- Hardcoded Generation Parameters ---
-const POSITIVE_PROMPT = "balanced studio lighting, professional exposure, (35mm lens:1.2), natural depth of field, storytelling lens, (eye level shot:1.0), neutral perspective, (extreme long shot:1.4), (establishing shot:1.2), wide view, masterpiece, high fidelity, highly detailed technical photography, award winning cinematography, movie still";
+const POSITIVE_PROMPT_SUFFIX = "balanced studio lighting, professional exposure, (35mm lens:1.2), natural depth of field, storytelling lens, (eye level shot:1.0), neutral perspective, (extreme long shot:1.4), (establishing shot:1.2), wide view, masterpiece, high fidelity, highly detailed technical photography, award winning cinematography, movie still";
 const NEGATIVE_PROMPT = "blurry, low quality, distortion, illustration, painting, cartoon, low resolution, bad anatomy, blurry, low quality, text, watermark, bad anatomy, deformed, sketch, cartoon, 3d render, illustration";
 const WIDTH = 1536;
 const HEIGHT = 640;
@@ -29,6 +29,9 @@ export const SimpleCinematicStudio: React.FC<SimpleCinematicStudioProps> = ({
     onAddToInspiration,
     project
 }) => {
+    // State for user input
+    const [userPrompt, setUserPrompt] = useState('');
+
     // State for loading, error, and the generated image
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -38,6 +41,11 @@ export const SimpleCinematicStudio: React.FC<SimpleCinematicStudioProps> = ({
     const [progress, setProgress] = useState('');
 
     const handleGenerate = async () => {
+        if (!userPrompt.trim()) {
+            setError("Please enter a prompt to describe the shot.");
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
         setWakingError(null);
@@ -45,12 +53,14 @@ export const SimpleCinematicStudio: React.FC<SimpleCinematicStudioProps> = ({
         setMetadata(null);
         setProgress('Connecting to MythOS Cinematic Engine...');
 
+        const finalPrompt = `${userPrompt.trim()}, ${POSITIVE_PROMPT_SUFFIX}`;
+
         try {
             const seed = Math.floor(Math.random() * 2147483647);
             setProgress('Developing cinematic shot...');
 
             const blob = await generateImageSDXL({
-                prompt: POSITIVE_PROMPT,
+                prompt: finalPrompt,
                 negative_prompt: NEGATIVE_PROMPT,
                 width: WIDTH,
                 height: HEIGHT,
@@ -76,7 +86,8 @@ export const SimpleCinematicStudio: React.FC<SimpleCinematicStudioProps> = ({
 
             const meta = {
                 engine: 'MythOS One Shot Generator',
-                prompt: POSITIVE_PROMPT,
+                prompt: finalPrompt,
+                user_prompt: userPrompt,
                 negative_prompt: NEGATIVE_PROMPT,
                 seed: seed,
                 width: WIDTH,
@@ -109,13 +120,20 @@ export const SimpleCinematicStudio: React.FC<SimpleCinematicStudioProps> = ({
         <div className="p-6 max-w-4xl mx-auto w-full h-full flex flex-col items-center justify-center space-y-8">
             <div className="text-center">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">One Shot Cinematic Generator</h2>
-                <p className="text-neutral-400">One-click generation using a pre-defined cinematic prompt at a 2.39:1 aspect ratio.</p>
+                <p className="text-neutral-400">Describe a scene, and the engine will apply a pre-defined cinematic style at a 2.39:1 aspect ratio.</p>
             </div>
 
             <div className="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl p-8 flex flex-col items-center gap-6">
+                <textarea
+                    value={userPrompt}
+                    onChange={(e) => setUserPrompt(e.target.value)}
+                    placeholder="Describe your cinematic shot... e.g., 'a lone astronaut standing on a desolate red planet, looking at a distant blue nebula'"
+                    className="w-full h-24 bg-neutral-900 border border-neutral-600 p-4 rounded-xl text-neutral-200 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                    disabled={isLoading}
+                />
                 <button
                     onClick={handleGenerate}
-                    disabled={isLoading}
+                    disabled={isLoading || !userPrompt.trim()}
                     className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-lg"
                 >
                     {isLoading ? (

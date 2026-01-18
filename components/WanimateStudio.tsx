@@ -56,6 +56,21 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
     const [progress, setProgress] = useState('');
     const videoRef = useRef<HTMLVideoElement>(null);
 
+    const handleUpload = (type: 'start' | 'end', file: File) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const result = e.target?.result as string;
+            const mimeType = result.split(',')[0].split(':')[1].split(';')[0];
+            const base64 = result.split(',')[1];
+            if (type === 'start') {
+                onStateUpdate({ ...state, inputImage: { base64, mimeType } });
+            } else {
+                onStateUpdate({ ...state, lastImage: { base64, mimeType } });
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
     const handleGenerate = async () => {
         if (!state.inputImage) {
             setError("Input Image is required.");
@@ -71,7 +86,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
             
             const payload: any = {
                 input_image: await base64ToBlob(state.inputImage.base64, state.inputImage.mimeType),
-                last_image: state.lastImage ? await base64ToBlob(state.lastImage.base64, state.lastImage.mimeType) : null,
+                last_image: state.lastImage ? await base64ToBlob(state.lastImage.base64, state.lastImage.mimeType) : await base64ToBlob(state.inputImage.base64, state.inputImage.mimeType),
                 prompt: state.prompt,
                 steps: state.steps,
                 negative_prompt: state.negativePrompt,
@@ -91,6 +106,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
             const result = await client.predict("/generate_video", payload);
             
             if (result.data?.[0]?.url) {
+                setProgress('Downloading result...');
                 onStateUpdate({ ...state, resultUrl: result.data[0].url });
             } else {
                 throw new Error("API did not return a valid video URL.");
@@ -100,6 +116,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
             setError(e instanceof Error ? e.message : "An unknown error occurred.");
         } finally {
             setIsLoading(false);
+            setProgress('');
         }
     };
 
@@ -206,7 +223,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
                          {isLoading ? (
                             <div className="text-center text-neutral-400">
                                 <LoadingSpinner className="w-12 h-12 mx-auto mb-4" />
-                                <p>{progress}</p>
+                                <p className="font-mono text-sm animate-pulse">{progress}</p>
                             </div>
                         ) : state.resultUrl ? (
                             <video ref={videoRef} src={state.resultUrl} controls autoPlay loop className="max-w-full max-h-full" crossOrigin="anonymous" />
@@ -251,8 +268,4 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
             </div>
         </div>
     )
-}
-
-const handleUpload = (type: 'start' | 'end', file: File) => {
-    // This is defined inside WanimateStudio, just a placeholder to satisfy the new nested component
 };

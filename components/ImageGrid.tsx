@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { LoadingSpinner, BasicGridOverlay, TriadicGridOverlay, BasicGoldenRatioGridOverlay, TriadicGoldenRatioGridOverlay, EditIcon, AddToStoryIcon, PinIcon, DownloadIcon, UpscaleIcon, CharacterIcon, AutomationIcon, VideoIcon } from './icons.tsx';
 import { GridOverlayType, ImageState, Agent } from '../types.ts';
@@ -9,6 +11,7 @@ interface ImageGridProps {
   images: ImageState[];
   isLoading: boolean;
   error: string | null;
+  progressMessage?: string;
   onViewImage: (image: ImageState) => void;
   gridOverlay: GridOverlayType;
   onGridOverlayChange: (type: GridOverlayType) => void;
@@ -128,12 +131,12 @@ const AssignAgentControl: React.FC<{
     );
 };
 
-export const ImageGrid: React.FC<ImageGridProps> = ({ images, isLoading, error, onViewImage, gridOverlay, onGridOverlayChange, onEditImage, onAddToStoryboard, onAddToInspiration, onUpscaleImage, agents, onAssignAgentToImage, onCreateAgent, agentFilter, onAgentFilterChange, awaitingExternalGeneration, showGridSelectors = true }) => {
+export const ImageGrid: React.FC<ImageGridProps> = ({ images, isLoading, error, progressMessage, onViewImage, gridOverlay, onGridOverlayChange, onEditImage, onAddToStoryboard, onAddToInspiration, onUpscaleImage, agents, onAssignAgentToImage, onCreateAgent, agentFilter, onAgentFilterChange, awaitingExternalGeneration, showGridSelectors = true }) => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
         <LoadingSpinner />
-        <p className="mt-4 text-lg text-neutral-300 animate-pulse">Generating your masterpieces...</p>
+        <p className="mt-4 text-lg text-neutral-300 animate-pulse">{progressMessage || 'Generating your masterpieces...'}</p>
       </div>
     );
   }
