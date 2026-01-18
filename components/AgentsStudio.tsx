@@ -1,10 +1,12 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Agent, ImageState } from '../types.ts';
-import { CloseIcon, PhoneIcon, AutomationIcon } from './icons.tsx';
+import { CloseIcon, PhoneIcon, AutomationIcon, MagicIcon, ScriptIcon, ImageIcon, CameraLensIcon, SpeakerIcon } from './icons.tsx';
 import { TrashIcon } from './icons/TrashIcon';
 import { UploadIcon } from './icons/UploadIcon';
 import { getAvailableVoices } from '../services/agentService';
 import { UserIcon } from './icons/UserIcon.tsx';
+import { PencilIcon } from './icons/PencilIcon.tsx';
 
 interface RosterStudioProps {
     agents: Agent[];
@@ -33,8 +35,10 @@ const ProfileModal: React.FC<{
     const [narrativeRole, setNarrativeRole] = useState(agent.narrativeRole || '');
     const [systemPrompt, setSystemPrompt] = useState(agent.systemPrompt || '');
     const [voice, setVoice] = useState(agent.voice || 'Kore');
+    const [voiceReference, setVoiceReference] = useState(agent.voiceReference || '');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const voiceSeedInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         setName(agent.name);
@@ -42,13 +46,25 @@ const ProfileModal: React.FC<{
         setNarrativeRole(agent.narrativeRole || '');
         setSystemPrompt(agent.systemPrompt || '');
         setVoice(agent.voice || 'Kore');
+        setVoiceReference(agent.voiceReference || '');
     }, [agent]);
 
     const handleSave = () => {
         onSave({
-            name, bio, narrativeRole, systemPrompt, voice
+            name, bio, narrativeRole, systemPrompt, voice, voiceReference
         });
         setIsEditing(false);
+    };
+
+    const handleVoiceSeedUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setVoiceReference(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const title = 'Agent Configuration';
@@ -146,6 +162,23 @@ const ProfileModal: React.FC<{
                                         {getAvailableVoices().map(v => <option key={v.name} value={v.name}>{v.label}</option>)}
                                     </select>
                                 </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Voice Seed (Reference Audio)</label>
+                                    <div className="bg-neutral-800 p-3 rounded-lg">
+                                        {voiceReference ? (
+                                            <div className="flex flex-col gap-3">
+                                                <audio controls src={voiceReference} className="w-full h-10" />
+                                                <button type="button" onClick={() => setVoiceReference('')} className="text-xs text-red-400 hover:text-red-300 font-bold self-end">Remove Seed</button>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-neutral-500">No voice reference uploaded.</p>
+                                        )}
+                                        <button type="button" onClick={() => voiceSeedInputRef.current?.click()} className="mt-3 w-full text-center bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-bold py-2 rounded">
+                                            Upload New Seed (.wav, .mp3)
+                                        </button>
+                                        <input ref={voiceSeedInputRef} type="file" accept="audio/*" onChange={handleVoiceSeedUpload} className="hidden" />
+                                    </div>
+                                </div>
                                 <div className="pt-4 flex justify-end">
                                     <button onClick={handleSave} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg">{saveButtonText}</button>
                                 </div>
@@ -170,6 +203,14 @@ const ProfileModal: React.FC<{
                                         <span className="text-neutral-400 font-mono text-xs truncate">{agent.id}</span>
                                     </div>
                                 </div>
+                                 <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
+                                    <h4 className="text-xs font-bold text-neutral-500 uppercase mb-3 tracking-widest">Voice Seed</h4>
+                                    {agent.voiceReference ? (
+                                        <audio controls src={agent.voiceReference} className="w-full h-10" />
+                                    ) : (
+                                        <p className="text-sm text-neutral-500 italic">No voice reference on file.</p>
+                                    )}
+                                </div>
                            </div>
                         )}
                     </div>
@@ -179,6 +220,20 @@ const ProfileModal: React.FC<{
     );
 };
 
+const getAgentIcon = (agent: Agent): React.ComponentType<{ className?: string }> => {
+    switch (agent.id) {
+        case 'agent-exec': return UserIcon; // Executive
+        case 'agent-core': return AutomationIcon;
+        case 'agent-ideation': return MagicIcon;
+        case 'agent-scripting': return ScriptIcon;
+        case 'agent-design': return PencilIcon;
+        case 'agent-art': return ImageIcon;
+        case 'agent-dop': return CameraLensIcon;
+        case 'agent-audio': return SpeakerIcon;
+        default: return UserIcon; // Fallback for custom agents
+    }
+};
+
 const CastingCard: React.FC<{
     agent: Agent;
     images: ImageState[];
@@ -186,14 +241,16 @@ const CastingCard: React.FC<{
     onDelete: () => void;
     onCall: () => void;
 }> = ({ agent, images, onClick, onDelete, onCall }) => {
+    const Icon = getAgentIcon(agent);
+
     return (
         <div className="group relative bg-neutral-800 rounded-lg overflow-hidden border border-neutral-700 shadow-sm hover:shadow-xl transition-all cursor-pointer hover:-translate-y-1" onClick={onClick}>
             <div className="aspect-[3/4] bg-neutral-900 relative">
                 {agent.avatar ? (
                     <img src={agent.avatar} alt={agent.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-neutral-700">
-                        <UserIcon className="w-20 h-20" />
+                    <div className="w-full h-full flex items-center justify-center text-neutral-700 group-hover:text-blue-400 transition-colors">
+                        <Icon className="w-20 h-20" />
                     </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
@@ -298,7 +355,6 @@ export const AgentsStudio: React.FC<RosterStudioProps> = ({ agents, onCreateEnti
             {selectedAgent && (
                 <ProfileModal 
                     agent={selectedAgent}
-                    // FIX: Removed invalid `rosterType` prop from ProfileModal call.
                     assignedImages={selectedAgent.media || []}
                     onClose={() => setSelectedAgent(null)}
                     onSave={(updated) => onUpdateEntity(selectedAgent.id, updated)}

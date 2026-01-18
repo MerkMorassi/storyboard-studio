@@ -17,9 +17,6 @@ interface ErrorBoundaryState {
 /**
  * ErrorBoundary component to catch and display critical rendering errors.
  */
-// FIX: Extended `Component` directly instead of `React.Component` to match the named import.
-// FIX: Added 'extends Component<...>' to make this a proper React component.
-// FIX: The `ErrorBoundary` class must extend `Component` to be a valid React class component and have access to `this.props` and `this.setState`.
 // FIX: The `ErrorBoundary` class must extend `Component` to be a valid React class component. This provides access to `this.props` and `this.setState`, resolving the errors.
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = {
@@ -38,8 +35,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     // Log the error for diagnostic purposes.
     console.error("Uncaught error in ErrorBoundary:", error, errorInfo);
 
-    // This will now correctly be recognized as a method on the component instance.
     // FIX: `this.setState` is now available because the class correctly extends React's `Component`.
+    // This will now correctly be recognized as a method on the component instance.
     this.setState({
       errorInfo: errorInfo,
     });

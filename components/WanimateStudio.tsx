@@ -181,36 +181,36 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
                         <ImageInput title="Start Frame" image={state.inputImage} onUpload={(f) => handleUpload('start', f)} onClear={() => onStateUpdate({...state, inputImage: null})} />
                         <ImageInput title="End Frame (Optional)" image={state.lastImage} onUpload={(f) => handleUpload('end', f)} onClear={() => onStateUpdate({...state, lastImage: null})} />
                     </div>
-                    {/* FIX: Changed Control to wrap the textarea element. */}
+                    {/* FIX: Wrapped the textarea element in the Control component. */}
                     <Control label="Prompt">
                         <textarea value={state.prompt} onChange={(e) => onStateUpdate({ ...state, prompt: e.target.value })} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" rows={3} />
                     </Control>
-                    {/* FIX: Changed Control to wrap the textarea element. */}
+                    {/* FIX: Wrapped the textarea element in the Control component. */}
                     <Control label="Negative Prompt">
                         <textarea value={state.negativePrompt} onChange={(e) => onStateUpdate({ ...state, negativePrompt: e.target.value })} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" rows={2} />
                     </Control>
                     <div className="grid grid-cols-2 gap-4">
-                        {/* FIX: Changed Control to wrap the input element. */}
+                        {/* FIX: Wrapped the input element in the Control component. */}
                         <Control label="Steps" value={state.steps}><input type="range" min="1" max="25" value={state.steps} onChange={e => onStateUpdate({...state, steps: parseInt(e.target.value)})} className="w-full" /></Control>
-                        {/* FIX: Changed Control to wrap the input element. */}
+                        {/* FIX: Wrapped the input element in the Control component. */}
                         <Control label="Duration (s)" value={state.durationSeconds}><input type="range" min="1" max="10" step="0.5" value={state.durationSeconds} onChange={e => onStateUpdate({...state, durationSeconds: parseFloat(e.target.value)})} className="w-full" /></Control>
-                        {/* FIX: Changed Control to wrap the input element. */}
+                        {/* FIX: Wrapped the input element in the Control component. */}
                         <Control label="Guidance (High)" value={state.guidanceScale}><input type="range" min="0" max="10" step="0.5" value={state.guidanceScale} onChange={e => onStateUpdate({...state, guidanceScale: parseFloat(e.target.value)})} className="w-full" /></Control>
-                        {/* FIX: Changed Control to wrap the input element. */}
+                        {/* FIX: Wrapped the input element in the Control component. */}
                         <Control label="Guidance (Low)" value={state.guidanceScale2}><input type="range" min="0" max="10" step="0.5" value={state.guidanceScale2} onChange={e => onStateUpdate({...state, guidanceScale2: parseFloat(e.target.value)})} className="w-full" /></Control>
-                        {/* FIX: Changed Control to wrap the input element. */}
+                        {/* FIX: Wrapped the input element in the Control component. */}
                         <Control label="Quality" value={state.quality}><input type="range" min="1" max="10" step="1" value={state.quality} onChange={e => onStateUpdate({...state, quality: parseInt(e.target.value)})} className="w-full" /></Control>
-                        {/* FIX: Changed Control to wrap the input element. */}
+                        {/* FIX: Wrapped the input element in the Control component. */}
                         <Control label="Flow Shift" value={state.flowShift}><input type="range" min="0" max="10" step="1" value={state.flowShift} onChange={e => onStateUpdate({...state, flowShift: parseInt(e.target.value)})} className="w-full" /></Control>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        {/* FIX: Changed Control to wrap the select element. */}
+                        {/* FIX: Wrapped the select element in the Control component. */}
                          <Control label="Scheduler">
                             <select value={state.scheduler} onChange={e => onStateUpdate({...state, scheduler: e.target.value as WanimateState['scheduler']})} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm">
                                 <option>UniPCMultistep</option><option>DPM++ 2M SDE Karras</option><option>DPM++ 2M Karras</option><option>Euler a</option>
                             </select>
                         </Control>
-                        {/* FIX: Changed Control to wrap the select element. */}
+                        {/* FIX: Wrapped the select element in the Control component. */}
                         <Control label="FPS">
                              <select value={state.frameMultiplier} onChange={e => onStateUpdate({...state, frameMultiplier: e.target.value as WanimateState['frameMultiplier']})} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm">
                                 <option value="16">16</option><option value="24">24</option><option value="30">30</option>
@@ -218,7 +218,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
                         </Control>
                     </div>
                     <div>
-                        {/* FIX: Changed Control to wrap the div containing the input. */}
+                        {/* FIX: Wrapped the div containing the input in the Control component. */}
                         <Control label="Seed">
                             <div className="flex items-center gap-2">
                                 <input type="number" value={state.seed} onChange={e => onStateUpdate({...state, seed: parseInt(e.target.value), randomizeSeed: false})} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" disabled={state.randomizeSeed} />

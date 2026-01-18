@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ActiveView } from '../types.ts';
 import { 
@@ -65,6 +67,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
 
     { id: 'header-audio', type: 'header', label: 'Audio' },
     { id: 'voice-lab', type: 'link', label: 'Voice Lab', view: 'voice-lab', icon: SpeakerIcon },
+    { id: 'dubbing-studio', type: 'link', label: 'Dubbing Studio', view: 'dubbing-studio', icon: SpeakerIcon },
 
     { id: 'header-assets', type: 'header', label: 'Assets' },
     { id: 'grid', type: 'link', label: 'Project Vault', view: 'grid', icon: GridIcon },

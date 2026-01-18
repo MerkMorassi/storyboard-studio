@@ -1,4 +1,3 @@
-
 // Keys for LocalStorage
 const TOPAZ_API_KEY_STORAGE_KEY = 'mythos_topaz_v2';
 const HF_API_KEY_STORAGE_KEY = 'mythos_hf_v2';
@@ -27,13 +26,9 @@ const getEnvValue = (key: string): string | null => {
 };
 
 // --- GEMINI ---
-// FIX: Removed saveGeminiApiKey as per guidelines to not allow user-input keys.
-// The API key must be provided via environment variables.
-
+// Per guidelines, Gemini API key is *exclusively* from the environment.
+// No saving to localStorage is permitted.
 export const getGeminiApiKey = (): string | null => {
-    // FIX: Per guidelines, API key MUST be obtained exclusively from `process.env.API_KEY`.
-    // The vite.config.ts file defines this environment variable for the browser.
-    // Local storage and other env vars are not permitted as a source.
     const apiKey = process.env.API_KEY;
     if (apiKey && apiKey.trim() !== '') {
         return apiKey.trim();
@@ -188,6 +183,7 @@ export const getCameraDollyUrl = (): string => {
         return "https://prithivmlmods-ltx-2-loras-camera-control-dolly.hf.space/";
     }
 };
+
 
 export const hasCriticalKeys = (): boolean => {
     return !!getGeminiApiKey();

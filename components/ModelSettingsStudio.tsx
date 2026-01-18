@@ -24,7 +24,8 @@ export const ModelSettingsStudio: React.FC = () => {
     const [isScanning, setIsScanning] = useState(false);
     const [scanError, setScanError] = useState<string | null>(null);
 
-    const geminiKeyStatus = getGeminiApiKey();
+    // NEW: state for key validation
+    const [geminiKeyValidation, setGeminiKeyValidation] = useState<'validating' | 'valid' | 'invalid'>('validating');
 
     // Load current settings on component mount
     useEffect(() => {
@@ -34,6 +35,18 @@ export const ModelSettingsStudio: React.FC = () => {
         setDolphinUrl(getDolphinUrl() || '');
         setCinematicCoreUrl(getCinematicCoreUrl() || '');
         setCameraDollyUrl(getCameraDollyUrl() || '');
+
+        const validateKey = async () => {
+            const key = getGeminiApiKey();
+            if (key) {
+                const isValid = await geminiClient.checkConnection(key);
+                setGeminiKeyValidation(isValid ? 'valid' : 'invalid');
+            } else {
+                setGeminiKeyValidation('invalid');
+            }
+        };
+        validateKey();
+
     }, []);
 
     const handleScanModels = async () => {
@@ -41,14 +54,16 @@ export const ModelSettingsStudio: React.FC = () => {
         setScanError(null);
         setGeminiModels([]);
         
-        if (!geminiKeyStatus) {
+        const geminiKey = getGeminiApiKey();
+
+        if (!geminiKey) {
             setScanError("Gemini API Key is not configured in your environment. Cannot scan for models.");
             setIsScanning(false);
             return;
         }
 
         try {
-            const models = await geminiClient.listModels(geminiKeyStatus);
+            const models = await geminiClient.listModels(geminiKey);
             setGeminiModels(models);
         } catch (error) {
             console.error("Failed to fetch Gemini models:", error);
@@ -80,6 +95,42 @@ export const ModelSettingsStudio: React.FC = () => {
             {description && <p className="text-[10px] text-neutral-600 mt-2 italic px-1">{description}</p>}
         </div>
     );
+    
+    const renderGeminiKeyStatus = () => {
+        switch (geminiKeyValidation) {
+            case 'validating':
+                return (
+                    <div className="p-4 rounded-lg border flex items-center justify-between bg-yellow-900/20 border-yellow-500/30">
+                        <div className="flex items-center gap-2">
+                             <LoadingSpinner className="w-5 h-5 text-yellow-400"/>
+                             <span className="text-xs font-bold uppercase tracking-wider">Validating Key...</span>
+                        </div>
+                        <span className="text-[10px] text-neutral-500 font-mono">from .env</span>
+                    </div>
+                );
+            case 'valid':
+                 return (
+                    <div className="p-4 rounded-lg border flex items-center justify-between bg-green-900/20 border-green-500/30">
+                        <div className="flex items-center gap-2">
+                             <CheckIcon className="w-5 h-5 text-green-400"/>
+                             <span className="text-xs font-bold uppercase tracking-wider">API Key Valid</span>
+                        </div>
+                        <span className="text-[10px] text-neutral-500 font-mono">from .env</span>
+                    </div>
+                );
+            case 'invalid':
+            default:
+                return (
+                    <div className="p-4 rounded-lg border flex items-center justify-between bg-red-900/20 border-red-500/30">
+                        <div className="flex items-center gap-2">
+                             <WarningIcon className="w-5 h-5 text-red-400"/>
+                             <span className="text-xs font-bold uppercase tracking-wider">API Key Invalid or Missing</span>
+                        </div>
+                        <span className="text-[10px] text-neutral-500 font-mono">from .env</span>
+                    </div>
+                );
+        }
+    };
 
     return (
         <div className="p-8 max-w-7xl mx-auto w-full h-full overflow-y-auto space-y-10 custom-scrollbar">
@@ -138,17 +189,11 @@ export const ModelSettingsStudio: React.FC = () => {
                 {/* Right Column: Gemini */}
                 <div className="lg:col-span-1 bg-neutral-900/50 border border-neutral-800 rounded-2xl p-8 space-y-6 shadow-2xl">
                     <h2 className="text-xl font-black text-white uppercase tracking-tight border-b border-neutral-800 pb-4 mb-4">Google Gemini</h2>
-                    <div className={`p-4 rounded-lg border flex items-center justify-between ${geminiKeyStatus ? 'bg-green-900/20 border-green-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
-                        <div className="flex items-center gap-2">
-                             {geminiKeyStatus ? <CheckIcon className="w-5 h-5 text-green-400"/> : <WarningIcon className="w-5 h-5 text-red-400"/>}
-                             <span className="text-xs font-bold uppercase tracking-wider">{geminiKeyStatus ? 'API Key Loaded' : 'API Key Missing'}</span>
-                        </div>
-                        <span className="text-[10px] text-neutral-500 font-mono">from .env</span>
-                    </div>
+                    {renderGeminiKeyStatus()}
 
                     <div>
                         <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-3">Available Models</h3>
-                        <button onClick={handleScanModels} disabled={isScanning || !geminiKeyStatus} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-lg text-sm transition-all border border-neutral-700 disabled:opacity-50">
+                        <button onClick={handleScanModels} disabled={isScanning || geminiKeyValidation !== 'valid'} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-lg text-sm transition-all border border-neutral-700 disabled:opacity-50">
                             {isScanning ? <LoadingSpinner className="w-5 h-5"/> : <WandIcon className="w-5 h-5"/>}
                             Scan for Models
                         </button>
@@ -178,9 +223,9 @@ export const ModelSettingsStudio: React.FC = () => {
                             </table>
                         )}
                         {!isScanning && !scanError && geminiModels.length === 0 && (
-                            <div className="text-center text-xs text-neutral-600 py-10">
+                             <div className="text-center text-xs text-neutral-600 py-10">
                                 <DatabaseIcon className="w-8 h-8 mx-auto mb-2"/>
-                                Model list will appear here after scanning.
+                                {geminiKeyValidation === 'valid' ? 'Model list will appear here after scanning.' : 'A valid API key is required to scan for models.'}
                             </div>
                         )}
                     </div>

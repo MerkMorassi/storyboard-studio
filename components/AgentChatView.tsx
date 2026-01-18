@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Agent } from '../services/agentService';
 import { Chat, Part, Content, GenerateContentResponse, GoogleGenAI } from '@google/genai';
@@ -119,18 +120,35 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode
   const stopAudio = useCallback((messageId: string) => { /* ... */ }, []);
   const handleGenerateAudio = async (textToSpeak: string, messageId: string) => { /* ... */ };
 
-  const handleEngineSwitch = (newEngine: ModelEngine) => {
-    if (newEngine === engine) return;
-
-    setEngine(newEngine);
-
-    const messageText = `[System Notification: AI core has been switched to the ${newEngine.toUpperCase()} engine for the next interaction.]`;
-    
+  const addSystemNotification = (text: string) => {
     setChatHistory(prev => [...prev, {
         id: `system-${Date.now()}`,
         role: 'model', 
-        parts: [{ text: messageText }]
+        parts: [{ text: `[System Notification: ${text}]` }]
     }]);
+  };
+
+  const handleEngineSwitch = async (newEngine: ModelEngine) => {
+    if (newEngine === engine) return;
+
+    if (newEngine === 'dolphin') {
+        const hfToken = getHfApiKey();
+        if (!hfToken) {
+            addSystemNotification("Cannot switch to Dolphin: Hugging Face API Token is not configured in System Settings.");
+            return;
+        }
+    }
+
+    if (newEngine === 'gemini') {
+        const geminiKey = getGeminiApiKey();
+        if (!geminiKey) {
+            addSystemNotification("Cannot switch to Gemini: Gemini API Key is not configured in your environment.");
+            return;
+        }
+    }
+
+    setEngine(newEngine);
+    addSystemNotification(`AI core has been switched to the ${newEngine.toUpperCase()} engine for the next interaction.`);
   };
   
     const handleToggleCallView = () => {

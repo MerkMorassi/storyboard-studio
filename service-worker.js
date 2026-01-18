@@ -75,6 +75,7 @@ const urlsToCache = [
   '/components/FramePreview.tsx',
   '/components/AgentForm.tsx',
   '/components/ReEngineeredPrompt.tsx',
+  '/components/DubbingStudio.tsx',
   '/modules/director/DirectorStudio.tsx',
   '/modules/director/service.ts',
   '/hooks/useLiveChat.ts',
