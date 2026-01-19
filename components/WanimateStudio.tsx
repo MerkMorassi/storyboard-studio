@@ -1,8 +1,8 @@
 
-
 import React, { useState, useRef } from 'react';
 import { WanimateState } from '../types';
-import { LoadingSpinner, ClapperboardIcon, CameraLensIcon, RefreshCwIcon } from './icons';
+// FIX: Added missing import for RefreshCwIcon.
+import { LoadingSpinner, ClapperboardIcon, CameraLensIcon, RefreshCwIcon, ChevronDownIcon } from './icons';
 import { AssetActions } from './AssetActions';
 import { getGradioClient } from '../services/gradioService';
 import { extractFramesFromVideo } from '../utils/video';
@@ -50,7 +50,7 @@ const ImageInput: React.FC<{
     );
 }
 
-// FIX: Added the Control component to wrap form elements consistently.
+// FIX: Defined the Control component which was used but not defined, causing multiple errors.
 const Control = ({ label, value, children }: { label: string, value?: string|number, children: React.ReactNode }) => (
     <div>
         <div className="flex justify-between items-center mb-1">
@@ -66,6 +66,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
     const [isExtracting, setIsExtracting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState('');
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
 
     const handleUpload = (type: 'start' | 'end', file: File) => {
@@ -174,7 +175,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
     return (
         <div className="p-6 max-w-7xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
             <div>
-                <h2 className="text-3xl font-bold text-neutral-200 mb-2">Wanimate Studio <span className="text-sm font-normal text-neutral-500 bg-surface px-2 py-1 rounded ml-2">Wan 2.2 I2V</span></h2>
+                <h2 className="text-3xl font-bold text-neutral-200 mb-2">Wanimate Sequencer <span className="text-sm font-normal text-neutral-500 bg-surface px-2 py-1 rounded ml-2">Wan 2.2 I2V</span></h2>
                 <p className="text-neutral-400">Generate continuous video sequences by chaining generations from start to end frames.</p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-grow">
@@ -184,41 +185,52 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
                         <ImageInput title="Start Frame" image={state.inputImage} onUpload={(f) => handleUpload('start', f)} onClear={() => onStateUpdate({...state, inputImage: null})} />
                         <ImageInput title="End Frame (Optional)" image={state.lastImage} onUpload={(f) => handleUpload('end', f)} onClear={() => onStateUpdate({...state, lastImage: null})} />
                     </div>
-                    {/* FIX: Refactored to use the Control component for proper structure and to fix errors. */}
                     <Control label="Prompt">
                         <textarea value={state.prompt} onChange={(e) => onStateUpdate({ ...state, prompt: e.target.value })} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" rows={3} />
                     </Control>
                     <Control label="Negative Prompt">
                         <textarea value={state.negativePrompt} onChange={(e) => onStateUpdate({ ...state, negativePrompt: e.target.value })} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" rows={2} />
                     </Control>
-                    <div className="grid grid-cols-2 gap-4">
-                        <Control label="Steps" value={state.steps}><input type="range" min="1" max="25" value={state.steps} onChange={e => onStateUpdate({...state, steps: parseInt(e.target.value)})} className="w-full" /></Control>
-                        <Control label="Duration (s)" value={state.durationSeconds}><input type="range" min="1" max="10" step="0.5" value={state.durationSeconds} onChange={e => onStateUpdate({...state, durationSeconds: parseFloat(e.target.value)})} className="w-full" /></Control>
-                        <Control label="Guidance (High)" value={state.guidanceScale}><input type="range" min="0" max="10" step="0.5" value={state.guidanceScale} onChange={e => onStateUpdate({...state, guidanceScale: parseFloat(e.target.value)})} className="w-full" /></Control>
-                        <Control label="Guidance (Low)" value={state.guidanceScale2}><input type="range" min="0" max="10" step="0.5" value={state.guidanceScale2} onChange={e => onStateUpdate({...state, guidanceScale2: parseFloat(e.target.value)})} className="w-full" /></Control>
-                        <Control label="Quality" value={state.quality}><input type="range" min="1" max="10" step="1" value={state.quality} onChange={e => onStateUpdate({...state, quality: parseInt(e.target.value)})} className="w-full" /></Control>
-                        <Control label="Flow Shift" value={state.flowShift}><input type="range" min="0" max="10" step="1" value={state.flowShift} onChange={e => onStateUpdate({...state, flowShift: parseInt(e.target.value)})} className="w-full" /></Control>
+                    
+                    <div className="pt-4 border-t border-accent">
+                        <button onClick={() => setShowAdvanced(!showAdvanced)} className="flex items-center gap-2 text-xs font-bold text-neutral-400 hover:text-white uppercase tracking-wider w-full justify-between">
+                            <span>Advanced Settings</span>
+                            <ChevronDownIcon className={`w-5 h-5 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                        </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                         <Control label="Scheduler">
-                            <select value={state.scheduler} onChange={e => onStateUpdate({...state, scheduler: e.target.value as WanimateState['scheduler']})} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm">
-                                <option>UniPCMultistep</option><option>DPM++ 2M SDE Karras</option><option>DPM++ 2M Karras</option><option>Euler a</option>
-                            </select>
-                        </Control>
-                        <Control label="FPS">
-                             <select value={state.frameMultiplier} onChange={e => onStateUpdate({...state, frameMultiplier: e.target.value as WanimateState['frameMultiplier']})} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm">
-                                <option value="16">16</option><option value="24">24</option><option value="30">30</option>
-                            </select>
-                        </Control>
-                    </div>
-                    <div>
-                        <Control label="Seed">
-                            <div className="flex items-center gap-2">
-                                <input type="number" value={state.seed} onChange={e => onStateUpdate({...state, seed: parseInt(e.target.value), randomizeSeed: false})} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" disabled={state.randomizeSeed} />
-                                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={state.randomizeSeed} onChange={e => onStateUpdate({...state, randomizeSeed: e.target.checked})} /> Randomize</label>
+
+                    {showAdvanced && (
+                        <div className="space-y-4 animate-fade-in pt-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <Control label="Steps" value={state.steps}><input type="range" min="1" max="25" value={state.steps} onChange={e => onStateUpdate({...state, steps: parseInt(e.target.value)})} className="w-full" /></Control>
+                                <Control label="Duration (s)" value={state.durationSeconds}><input type="range" min="1" max="10" step="0.5" value={state.durationSeconds} onChange={e => onStateUpdate({...state, durationSeconds: parseFloat(e.target.value)})} className="w-full" /></Control>
+                                <Control label="Guidance (High)" value={state.guidanceScale}><input type="range" min="0" max="10" step="0.5" value={state.guidanceScale} onChange={e => onStateUpdate({...state, guidanceScale: parseFloat(e.target.value)})} className="w-full" /></Control>
+                                <Control label="Guidance (Low)" value={state.guidanceScale2}><input type="range" min="0" max="10" step="0.5" value={state.guidanceScale2} onChange={e => onStateUpdate({...state, guidanceScale2: parseFloat(e.target.value)})} className="w-full" /></Control>
+                                <Control label="Quality" value={state.quality}><input type="range" min="1" max="10" step="1" value={state.quality} onChange={e => onStateUpdate({...state, quality: parseInt(e.target.value)})} className="w-full" /></Control>
+                                <Control label="Flow Shift" value={state.flowShift}><input type="range" min="0" max="10" step="1" value={state.flowShift} onChange={e => onStateUpdate({...state, flowShift: parseInt(e.target.value)})} className="w-full" /></Control>
                             </div>
-                        </Control>
-                    </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <Control label="Scheduler">
+                                    <select value={state.scheduler} onChange={e => onStateUpdate({...state, scheduler: e.target.value as WanimateState['scheduler']})} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm">
+                                        <option>UniPCMultistep</option><option>DPM++ 2M SDE Karras</option><option>DPM++ 2M Karras</option><option>Euler a</option>
+                                    </select>
+                                </Control>
+                                <Control label="FPS">
+                                    <select value={state.frameMultiplier} onChange={e => onStateUpdate({...state, frameMultiplier: e.target.value as WanimateState['frameMultiplier']})} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm">
+                                        <option value="16">16</option><option value="24">24</option><option value="30">30</option>
+                                    </select>
+                                </Control>
+                            </div>
+                            <div>
+                                <Control label="Seed">
+                                    <div className="flex items-center gap-2">
+                                        <input type="number" value={state.seed} onChange={e => onStateUpdate({...state, seed: parseInt(e.target.value), randomizeSeed: false})} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" disabled={state.randomizeSeed} />
+                                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={state.randomizeSeed} onChange={e => onStateUpdate({...state, randomizeSeed: e.target.checked})} /> Randomize</label>
+                                    </div>
+                                </Control>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 {/* Right Column: Result */}
                 <div className="bg-surface border border-accent rounded-xl flex flex-col relative min-h-[500px]">

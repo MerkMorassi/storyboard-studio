@@ -4,7 +4,7 @@ const HF_API_KEY_STORAGE_KEY = 'mythos_hf_v2';
 const VOICE_LAB_URL_STORAGE_KEY = 'mythos_voicelab_url_v1';
 const DOLPHIN_URL_STORAGE_KEY = 'mythos_dolphin_url_v1';
 const CINEMATIC_CORE_URL_STORAGE_KEY = 'mythos_cinematic_core_url_v1';
-const CAMERA_DOLLY_URL_STORAGE_KEY = 'mythos_camera_dolly_url_v1';
+const CAMERA_DOLLY_URL_STORAGE_KEY = 'mythos_camera_dolly_url_v2';
 
 /**
  * Helper to get value from Env (Vite or Process) or Null
@@ -178,9 +178,9 @@ export const getCameraDollyUrl = (): string => {
 
     try {
         const stored = localStorage.getItem(CAMERA_DOLLY_URL_STORAGE_KEY);
-        return stored || "https://prithivmlmods-ltx-2-loras-camera-control-dolly.hf.space/";
+        return stored || "https://merkmorassi-mythos-camera-control-dolly.hf.space/";
     } catch (error) {
-        return "https://prithivmlmods-ltx-2-loras-camera-control-dolly.hf.space/";
+        return "https://merkmorassi-mythos-camera-control-dolly.hf.space/";
     }
 };
 

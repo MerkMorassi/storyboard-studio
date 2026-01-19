@@ -1,3 +1,4 @@
+
 import { vectorDb, VectorRecord } from './vectorDbService';
 import { GraphNode, GraphEdge, TripletEdge } from '../types';
 import { getEmbeddings, extractTripletsFromText } from './geminiService';
@@ -173,9 +174,18 @@ class FactoryService {
         const nodes = await vectorDb.getVectorsByAgent(agentId);
         for (let i = 0; i < nodes.length; i += batchSize) {
           yield nodes.slice(i, i + batchSize).map(o => ({
-            v: 2, type: 'vector',
-            a: o.agentId, h: o.agentHandle || '', t: o.text, vec: o.vector,
-            m: o.numMarkId, d: o.metadata || {}
+            v: 2, 
+            type: 'vector',
+            id: o.id,
+            a: o.agentId, 
+            h: o.agentHandle || '', 
+            t: o.text, 
+            vec: o.vector,
+            m: o.numMarkId, 
+            d: o.metadata || {},
+            src: o.source,
+            ts: o.timestamp,
+            p: o.permissions
           }));
         }
 
@@ -184,7 +194,8 @@ class FactoryService {
           yield edges.slice(i, i + batchSize).map(e => ({
             v: 2, type: 'edge',
             id: e.id, aid: e.agentId, src: e.sourceId,
-            s: e.s, r: e.r, o: e.o
+            s: e.s, r: e.r, o: e.o,
+            ts: e.timestamp
           }));
         }
     }
@@ -235,7 +246,8 @@ class FactoryService {
                                 id: n.id || crypto.randomUUID(), type: 'edge', 
                                 agentId: agentId, // OVERRIDE agentId
                                 sourceId: n.src,
-                                s: n.s, r: n.r, o: n.o, timestamp: new Date().toISOString()
+                                s: n.s, r: n.r, o: n.o,
+                                timestamp: n.ts || new Date().toISOString()
                             });
                         } else if (n.t && n.vec) { // Assume it's a vector if it has text and vector
                              const vNode: VectorRecord = {
@@ -243,11 +255,12 @@ class FactoryService {
                                 agentId: agentId, // OVERRIDE agentId
                                 text: n.t || n.text,
                                 vector: n.vec || n.vector,
-                                source: file.name || n.source || n.d?.source || 'Imported',
-                                timestamp: n.timestamp || Date.now(),
+                                source: n.src || file.name || n.source || n.d?.source || 'Imported',
+                                timestamp: n.ts || n.timestamp || Date.now(),
                                 metadata: n.metadata || n.d || {},
                                 numMarkId: n.m,
-                                agentHandle: n.h || ''
+                                agentHandle: n.h || '',
+                                permissions: n.p || n.permissions
                             };
                             vectorBatch.push(vNode);
                         }
@@ -269,7 +282,8 @@ class FactoryService {
                         id: n.id || crypto.randomUUID(), type: 'edge', 
                         agentId: agentId, // OVERRIDE agentId
                         sourceId: n.src,
-                        s: n.s, r: n.r, o: n.o, timestamp: new Date().toISOString()
+                        s: n.s, r: n.r, o: n.o,
+                        timestamp: n.ts || new Date().toISOString()
                     });
                 } else if (n.t && n.vec) {
                     const vNode: VectorRecord = {
@@ -277,11 +291,12 @@ class FactoryService {
                         agentId: agentId, // OVERRIDE agentId
                         text: n.t || n.text,
                         vector: n.vec || n.vector,
-                        source: file.name || n.source || n.d?.source || 'Imported',
-                        timestamp: n.timestamp || Date.now(),
+                        source: n.src || file.name || n.source || n.d?.source || 'Imported',
+                        timestamp: n.ts || n.timestamp || Date.now(),
                         metadata: n.metadata || n.d || {},
                         numMarkId: n.m,
-                        agentHandle: n.h || ''
+                        agentHandle: n.h || '',
+                        permissions: n.p || n.permissions
                     };
                     vectorBatch.push(vNode);
                 }

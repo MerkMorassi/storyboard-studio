@@ -9,6 +9,7 @@ import { ImageGeneratorStudio } from './components/ImageGeneratorStudio';
 import { MythosCinematicStudio } from './components/MythosCinematicStudio';
 import { SimpleCinematicStudio } from './components/SimpleCinematicStudio';
 import { GenerativeVideoStudio } from './components/GenerativeVideoStudio';
+import { LTXStudio } from './components/LTXStudio';
 import { TransitionStudio } from './components/TransitionStudio';
 import { CameraMovementStudio } from './components/CameraMovementStudio';
 import { CameraMovesStudio } from './components/CameraMovesStudio';
@@ -77,7 +78,26 @@ const INITIAL_PROJECT: Project = {
         greenScreenState: { source: null, resultUrl: null },
         backgroundRemovalState: { source: null, result: null },
         qwenImageEditState: { images: [null, null, null, null, null, null], result: null, prompt: '', negativePrompt: '', cfgScale: 4.0, seed: 0, randomizeSeed: true, width: 1024, height: 1024, steps: 25 },
-        generativeVideoState: { prompt: '', negativePrompt: '', image: null, lastImage: null, resultUrl: null, engine: '', externalUrl: '', steps: 25, duration: 4, guidanceScale: 7.5, guidanceScale2: 7.5, fps: 24, seed: 0, randomizeSeed: true },
+        generativeVideoState: { 
+            image: null, 
+            resultUrl: null, 
+            seed: 42, 
+            randomizeSeed: true, 
+            motionBucketId: 127, 
+            cfgScale: 2.5,
+            steps: 25,
+        },
+        ltxStudioState: {
+            prompt: 'Make this image come alive with cinematic motion, smooth animation', 
+            image: null, 
+            resultUrl: null, 
+            duration: 3, 
+            seed: 42, 
+            randomizeSeed: true, 
+            width: 768, 
+            height: 512, 
+            enhancePrompt: true
+        },
         cameraMovementState: { source: null, prompt: '', negativePrompt: '', movementType: '', steps: 25, guidanceScale: 7.5, seed: 0, randomizeSeed: true, resultUrl: null },
         cameraMovesState: { sourceVideo: null, prompt: 'A cinematic camera move around the subject', cameraType: '1', steps: 20, resultUrl: null },
         transitionState: { startImage: null, endImage: null, prompt: '', negativePrompt: '', duration: 4, steps: 25, guidanceScale: 7.5, guidanceScale2: 7.5, seed: 0, randomizeSeed: true, resultUrl: null },
@@ -95,7 +115,7 @@ const INITIAL_PROJECT: Project = {
             prompt: "make this image come alive, cinematic motion, smooth animation",
             steps: 6,
             negativePrompt: "static, details fuzzy, subtitles, style, artwork, painting, still image, worst quality, low quality, JPEG artifacts, ugly, deformed, extra fingers, poorly drawn hands, poorly drawn faces, malformed, disfigured, malformed limbs, fused fingers, motionless image, cluttered background",
-            durationSeconds: 3.5,
+            durationSeconds: 10,
             guidanceScale: 1,
             guidanceScale2: 1,
             seed: 42,
@@ -264,7 +284,8 @@ export const App = () => {
             case 'image-generator': return <ImageGeneratorStudio hfToken={getHfApiKey() || ''} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} agents={project.data.agents} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onCreateAgent={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}` } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }} />;
             case 'one-shot-cinematic': return <SimpleCinematicStudio hfToken={getHfApiKey() || ''} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} project={project} />;
             case 'mythos-cinematic-engine': return <MythosCinematicStudio hfToken={getHfApiKey() || ''} promptTemplates={project.data.promptTemplates} dynamicPromptLists={project.data.dynamicPromptLists} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onClearInitialPrompt={() => {}} />;
-            case 'generative-video': return <GenerativeVideoStudio apiKey={''} hfToken={getHfApiKey() || ''} videoState={project.data.generativeVideoState} onStateUpdate={s => updateProjectData({ generativeVideoState: s })} onAddImageToGrid={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddAssetToGrid={handleAddAssetToGrid} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
+            case 'generative-video': return <GenerativeVideoStudio hfToken={getHfApiKey() || ''} videoState={project.data.generativeVideoState} onStateUpdate={s => updateProjectData({ generativeVideoState: s })} onAddToStoryboard={handleAddToStoryboard} onAddAssetToGrid={handleAddAssetToGrid} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
+            case 'ltx-studio': return <LTXStudio hfToken={getHfApiKey() || ''} videoState={project.data.ltxStudioState} onStateUpdate={s => updateProjectData({ ltxStudioState: s })} onAddToStoryboard={handleAddToStoryboard} onAddAssetToGrid={handleAddAssetToGrid} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
             case 'wanimate-studio': return <WanimateStudio state={project.data.wanimateState} onStateUpdate={s => updateProjectData({ wanimateState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} hfToken={getHfApiKey() || ''} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
             case 'transition-studio': return <TransitionStudio state={project.data.transitionState} onStateUpdate={s => updateProjectData({ transitionState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} promptTemplates={project.data.promptTemplates} />;
             case 'camera-movement': return <CameraMovementStudio state={project.data.cameraMovementState} onStateUpdate={s => updateProjectData({ cameraMovementState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} hfToken={getHfApiKey() || ''} />;

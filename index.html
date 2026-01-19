@@ -82,6 +82,13 @@
       }
       
       #critical-error-display { display: none; background: rgba(0,0,0,0.95); }
+      .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
     </style>
     <link rel="stylesheet" href="/index.css">
   </head>

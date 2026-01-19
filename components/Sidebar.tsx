@@ -41,8 +41,9 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'image-generator', type: 'link', label: 'Image Studio', view: 'image-generator', icon: ImageIcon },
     { id: 'one-shot', type: 'link', label: 'One-Shot Cinematic', view: 'one-shot-cinematic', icon: MagicIcon },
     { id: 'mythos-cinematic', type: 'link', label: 'MythOS Cinematic', view: 'mythos-cinematic-engine', icon: CameraLensIcon },
-    { id: 'generative-video', type: 'link', label: 'Video Creator', view: 'generative-video', icon: ClapperboardIcon },
-    { id: 'wanimate-studio', type: 'link', label: 'Wanimate Studio', view: 'wanimate-studio', icon: ClapperboardIcon },
+    { id: 'generative-video', type: 'link', label: 'Video Creator (SVD)', view: 'generative-video', icon: ClapperboardIcon },
+    { id: 'ltx-studio', type: 'link', label: 'LTX Studio', view: 'ltx-studio', icon: ClapperboardIcon },
+    { id: 'wanimate-studio', type: 'link', label: 'Wanimate Sequencer', view: 'wanimate-studio', icon: ClapperboardIcon },
 
     { id: 'header-vfx', type: 'header', label: 'VFX & Post' },
     { id: 'camera-movement', type: 'link', label: 'Camera Dolly (LTX)', view: 'camera-movement', icon: DollyIcon },

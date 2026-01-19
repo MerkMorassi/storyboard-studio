@@ -1,6 +1,6 @@
 export type RAGProvider = 'cloud' | 'localhost' | 'browser';
 export type ModelEngine = 'gemini' | 'dolphin';
-export type ActiveView = 'dashboard' | 'projects' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'one-shot-cinematic' | 'image-generator' | 'generative-video' | 'transition-studio' | 'camera-movement' | 'camera-moves' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'qwen-image-edit' | 'topaz' | 'grid' | 'story' | 'inspiration' | 'scripts-bin' | 'script-writer' | 'agents' | 'studio-players' | 'characters' | 'lore' | 'prompt-library' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'agent-workspace' | 'voice-lab' | 'model-settings' | 'wanimate-studio' | 'dubbing-studio';
+export type ActiveView = 'dashboard' | 'projects' | 'team' | 'core' | 'ideation' | 'scripting' | 'design' | 'art' | 'director' | 'mythos-cinematic-engine' | 'one-shot-cinematic' | 'image-generator' | 'generative-video' | 'transition-studio' | 'camera-movement' | 'camera-moves' | 'blender' | 'scene-compositor' | 'composite' | 'face-swap' | 'face-repair' | 'photorealism' | 'resize' | 'green-screen' | 'background-removal' | 'qwen-image-edit' | 'topaz' | 'grid' | 'story' | 'inspiration' | 'scripts-bin' | 'script-writer' | 'agents' | 'studio-players' | 'characters' | 'lore' | 'prompt-library' | 'dynamic-prompts' | 'agent-chat' | 'knowledge' | 'automation' | 'agent-workspace' | 'voice-lab' | 'model-settings' | 'wanimate-studio' | 'dubbing-studio' | 'ltx-studio';
 
 export type GridOverlayType = 'none' | 'basic' | 'triadic' | 'golden-basic' | 'golden-triadic';
 
@@ -127,6 +127,17 @@ export interface DubbingState {
   resultUrl: string | null;
 }
 
+export interface LTXStudioState {
+  prompt: string;
+  image: { base64: string; mimeType: string } | null;
+  resultUrl: string | null;
+  duration: number;
+  seed: number;
+  randomizeSeed: boolean;
+  width: number;
+  height: number;
+  enhancePrompt: boolean;
+}
 
 export interface Project {
   id: string;
@@ -167,6 +178,7 @@ export interface Project {
     automationConfig: AutomationConfig;
     wanimateState: WanimateState;
     dubbingState: DubbingState;
+    ltxStudioState: LTXStudioState;
     mythosPrompt?: string;
   };
 }
@@ -246,20 +258,13 @@ export interface QwenImageEditState {
 }
 
 export interface GenerativeVideoState {
-  prompt: string;
-  negativePrompt: string;
   image: { base64: string; mimeType: string } | null;
-  lastImage: { base64: string; mimeType: string } | null;
   resultUrl: string | null;
-  engine: string;
-  externalUrl: string;
-  steps: number;
-  duration: number;
-  guidanceScale: number;
-  guidanceScale2: number;
-  fps: number;
   seed: number;
   randomizeSeed: boolean;
+  motionBucketId: number;
+  cfgScale: number;
+  steps: number;
 }
 
 export interface CameraMovementState {
