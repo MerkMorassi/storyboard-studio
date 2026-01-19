@@ -1,18 +1,19 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Agent, ActiveView, ImageState } from '../types.ts';
-// FIX: Imported the missing ChatIcon component.
-import { CloseIcon, PhoneIcon, EditIcon, CameraLensIcon, UploadIcon, UserIcon, AgentsIcon, ChatIcon } from './icons.tsx';
+import { CloseIcon, PhoneIcon, EditIcon, CameraLensIcon, UploadIcon, UserIcon, AgentsIcon, ChatIcon, TrashIcon, PlusIcon } from './icons.tsx';
 import { getAvailableVoices } from '../services/agentService.ts';
 
 interface TeamStudioProps {
-    team: Agent[];
+    agents: Agent[];
     images: ImageState[];
     onUpdateAgent: (agentId: string, updates: Partial<Agent>) => void;
     onUpdateAgentAvatar: (agentId: string, file: File) => void;
     onNavigate: (view: ActiveView, agentId?: string) => void;
     onCallAgent: (agent: Agent) => void;
     onViewImage: (image: ImageState) => void;
+    onCreateEntity: (data: Partial<Agent>) => Agent;
+    onDeleteEntity: (agentId: string) => void;
 }
 
 const fileToBase64 = (file: File): Promise<string> =>
@@ -22,6 +23,40 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = (error) => reject(error);
   });
+
+const CreateEntityForm: React.FC<{
+    onCreateEntity: (data: Partial<Agent>) => void;
+}> = ({ onCreateEntity }) => {
+    const [name, setName] = useState('');
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (name.trim()) {
+            onCreateEntity({ name, systemPrompt: 'You are a helpful AI assistant.', voice: 'Kore' });
+            setName('');
+        }
+    };
+    return (
+        <form onSubmit={handleSubmit} className="mb-8 bg-neutral-800/50 p-6 border border-neutral-700 rounded-xl shadow-2xl">
+            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-4">Add New Custom Agent</h3>
+            <div className="flex gap-4">
+                <input 
+                    type="text" 
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)} 
+                    placeholder="New Agent Name..."
+                    className="flex-grow bg-black border border-neutral-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"
+                />
+                <button 
+                    type="submit" 
+                    disabled={!name.trim()}
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                    <PlusIcon className="w-5 h-5"/> Create Agent
+                </button>
+            </div>
+        </form>
+    );
+};
 
 const ProfileModal: React.FC<{
     agent: Agent;
@@ -219,6 +254,14 @@ const ProfileModal: React.FC<{
                                         <span className="text-white font-mono text-sm">{agent.department}</span>
                                     </div>
                                 </div>
+                                 <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
+                                    <h4 className="text-xs font-bold text-neutral-500 uppercase mb-3 tracking-widest">Voice Seed</h4>
+                                    {agent.voiceReference ? (
+                                        <audio controls src={agent.voiceReference} className="w-full h-10" />
+                                    ) : (
+                                        <p className="text-sm text-neutral-500 italic">No voice reference on file.</p>
+                                    )}
+                                </div>
                            </div>
                         )}
                     </div>
@@ -233,8 +276,9 @@ const AgentCard: React.FC<{
     onClick: () => void;
     onEdit: () => void;
     onCall: () => void;
+    onDelete: () => void;
     onUpdateAgentAvatar: (file: File) => void;
-}> = ({ agent, onClick, onEdit, onCall, onUpdateAgentAvatar }) => {
+}> = ({ agent, onClick, onEdit, onCall, onDelete, onUpdateAgentAvatar }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -255,10 +299,9 @@ const AgentCard: React.FC<{
 
     return (
         <div 
-            onClick={onClick}
             className="group relative bg-neutral-800 border border-neutral-700 rounded-xl overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-300 hover:border-blue-500/50 hover:-translate-y-1 h-full flex flex-col"
         >
-            <div className="h-48 bg-gradient-to-br from-neutral-900 to-neutral-800 flex items-center justify-center border-b border-neutral-700 group-hover:from-blue-900/20 group-hover:to-neutral-900 transition-colors relative overflow-hidden">
+            <div onClick={onClick} className="h-48 bg-gradient-to-br from-neutral-900 to-neutral-800 flex items-center justify-center border-b border-neutral-700 group-hover:from-blue-900/20 group-hover:to-neutral-900 transition-colors relative overflow-hidden">
                 {agent.avatar ? (
                     <img src={agent.avatar} alt={agent.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                 ) : (
@@ -292,6 +335,13 @@ const AgentCard: React.FC<{
                     >
                         <PhoneIcon className="w-4 h-4" />
                     </button>
+                     <button 
+                        onClick={onDelete}
+                        className="p-2 bg-red-600/80 hover:bg-red-500 rounded-full text-white backdrop-blur-md transition-colors shadow-lg border border-red-400/30"
+                        title="Delete Agent"
+                    >
+                        <TrashIcon className="w-4 h-4" />
+                    </button>
                     <input 
                         type="file" 
                         ref={fileInputRef} 
@@ -302,7 +352,7 @@ const AgentCard: React.FC<{
                 </div>
             </div>
 
-            <div className="p-5 flex-grow flex flex-col">
+            <div onClick={onClick} className="p-5 flex-grow flex flex-col">
                 <div className="mb-2">
                     <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider border border-neutral-600 px-2 py-0.5 rounded-full bg-neutral-900">
                         {agent.agentClass || 'STAFF'}
@@ -315,6 +365,7 @@ const AgentCard: React.FC<{
                 
                 <div className="flex gap-2 mt-auto">
                     <button 
+                        onClick={onClick}
                         className="flex-1 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 font-bold text-xs uppercase rounded transition-colors flex items-center justify-center gap-2 border border-neutral-600"
                     >
                         <ChatIcon className="w-3 h-3" /> Enter Office
@@ -325,24 +376,32 @@ const AgentCard: React.FC<{
     );
 };
 
-export const TeamStudio: React.FC<TeamStudioProps> = ({ team, images, onUpdateAgent, onUpdateAgentAvatar, onNavigate, onCallAgent, onViewImage }) => {
+export const TeamStudio: React.FC<TeamStudioProps> = ({ agents, images, onUpdateAgent, onUpdateAgentAvatar, onNavigate, onCallAgent, onViewImage, onCreateEntity, onDeleteEntity }) => {
     const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
 
     return (
         <div className="p-8 max-w-7xl mx-auto w-full space-y-8 h-full overflow-y-auto">
             <div className="mb-8">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Production Team</h2>
-                <p className="text-neutral-400">The core MythOS agent team responsible for project execution.</p>
+                <p className="text-neutral-400">The complete roster of core and custom AI agents for this project.</p>
+                <div className="mt-6">
+                    <CreateEntityForm onCreateEntity={onCreateEntity} />
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {team.map(agent => (
+                {agents.map(agent => (
                     <AgentCard
                         key={agent.id}
                         agent={agent}
                         onClick={() => onNavigate('agent-workspace', agent.id)}
                         onEdit={() => setEditingAgent(agent)}
                         onCall={() => onCallAgent(agent)}
+                        onDelete={() => {
+                            if (window.confirm(`Are you sure you want to delete the agent "${agent.name}"? This action cannot be undone.`)) {
+                                onDeleteEntity(agent.id)
+                            }
+                        }}
                         onUpdateAgentAvatar={(file) => onUpdateAgentAvatar(agent.id, file)}
                     />
                 ))}

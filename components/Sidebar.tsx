@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ActiveView } from '../types.ts';
 import { 
@@ -28,7 +29,6 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'dashboard', type: 'link', label: 'Dashboard', view: 'dashboard', icon: DashboardIcon },
     { id: 'projects', type: 'link', label: 'Projects', view: 'projects', icon: FolderIcon },
     { id: 'team', type: 'link', label: 'Production Team', view: 'team', icon: AgentsIcon },
-    { id: 'agents', type: 'link', label: 'AI Agents', view: 'agents', icon: AgentsIcon },
     { id: 'studio-players', type: 'link', label: 'Studio Players', view: 'studio-players', icon: UserIcon },
     { id: 'automation', type: 'link', label: 'Automation', view: 'automation', icon: AutomationIcon },
     

@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Type } from '@google/genai';
 import { ChatMessage, AutomationConfig } from '../../types.ts';
 import { extractFramesFromVideo } from '../../utils/video';
@@ -22,6 +23,7 @@ Always be concise, professional, and focus on visual descriptors.
  * API key is obtained exclusively from process.env.API_KEY.
  */
 const getClient = () => {
+    // FIX: API key is now correctly retrieved from process.env as per guidelines.
     return new GoogleGenAI({ apiKey: process.env.API_KEY });
 }
 

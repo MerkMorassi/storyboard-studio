@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { ActiveView } from '../../types';
 import { MediaInput } from '../../components/MediaInput';
@@ -107,7 +108,7 @@ export const DirectorStudio: React.FC<DirectorStudioProps> = ({ onNavigate }) =>
         setAnalysis(null);
         
         try {
-            // Fix: No need to retrieve apiKey manually, it's handled in the service/SDK.
+            // FIX: No need to retrieve apiKey manually, it's handled in the service/SDK.
             let result;
 
             if (selectedMedia.type === 'image') {
@@ -129,7 +130,7 @@ export const DirectorStudio: React.FC<DirectorStudioProps> = ({ onNavigate }) =>
                     });
                 }
                 
-                // Fix: Remove apiKey argument
+                // FIX: Remove apiKey argument
                 result = await analyzeImage(base64, mimeType, userDirectives);
 
             } else if (selectedMedia.type === 'video') {
@@ -140,7 +141,7 @@ export const DirectorStudio: React.FC<DirectorStudioProps> = ({ onNavigate }) =>
                     videoUrl = URL.createObjectURL(selectedMedia.source);
                 }
                 
-                // Fix: Remove apiKey argument
+                // FIX: Remove apiKey argument
                 result = await analyzeVideo(videoUrl, userDirectives);
             }
 

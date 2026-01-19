@@ -1,4 +1,5 @@
 
+
 const FRAME_QUALITY = 0.8; // Jpeg quality
 
 /**

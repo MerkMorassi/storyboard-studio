@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardStudio } from './components/DashboardStudio';
@@ -49,7 +50,6 @@ import { Agent, Project, ActiveView, ImageState } from './types';
 import { getHfApiKey, getTopazApiKey, saveHfApiKey, saveTopazApiKey, getVoiceLabUrl, saveVoiceLabUrl, getDolphinUrl, saveDolphinUrl, getCinematicCoreUrl, saveCinematicCoreUrl, getCameraDollyUrl, saveCameraDollyUrl } from './services/apiKeyService';
 import { getAnimAgentsTeam } from './services/agentService';
 import { vectorDb } from './services/vectorDbService';
-import { AgentsStudio } from './components/AgentsStudio.tsx';
 import { TeamStudio } from './components/TeamStudio.tsx';
 import { WanimateStudio } from './components/WanimateStudio.tsx';
 import { DubbingStudio } from './components/DubbingStudio.tsx';
@@ -111,6 +111,7 @@ const INITIAL_PROJECT: Project = {
         lore: [],
         dynamicPromptLists: [],
         promptTemplates: [],
+        automationConfig: { ragEnabled: false, ragProvider: 'browser', ragApiKey: '', ragBaseUrl: '', ragKnowledgeBoxId: '', ragLocalhostUrl: '', webhookUrls: [] },
         wanimateState: {
             inputImage: null,
             lastImage: null,
@@ -133,7 +134,8 @@ const INITIAL_PROJECT: Project = {
             sourceAudio: null,
             resultUrl: null,
         },
-        automationConfig: { ragEnabled: false, ragProvider: 'browser', ragApiKey: '', ragBaseUrl: '', ragKnowledgeBoxId: '', ragLocalhostUrl: '', webhookUrls: [] }
+        // FIX: 'string' is a type, not a value. Initialized to an empty string.
+        mythosPrompt: '',
     }
 };
 
@@ -255,15 +257,16 @@ export const App = () => {
             case 'dashboard': return <DashboardStudio project={project} onUpdateProject={(u) => setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, ...u } : p))} images={project.data.images} stats={{ storyboardFrames: project.data.storyboard.length, agents: project.data.agents.length, loreEntries: project.data.lore.length, inspirationImages: project.data.inspirationImages.length, dynamicPromptLists: project.data.dynamicPromptLists.length, promptTemplates: project.data.promptTemplates.length, imagesGenerated: project.data.images.length, totalProjects: projects.length, scriptsCount: project.data.scriptsBin.length }} onNavigate={handleNavigate} />;
             case 'projects': return <ProjectsStudio projects={projects} activeProjectId={activeProjectId} onSelectProject={setActiveProjectId} onCreateProject={(d) => setProjects(prev => [...prev, { ...INITIAL_PROJECT, id: `proj_${Date.now()}`, name: d.name, tagline: d.tagline, thumbnail: d.thumbnail }])} onRenameProject={(id, name) => setProjects(prev => prev.map(p => p.id === id ? { ...p, name } : p))} onDeleteProject={(id) => { setProjects(prev => prev.filter(p => p.id !== id)); if (activeProjectId === id && projects.length > 1) setActiveProjectId(projects[0].id); }} />;
             case 'team': return <TeamStudio 
-               team={getAnimAgentsTeam()} 
+               agents={project.data.agents}
                images={project.data.images} 
                onUpdateAgent={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} 
                onUpdateAgentAvatar={async (id, file) => { const b64 = await fileToBase64(file); updateProjectData({ agents: project.data.agents.map(a => a.id === id ? {...a, avatar: b64} : a) }) }}
                onNavigate={handleNavigate} 
                onCallAgent={(agent) => openChatModal(agent, 'call')} 
                onViewImage={setViewingImage}
+               onCreateEntity={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}`, media: [] } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }}
+               onDeleteEntity={(id) => updateProjectData({ agents: project.data.agents.filter(a => a.id !== id) })}
            />;
-            case 'agents': return <AgentsStudio agents={project.data.agents} images={project.data.images} onCreateEntity={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}`, media: [] } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }} onViewImage={setViewingImage} onUpdateEntity={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} onDeleteEntity={(id) => updateProjectData({ agents: project.data.agents.filter(a => a.id !== id) })} onImageUpload={async (id, file) => { const b64 = await fileToBase64(file); updateProjectData({ agents: project.data.agents.map(a => a.id === id ? {...a, avatar: b64} : a) }) }} onCallEntity={(agent) => openChatModal(agent, 'call')} />;
             case 'agent-workspace': return selectedAgentId ? <GenericAgentStudio agent={project.data.agents.find(a => a.id === selectedAgentId)!} onNavigate={handleNavigate} onOpenChat={(mode) => openChatModal(project.data.agents.find(a => a.id === selectedAgentId)!, mode)} /> : <div className="p-10 text-center text-neutral-500">Agent Not Found</div>;
             
             // Core Agents

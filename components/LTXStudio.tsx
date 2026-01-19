@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { LTXStudioState } from '../types';
 import { LoadingSpinner, ClapperboardIcon, ChevronDownIcon, CameraLensIcon, WarningIcon } from './icons';
@@ -97,7 +98,17 @@ export const LTXStudio: React.FC<LTXStudioProps> = ({
 
         } catch (err) {
             console.error("LTX-2 generation error:", err);
-            setError(err instanceof Error ? err.message : "Unknown error occurred.");
+            let errorMessage = "An unknown error occurred.";
+            if (err instanceof Error) {
+                errorMessage = err.message;
+                // Provide more specific feedback for common Gradio issues.
+                if (errorMessage.includes("Space is sleeping")) {
+                    errorMessage = "The AI service is sleeping. Please wait 60 seconds for it to wake up and try again.";
+                } else if (errorMessage.includes("Space metadata could not be loaded") || errorMessage.includes("403")) {
+                    errorMessage = "Access denied. This may be due to Hugging Face throttling or an invalid token. Please check your account status and API key in Settings.";
+                }
+            }
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
             setProgress('');
@@ -158,68 +169,4 @@ export const LTXStudio: React.FC<LTXStudioProps> = ({
                         <div className="space-y-4 animate-fade-in bg-secondary/50 p-3 rounded-lg border border-accent/50">
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs text-neutral-400 mb-1">Width</label>
-                                    <input type="number" step="64" value={videoState.width} onChange={(e) => onStateUpdate({ ...videoState, width: parseInt(e.target.value)})} className="w-full bg-secondary border border-accent p-2 rounded text-xs" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs text-neutral-400 mb-1">Height</label>
-                                    <input type="number" step="64" value={videoState.height} onChange={(e) => onStateUpdate({ ...videoState, height: parseInt(e.target.value)})} className="w-full bg-secondary border border-accent p-2 rounded text-xs" />
-                                </div>
-                             </div>
-                             <div>
-                                <label className="block text-xs text-neutral-400 mb-1">Seed</label>
-                                <div className="flex gap-2">
-                                    <input type="number" value={videoState.seed} onChange={(e) => onStateUpdate({ ...videoState, seed: parseInt(e.target.value), randomizeSeed: false })} className="w-full bg-secondary border border-accent rounded px-2 text-xs" disabled={videoState.randomizeSeed} />
-                                    <label className="flex items-center gap-1 text-xs whitespace-nowrap"><input type="checkbox" checked={videoState.randomizeSeed} onChange={(e) => onStateUpdate({ ...videoState, randomizeSeed: e.target.checked })} /> Random</label>
-                                </div>
-                             </div>
-                             <div className="flex items-center gap-2">
-                                <input type="checkbox" checked={videoState.enhancePrompt} onChange={(e) => onStateUpdate({...videoState, enhancePrompt: e.target.checked})} id="enhance" />
-                                <label htmlFor="enhance" className="text-xs text-neutral-400">Enhance Prompt (AI)</label>
-                             </div>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={handleGenerate}
-                        disabled={isLoading}
-                        className="w-full py-3 bg-brand hover:bg-brand-hover text-white font-bold rounded-xl transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        {isLoading ? ( <><LoadingSpinner className="w-5 h-5"/> {progress || 'Generating...'}</> ) : ( <><ClapperboardIcon /> Generate Video</> )}
-                    </button>
-                    {error && <p className="text-sm text-red-400 p-3 rounded border border-red-500/30">{error}</p>}
-                </div>
-
-                {/* Preview Column */}
-                <div className="lg:col-span-2 bg-secondary/30 border border-accent rounded-lg flex flex-col relative overflow-hidden min-h-[500px]">
-                     <div className="flex-grow flex items-center justify-center bg-primary relative">
-                        {isLoading ? (
-                            <div className="flex flex-col items-center">
-                                <LoadingSpinner />
-                                <p className="mt-4 text-neutral-400 animate-pulse font-mono text-sm">{progress}</p>
-                            </div>
-                        ) : videoState.resultUrl ? (
-                            <video src={videoState.resultUrl} controls autoPlay loop className="w-full h-full max-h-[70vh] object-contain" crossOrigin="anonymous" />
-                        ) : (
-                            <div className="text-neutral-600 flex flex-col items-center select-none">
-                                <ClapperboardIcon />
-                                <p className="mt-2 text-sm font-medium">Video Preview</p>
-                            </div>
-                        )}
-                    </div>
-                    {videoState.resultUrl && !isLoading && (
-                        <div className="p-4 border-t border-accent bg-secondary/90 backdrop-blur-sm flex justify-center">
-                            <AssetActions 
-                                asset={{ type: 'video', url: videoState.resultUrl }}
-                                onSaveToGrid={onAddAssetToGrid ? (pid) => onAddAssetToGrid!({ type: 'video', url: videoState.resultUrl! }, pid) : undefined}
-                                onSaveToStoryboard={() => {}} // Thumbnail extraction can be added here
-                                projects={projects}
-                                activeProjectId={activeProjectId}
-                            />
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
+                                    

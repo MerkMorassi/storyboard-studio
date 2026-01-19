@@ -1,22 +1,8 @@
 
-import { Agent, ImageState, GraphNode, GraphEdge, TripletEdge } from '../types.ts';
 
-export interface VectorRecord {
-  // FIX: Changed id type from number | string to just string to align with types.ts and usage.
-  id: string;
-  text: string;
-  vector: number[];
-  source: string;
-  timestamp: number;
-  agentId?: string;
-  // Compatibility with types.ts
-  agent?: string; 
-  // FIX: Added missing fields to support lorepack operations.
-  permissions?: string;
-  agentHandle?: string;
-  numMarkId?: string;
-  metadata?: any;
-}
+import { Agent, ImageState, GraphNode, GraphEdge, TripletEdge, VectorRecord as VectorRecordType } from '../types.ts';
+
+export interface VectorRecord extends VectorRecordType {}
 
 export interface ChatLogRecord {
     id: string; // This will now be the agentId

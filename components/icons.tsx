@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 
 export const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "animate-spin h-12 w-12 text-neutral-400" }) => (

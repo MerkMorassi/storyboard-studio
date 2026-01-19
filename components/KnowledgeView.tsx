@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { vectorDb, VectorRecord } from '../services/vectorDbService';
 import { Agent } from '../services/agentService';
@@ -32,6 +33,9 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents }) => {
 
     const [sources, setSources] = useState<string[]>([]);
     const [fileQueue, setFileQueue] = useState<File[]>([]);
+    
+    // NEW: Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
 
 
     // Operation State
@@ -52,6 +56,7 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents }) => {
 
     useEffect(() => {
         if (selectedAgentId) {
+            setCurrentPage(1); // Reset page on agent change
             refreshData(selectedAgentId);
         }
     }, [selectedAgentId]);
@@ -382,35 +387,67 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({ agents }) => {
                     </div>
                 )}
                 
-                {activeTab === 'vectors' && (
-                    <div className="max-w-6xl mx-auto space-y-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-sm font-black text-neutral-400 uppercase tracking-widest">Source Registry</h3>
-                            <span className="text-xs text-neutral-500 font-mono">{sources.length} Sources</span>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                            {sources.map(s => (
-                                <div key={s} className="bg-neutral-900 border border-neutral-800 px-3 py-2 rounded text-xs text-neutral-300 truncate flex justify-between items-center group">
-                                    <span className="truncate flex-grow" title={s}>{s}</span>
-                                </div>
-                            ))}
-                        </div>
+                {activeTab === 'vectors' && (() => {
+                    const ITEMS_PER_PAGE = 20;
+                    const totalPages = Math.ceil(vectors.length / ITEMS_PER_PAGE);
+                    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+                    const paginatedVectors = vectors.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-                        <div className="space-y-2">
-                            <h3 className="text-sm font-black text-neutral-400 uppercase tracking-widest mb-4">Vector Stream ({vectors.length})</h3>
-                            {vectors.slice(0, 100).map(v => (
-                                <div key={v.id as string} className="bg-neutral-900/80 border border-neutral-800 p-4 rounded-lg hover:border-blue-500/30 transition-colors">
-                                    <div className="flex justify-between mb-2">
-                                        <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">{v.source}</span>
-                                        <span className="text-[10px] text-neutral-600 font-mono">{String(v.id).substring(0,8)}</span>
+                    return (
+                        <div className="max-w-6xl mx-auto space-y-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-sm font-black text-neutral-400 uppercase tracking-widest">Source Registry</h3>
+                                <span className="text-xs text-neutral-500 font-mono">{sources.length} Sources</span>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                {sources.map(s => (
+                                    <div key={s} className="bg-neutral-900 border border-neutral-800 px-3 py-2 rounded text-xs text-neutral-300 truncate flex justify-between items-center group">
+                                        <span className="truncate flex-grow" title={s}>{s}</span>
                                     </div>
-                                    <p className="text-xs text-neutral-300 font-mono line-clamp-2">{v.text}</p>
-                                </div>
-                            ))}
-                            {vectors.length > 100 && <p className="text-center text-xs text-neutral-500 italic py-4">... {vectors.length - 100} more vectors hidden ...</p>}
+                                ))}
+                            </div>
+
+                            <div className="space-y-2">
+                                <h3 className="text-sm font-black text-neutral-400 uppercase tracking-widest mb-4">Vector Stream ({vectors.length})</h3>
+                                {paginatedVectors.map(v => (
+                                    <div key={v.id as string} className="bg-neutral-900/80 border border-neutral-800 p-4 rounded-lg hover:border-blue-500/30 transition-colors">
+                                        <div className="flex justify-between mb-2">
+                                            <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">{v.source}</span>
+                                            <span className="text-[10px] text-neutral-600 font-mono">{String(v.id).substring(0,8)}</span>
+                                        </div>
+                                        <p className="text-xs text-neutral-300 font-mono line-clamp-2">{v.text}</p>
+                                    </div>
+                                ))}
+                                {vectors.length === 0 && (
+                                     <div className="text-center py-12 text-neutral-600">
+                                        <p>No vectors found for this agent.</p>
+                                     </div>
+                                )}
+                                {totalPages > 1 && (
+                                    <div className="flex justify-between items-center mt-6 pt-4 border-t border-neutral-800">
+                                        <button
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                            className="px-4 py-2 text-xs font-bold text-neutral-300 bg-neutral-800 rounded-lg hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            &larr; Previous
+                                        </button>
+                                        <span className="text-xs font-mono text-neutral-500">
+                                            Page {currentPage} of {totalPages}
+                                        </span>
+                                        <button
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages}
+                                            className="px-4 py-2 text-xs font-bold text-neutral-300 bg-neutral-800 rounded-lg hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Next &rarr;
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {activeTab === 'graph' && (
                      <div className="h-full flex flex-col">

@@ -1,6 +1,7 @@
 
+
 import { vectorDb, VectorRecord } from './vectorDbService';
-import { GraphNode, GraphEdge, TripletEdge } from '../types';
+import { GraphNode, GraphEdge, TripletEdge } from '../types.ts';
 import { getEmbeddings, extractTripletsFromText } from './geminiService';
 
 const LAST_SYNC_KEY = 'mythos_lorepack_last_sync';
@@ -324,7 +325,7 @@ class FactoryService {
 
             if (newVectors.length === 0 && newEdges.length === 0) {
                 console.log('[LOREPACK SYNC] No new data to sync.');
-                localStorage.setItem(LAST_SYNC_KEY, String(now)); // Update timestamp to avoid re-checking empty data
+                localStorage.setItem(LAST_SYNC_KEY, String(now));
                 return;
             }
 
@@ -335,24 +336,39 @@ class FactoryService {
                 ...newEdges.map(e => ({ ...e, type: 'edge' }))
             ];
             
-            const response = await fetch('/api/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nodes: nodesToSync })
-            });
+            // FIX: Implement batching to prevent '413 Request Entity Too Large' errors.
+            const SYNC_BATCH_SIZE = 500; // Send 500 items at a time.
+            let totalSynced = 0;
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Server sync failed with status ${response.status}: ${errorText}`);
+            for (let i = 0; i < nodesToSync.length; i += SYNC_BATCH_SIZE) {
+                const batch = nodesToSync.slice(i, i + SYNC_BATCH_SIZE);
+                console.log(`[LOREPACK SYNC] Sending batch ${i / SYNC_BATCH_SIZE + 1} with ${batch.length} items...`);
+                
+                const response = await fetch('/api/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nodes: batch })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    // Stop the sync process. Timestamp won't be updated, so it will retry later.
+                    throw new Error(`Server sync failed on batch with status ${response.status}: ${errorText}`);
+                }
+
+                const result = await response.json();
+                totalSynced += batch.length;
+                console.log(`[LOREPACK SYNC] Batch successful. Server vault size: ${result.vaultSize}`);
             }
-
-            const result = await response.json();
-            console.log(`[LOREPACK SYNC] Successfully synced ${nodesToSync.length} items. Server total vault size: ${result.vaultSize}`);
             
+            console.log(`[LOREPACK SYNC] Successfully synced a total of ${totalSynced} items in batches.`);
+            
+            // Only update the timestamp if all batches succeed
             localStorage.setItem(LAST_SYNC_KEY, String(now));
 
         } catch (error) {
             console.error('[LOREPACK SYNC] Error syncing with server:', error);
+            // Do not update the timestamp on error, allowing a retry of the failed data on the next cycle.
         }
     }
 }

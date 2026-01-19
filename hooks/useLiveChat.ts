@@ -1,3 +1,4 @@
+
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleGenAI, LiveSession, LiveServerMessage, Modality, Blob as GenAIBlob, FunctionDeclaration, FunctionCall, Part } from '@google/genai';
 import { Agent } from '../services/agentService';
@@ -35,6 +36,18 @@ const fileToPart = async (file: File): Promise<Part> => {
     };
 };
 
+function createPcmBlob(data: Float32Array): GenAIBlob {
+    const l = data.length;
+    const int16 = new Int16Array(l);
+    for (let i = 0; i < l; i++) {
+        int16[i] = data[i] * 32768; 
+    }
+    return {
+        data: encode(new Uint8Array(int16.buffer)),
+        mimeType: 'audio/pcm;rate=16000',
+    };
+}
+
 export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnComplete, onToolCall }: UseLiveChatOptions) => {
     const [isLive, setIsLive] = useState(false);
     const [connectionState, setConnectionState] = useState<ConnectionState>('IDLE');
@@ -53,6 +66,9 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
 
     const isMicMutedRef = useRef(isMicMuted);
     useEffect(() => { isMicMutedRef.current = isMicMuted; }, [isMicMuted]);
+
+    const isSpeakerMutedRef = useRef(isSpeakerMuted);
+    useEffect(() => { isSpeakerMutedRef.current = isSpeakerMuted; }, [isSpeakerMuted]);
 
     const stopLiveChat = useCallback(async () => {
         setIsLive(false);
@@ -105,6 +121,7 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
         if (!sessionPromiseRef.current) return;
         const session = await sessionPromiseRef.current;
         session.sendToolResponse({ functionResponses: responses });
+        transcriptBufferRef.current.toolResponses = responses;
     }, []);
 
     const startLiveChat = useCallback(async () => {
@@ -151,7 +168,7 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
                         processor.onaudioprocess = (e) => {
                             if (isMicMutedRef.current) return;
                             const inputData = e.inputBuffer.getChannelData(0);
-                            const pcmBlob: GenAIBlob = { data: encode(new Uint8Array(new Int16Array(inputData.map(s => s * 32767)).buffer)), mimeType: 'audio/pcm;rate=16000' };
+                            const pcmBlob = createPcmBlob(inputData);
                             sessionPromiseRef.current?.then((s) => s.sendRealtimeInput({ media: pcmBlob }));
                         };
                         source.connect(processor);
@@ -169,6 +186,7 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
                             setLiveTranscript(prev => ({ ...prev, model: prev.model + text }));
                         }
                         if (message.toolCall) {
+                            transcriptBufferRef.current.toolCalls = message.toolCall.functionCalls;
                             onToolCall(message.toolCall.functionCalls);
                         }
                         if (message.serverContent?.turnComplete) {
@@ -177,7 +195,7 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
                             setLiveTranscript({ user: '', model: '' });
                         }
                         const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-                        if (base64Audio && outputAudioContextRef.current && !isSpeakerMuted) {
+                        if (base64Audio && outputAudioContextRef.current && !isSpeakerMutedRef.current) {
                             const audioCtx = outputAudioContextRef.current;
                             nextStartTimeRef.current = Math.max(nextStartTimeRef.current, audioCtx.currentTime);
                             const audioBuffer = await decodeAudioData(decode(base64Audio), audioCtx, 24000, 1);
@@ -204,7 +222,7 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
             setConnectionState('ERROR');
             setIsLive(false);
         }
-    }, [agent.id, agent.voice, agent.systemPrompt, isLive, stopLiveChat, onTurnComplete, onToolCall, isSpeakerMuted]);
+    }, [agent.id, agent.voice, agent.systemPrompt, stopLiveChat, onTurnComplete, onToolCall]);
     
     useEffect(() => {
         // Cleanup on unmount

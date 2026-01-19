@@ -27,9 +27,19 @@ export const getGradioClient = async (spaceId: string, options?: GradioOptions):
         const client = await Client.connect(spaceId, connectOptions as any);
         clientCache.set(spaceId, client);
         return client;
-    } catch (error) {
+    } catch (error: any) {
         console.error(`[GradioService] Failed to connect to Space: ${spaceId}`, error);
-        throw new Error(`Failed to connect to AI Service (${spaceId}). Please check your connection and Hugging Face token.`);
+        let errorMessage = `Failed to connect to AI Service (${spaceId}).`;
+        if (error.message) {
+            if (error.message.includes("Space is sleeping")) {
+                errorMessage = "The AI service is sleeping. Please wait ~60 seconds for it to wake up and try again.";
+            } else if (error.message.includes("Space metadata could not be loaded") || error.message.includes("403")) {
+                 errorMessage = "Access denied. This may be due to Hugging Face throttling or an invalid token. Please check your account status and API key in Settings.";
+            } else {
+                 errorMessage += ` Reason: ${error.message}`;
+            }
+        }
+        throw new Error(errorMessage);
     }
 };
 
