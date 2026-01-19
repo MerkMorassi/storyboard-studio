@@ -186,11 +186,11 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
                     </div>
                     {/* FIX: Wrap form elements within the Control component to satisfy the 'children' prop requirement. */}
                     <Control label="Prompt">
-                        <textarea value={state.prompt} onChange={(e) => onStateUpdate({ ...state, prompt: e.target.value })} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" rows={3} />
+                        <textarea value={state.prompt} onChange={(e) => onStateUpdate({ ... state, prompt: e.target.value })} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" rows={3} />
                     </Control>
                     {/* FIX: Wrap form elements within the Control component to satisfy the 'children' prop requirement. */}
                     <Control label="Negative Prompt">
-                        <textarea value={state.negativePrompt} onChange={(e) => onStateUpdate({ ...state, negativePrompt: e.target.value })} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" rows={2} />
+                        <textarea value={state.negativePrompt} onChange={(e) => onStateUpdate({ ... state, negativePrompt: e.target.value })} className="w-full bg-secondary border border-accent p-2 rounded-lg text-sm" rows={2} />
                     </Control>
                     
                     <div className="pt-4 border-t border-accent">

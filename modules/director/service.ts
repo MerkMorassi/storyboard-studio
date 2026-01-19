@@ -1,5 +1,6 @@
 
 
+
 import { GoogleGenAI, Type } from '@google/genai';
 import { ChatMessage, AutomationConfig } from '../../types.ts';
 import { extractFramesFromVideo } from '../../utils/video';

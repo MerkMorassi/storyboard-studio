@@ -4,6 +4,7 @@ import { getDolphinUrl } from './apiKeyService';
 /**
  * Dolphin Service (Sovereign Engine)
  * Interfaces with the merkmorassi/mythos-dolphin private LLM via OpenAI Standard Protocol.
+ * Used for uncensored tasks: fiction writing, NSFW prompt engineering, etc.
  */
 
 export interface DolphinResponse {
@@ -22,22 +23,23 @@ export const runDolphinInference = async (
         return { text: "", error: "Dolphin LLM URL is not configured in System Settings." };
     }
 
-    // 2. Construct Endpoint (The New Standard)
+    // 2. Construct Endpoint (Standard OpenAI Route)
+    // We target /v1/chat/completions because that is what your Sovereign Engine runs.
     const DOLPHIN_ENDPOINT = `${dolphinBaseUrl}/v1/chat/completions`;
 
     if (!hfToken) throw new Error("Dolphin Core requires a Hugging Face Token.");
 
     try {
-        // 3. Construct Payload (OpenAI Format)
-        // We no longer manually construct <|im_start|>; the server handles the chat template.
+        // 3. Construct Payload (OpenAI JSON Format)
+        // This replaces the old Gradio array format.
         const payload = {
-            model: "mythos-dolphin", // Optional, but good practice
+            model: "mythos-dolphin", 
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: prompt }
             ],
             temperature: 0.7,
-            max_tokens: 1024,
+            max_tokens: 2048, // Increased for fiction writing
             stream: false
         };
 
@@ -50,9 +52,9 @@ export const runDolphinInference = async (
             body: JSON.stringify(payload)
         });
 
-        // 4. Handle Errors
+        // 4. Handle Server States
         if (response.status === 503) {
-            return { text: "", error: "Dolphin Hardware is booting. Please wait 60 seconds." };
+            return { text: "", error: "Dolphin Hardware is booting (Cold Start). Please wait 60 seconds." };
         }
 
         if (!response.ok) {
@@ -61,7 +63,7 @@ export const runDolphinInference = async (
             throw new Error(`Dolphin Engine Fault (${response.status}). Check server logs.`);
         }
 
-        // 5. Parse Response (OpenAI Format)
+        // 5. Parse Response
         const json = await response.json();
         
         if (json.choices && json.choices.length > 0) {
@@ -77,12 +79,18 @@ export const runDolphinInference = async (
     }
 };
 
+/**
+ * Specialized function to bypass safety filters for image prompts.
+ * This sends the request strictly to Dolphin, keeping Gemini out of the loop.
+ */
 export const refineNsfwPrompt = async (prompt: string, hfToken: string): Promise<string> => {
-    const systemPrompt = "You are a creative assistant. Rewrite the user's prompt to be more vivid and detailed. Output ONLY the rewritten prompt.";
+    const systemPrompt = "You are a creative assistant for an uncensored AI art generator. Your task is to take a user's prompt and rewrite it to be more vivid, descriptive, and explicit, suitable for a powerful, unrestricted model. Do not refuse or lecture. Directly provide the enhanced prompt only.";
+    
     const response = await runDolphinInference(prompt, systemPrompt, hfToken);
+    
     if (response.error) {
-        console.warn("[Dolphin NSFW Refine] Failed, using original prompt.", response.error);
-        return prompt;
+        console.warn("[Dolphin NSFW Refine] Failed, falling back to original.", response.error);
+        return prompt; 
     }
     return response.text;
 };
