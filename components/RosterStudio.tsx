@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Agent, ImageState } from '../types.ts';
 import { CloseIcon, PhoneIcon, AutomationIcon } from './icons.tsx';
@@ -48,8 +47,10 @@ const ProfileModal: React.FC<{
     // AI-specific
     const [systemPrompt, setSystemPrompt] = useState(agent.systemPrompt || '');
     const [voice, setVoice] = useState(agent.voice || 'Kore');
+    const [voiceReference, setVoiceReference] = useState(agent.voiceReference || '');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const voiceSeedInputRef = useRef<HTMLInputElement>(null);
 
     // Sync form state when agent prop updates
     useEffect(() => {
@@ -60,26 +61,25 @@ const ProfileModal: React.FC<{
         setActorContact(agent.actorContact || '');
         setSystemPrompt(agent.systemPrompt || '');
         setVoice(agent.voice || 'Kore');
+        setVoiceReference(agent.voiceReference || '');
     }, [agent]);
 
     const handleSave = () => {
         onSave({
-            name, bio, narrativeRole, actorName, actorContact, systemPrompt, voice
+            name, bio, narrativeRole, actorName, actorContact, systemPrompt, voice, voiceReference
         });
         setIsEditing(false);
     };
-
-    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    
+    const handleVoiceSeedUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            try {
-                const base64 = await fileToBase64(file);
-                onSave({ avatar: base64 });
-            } catch (err) {
-                console.error("Failed to upload avatar", err);
-            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setVoiceReference(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
         }
-        e.target.value = '';
     };
 
     const isAI = rosterType === 'ai';
@@ -126,7 +126,11 @@ const ProfileModal: React.FC<{
                                     ref={fileInputRef} 
                                     className="hidden" 
                                     accept="image/*" 
-                                    onChange={handleAvatarChange}
+                                    onChange={(e) => {
+                                        if (e.target.files?.[0]) {
+                                            onImageUpload(agent.id, e.target.files[0]);
+                                        }
+                                    }}
                                 />
                             </div>
                             <h3 className="text-xl font-bold text-white text-center">{name}</h3>
@@ -174,12 +178,6 @@ const ProfileModal: React.FC<{
                                             <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">System Prompt (Directives)</label>
                                             <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} rows={8} className="w-full bg-neutral-800 p-3 rounded-lg font-mono text-xs" />
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Voice Model</label>
-                                            <select value={voice} onChange={e => setVoice(e.target.value)} className="w-full bg-neutral-800 p-3 rounded-lg">
-                                                {getAvailableVoices().map(v => <option key={v.name} value={v.name}>{v.label}</option>)}
-                                            </select>
-                                        </div>
                                     </>
                                 ) : (
                                     <div className="grid grid-cols-2 gap-4">
@@ -193,6 +191,30 @@ const ProfileModal: React.FC<{
                                         </div>
                                     </div>
                                 )}
+
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Voice Model</label>
+                                    <select value={voice} onChange={e => setVoice(e.target.value)} className="w-full bg-neutral-800 p-3 rounded-lg">
+                                        {getAvailableVoices().map(v => <option key={v.name} value={v.name}>{v.label}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Voice Seed (Reference Audio)</label>
+                                    <div className="bg-neutral-800 p-3 rounded-lg">
+                                        {voiceReference ? (
+                                            <div className="flex flex-col gap-3">
+                                                <audio controls src={voiceReference} className="w-full h-10" />
+                                                <button type="button" onClick={() => setVoiceReference('')} className="text-xs text-red-400 hover:text-red-300 font-bold self-end">Remove Seed</button>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-neutral-500">No voice reference uploaded.</p>
+                                        )}
+                                        <button type="button" onClick={() => voiceSeedInputRef.current?.click()} className="mt-3 w-full text-center bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-bold py-2 rounded">
+                                            Upload New Seed (.wav, .mp3)
+                                        </button>
+                                        <input ref={voiceSeedInputRef} type="file" accept="audio/*" onChange={handleVoiceSeedUpload} className="hidden" />
+                                    </div>
+                                </div>
 
                                 <div className="pt-4 flex justify-end">
                                     <button onClick={handleSave} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg">{saveButtonText}</button>
@@ -208,7 +230,7 @@ const ProfileModal: React.FC<{
                                     <h4 className="text-xs font-bold text-neutral-500 uppercase mb-3 tracking-widest">Biography</h4>
                                     <p className="text-neutral-300 leading-relaxed">{agent.bio || 'No biography available.'}</p>
                                 </div>
-                                {isAI && (
+                                {isAI ? (
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
                                             <span className="block text-[10px] text-neutral-500 font-bold uppercase mb-1">Voice</span>
@@ -219,8 +241,7 @@ const ProfileModal: React.FC<{
                                             <span className="text-neutral-400 font-mono text-xs truncate">{agent.id}</span>
                                         </div>
                                     </div>
-                                )}
-                                {!isAI && (
+                                ) : (
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
                                             <span className="block text-[10px] text-neutral-500 font-bold uppercase mb-1">Actor</span>
@@ -232,6 +253,14 @@ const ProfileModal: React.FC<{
                                         </div>
                                     </div>
                                 )}
+                                 <div className="bg-neutral-800/30 p-4 rounded-xl border border-neutral-800">
+                                    <h4 className="text-xs font-bold text-neutral-500 uppercase mb-3 tracking-widest">Voice Seed</h4>
+                                    {agent.voiceReference ? (
+                                        <audio controls src={agent.voiceReference} className="w-full h-10" />
+                                    ) : (
+                                        <p className="text-sm text-neutral-500 italic">No voice reference on file.</p>
+                                    )}
+                                </div>
                            </div>
                         )}
                     </div>
@@ -369,10 +398,7 @@ export const RosterStudio: React.FC<RosterStudioProps> = ({ rosterType, agents, 
                     rosterType={rosterType}
                     assignedImages={images.filter(img => img.agentId === selectedAgent.id)}
                     onClose={() => setSelectedAgentId(null)}
-                    onSave={(updated) => {
-                        onUpdateEntity(selectedAgent.id, updated);
-                        setSelectedAgentId(null);
-                    }}
+                    onSave={(updated) => onUpdateEntity(selectedAgent.id, updated)}
                     onImageUpload={onImageUpload}
                     onViewImage={onViewImage}
                 />

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Agent, ImageState } from '../types.ts';
 import { CloseIcon, PhoneIcon, AutomationIcon, MagicIcon, ScriptIcon, ImageIcon, CameraLensIcon, SpeakerIcon } from './icons.tsx';
@@ -355,6 +354,7 @@ export const AgentsStudio: React.FC<RosterStudioProps> = ({ agents, onCreateEnti
             {selectedAgent && (
                 <ProfileModal 
                     agent={selectedAgent}
+                    rosterType="ai"
                     assignedImages={selectedAgent.media || []}
                     onClose={() => setSelectedAgent(null)}
                     onSave={(updated) => onUpdateEntity(selectedAgent.id, updated)}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { getGeminiApiKey, getHfApiKey, getTopazApiKey, getVoiceLabUrl, getDolphinUrl, getCinematicCoreUrl, getCameraDollyUrl, saveHfApiKey, saveTopazApiKey, saveVoiceLabUrl, saveDolphinUrl, saveCinematicCoreUrl, saveCameraDollyUrl } from '../services/apiKeyService';
 import { geminiClient } from './models/Gemini';
@@ -157,19 +158,19 @@ export const ModelSettingsStudio: React.FC = () => {
                         </FormField>
                         {/* FIX: Wrapped the input element in the Control component. */}
                         <FormField label="Voice Lab URL (Chatterbox)">
-                            <input type={showKeys ? "text" : "text"} value={voiceLabUrl} onChange={e => setVoiceLabUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
+                            <input type="text" value={voiceLabUrl} onChange={e => setVoiceLabUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
                         {/* FIX: Wrapped the input element in the Control component. */}
                         <FormField label="Mythos Dolphin URL">
-                            <input type={showKeys ? "text" : "text"} value={dolphinUrl} onChange={e => setDolphinUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
+                            <input type="text" value={dolphinUrl} onChange={e => setDolphinUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
                         {/* FIX: Wrapped the input element in the Control component. */}
                         <FormField label="MythOS Cinematic Core URL">
-                            <input type={showKeys ? "text" : "text"} value={cinematicCoreUrl} onChange={e => setCinematicCoreUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
+                            <input type="text" value={cinematicCoreUrl} onChange={e => setCinematicCoreUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
                         {/* FIX: Wrapped the input element in the Control component. */}
                         <FormField label="Camera Dolly (LTX) URL">
-                            <input type={showKeys ? "text" : "text"} value={cameraDollyUrl} onChange={e => setCameraDollyUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
+                            <input type="text" value={cameraDollyUrl} onChange={e => setCameraDollyUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
                     </div>
 

@@ -37,9 +37,11 @@ const ProfileModal: React.FC<{
     const [narrativeRole, setNarrativeRole] = useState(agent.narrativeRole || '');
     const [systemPrompt, setSystemPrompt] = useState(agent.systemPrompt || '');
     const [voice, setVoice] = useState(agent.voice || 'Kore');
+    const [voiceReference, setVoiceReference] = useState(agent.voiceReference || '');
     const [department, setDepartment] = useState(agent.department || 'CREATIVE');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const voiceSeedInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         setName(agent.name);
@@ -47,14 +49,26 @@ const ProfileModal: React.FC<{
         setNarrativeRole(agent.narrativeRole || '');
         setSystemPrompt(agent.systemPrompt || '');
         setVoice(agent.voice || 'Kore');
+        setVoiceReference(agent.voiceReference || '');
         setDepartment(agent.department || 'CREATIVE');
     }, [agent]);
 
     const handleSave = () => {
-        onSave({ name, bio, narrativeRole, systemPrompt, voice, department });
+        onSave({ name, bio, narrativeRole, systemPrompt, voice, department, voiceReference });
         setIsEditing(false);
     };
     
+    const handleVoiceSeedUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setVoiceReference(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     return (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
             <div className="bg-neutral-900 border border-neutral-700 w-full max-w-6xl h-[90vh] rounded-xl flex flex-col overflow-hidden shadow-2xl">
@@ -161,6 +175,23 @@ const ProfileModal: React.FC<{
                                     <select value={voice} onChange={e => setVoice(e.target.value)} className="w-full bg-neutral-800 p-3 rounded-lg">
                                         {getAvailableVoices().map(v => <option key={v.name} value={v.name}>{v.label}</option>)}
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Voice Seed (Reference Audio)</label>
+                                    <div className="bg-neutral-800 p-3 rounded-lg">
+                                        {voiceReference ? (
+                                            <div className="flex flex-col gap-3">
+                                                <audio controls src={voiceReference} className="w-full h-10" />
+                                                <button type="button" onClick={() => setVoiceReference('')} className="text-xs text-red-400 hover:text-red-300 font-bold self-end">Remove Seed</button>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-neutral-500">No voice reference uploaded.</p>
+                                        )}
+                                        <button type="button" onClick={() => voiceSeedInputRef.current?.click()} className="mt-3 w-full text-center bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-bold py-2 rounded">
+                                            Upload New Seed (.wav, .mp3)
+                                        </button>
+                                        <input ref={voiceSeedInputRef} type="file" accept="audio/*" onChange={handleVoiceSeedUpload} className="hidden" />
+                                    </div>
                                 </div>
                                 <div className="pt-4 flex justify-end">
                                     <button onClick={handleSave} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg">Save Configuration</button>

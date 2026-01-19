@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { WanimateState } from '../types';
 import { LoadingSpinner, ClapperboardIcon, CameraLensIcon, RefreshCwIcon } from './icons';

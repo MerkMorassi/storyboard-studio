@@ -1,29 +1,47 @@
+
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenAIBlob } from '@google/genai';
+import { GoogleGenAI, LiveSession, LiveServerMessage, Modality, Blob as GenAIBlob, FunctionDeclaration, FunctionCall, Part } from '@google/genai';
 import { Agent } from '../services/agentService';
 import { decode, decodeAudioData, encode } from '../utils/audio';
 import { mythosTools } from '../services/geminiService';
 import { retrieveLivedExperience } from '../services/localRagService';
+import { getGeminiApiKey } from '../services/apiKeyService';
 
 export interface LiveTranscript {
     user: string;
     model: string;
 }
 
-export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
+export type ConnectionState = 'IDLE' | 'CONNECTING' | 'CONNECTED' | 'ERROR';
 
 interface UseLiveChatOptions {
     isMicMuted: boolean;
     isSpeakerMuted: boolean;
-    onTurnComplete: (turn: LiveTranscript) => void;
+    onTurnComplete: (turn: { user: string; model: string; toolCalls?: FunctionCall[], toolResponses?: any[] }) => void;
+    onToolCall: (toolCalls: FunctionCall[]) => Promise<any[]>;
 }
 
-export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnComplete }: UseLiveChatOptions) => {
+const fileToPart = async (file: File): Promise<Part> => {
+    const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = (error) => reject(error);
+    });
+    return {
+        inlineData: {
+            mimeType: file.type || 'application/octet-stream',
+            data: base64
+        }
+    };
+};
+
+export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnComplete, onToolCall }: UseLiveChatOptions) => {
     const [isLive, setIsLive] = useState(false);
-    const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
+    const [connectionState, setConnectionState] = useState<ConnectionState>('IDLE');
     const [liveTranscript, setLiveTranscript] = useState<LiveTranscript>({ user: '', model: '' });
 
-    const sessionPromiseRef = useRef<Promise<any> | null>(null);
+    const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);
     const inputAudioContextRef = useRef<AudioContext | null>(null);
     const outputAudioContextRef = useRef<AudioContext | null>(null);
     const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -32,14 +50,14 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
 
     const nextStartTimeRef = useRef(0);
     const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-    const transcriptBufferRef = useRef<LiveTranscript>({ user: '', model: '' });
+    const transcriptBufferRef = useRef<{ user: string; model: string; toolCalls?: FunctionCall[]; toolResponses?: any[] }>({ user: '', model: '' });
 
     const isMicMutedRef = useRef(isMicMuted);
     useEffect(() => { isMicMutedRef.current = isMicMuted; }, [isMicMuted]);
 
     const stopLiveChat = useCallback(async () => {
         setIsLive(false);
-        setConnectionState('idle');
+        setConnectionState('IDLE');
 
         mediaStreamRef.current?.getTracks().forEach(track => track.stop());
         mediaStreamRef.current = null;
@@ -47,31 +65,23 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
         if (scriptProcessorRef.current && mediaStreamSourceRef.current) {
             mediaStreamSourceRef.current.disconnect();
             scriptProcessorRef.current.disconnect();
-            scriptProcessorRef.current = null;
-            mediaStreamSourceRef.current = null;
         }
+        scriptProcessorRef.current = null;
+        mediaStreamSourceRef.current = null;
 
-        if (inputAudioContextRef.current && inputAudioContextRef.current.state !== 'closed') {
-            await inputAudioContextRef.current.close().catch(console.error);
-            inputAudioContextRef.current = null;
-        }
-        if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
-            await outputAudioContextRef.current.close().catch(console.error);
-            outputAudioContextRef.current = null;
-        }
+        if (inputAudioContextRef.current?.state !== 'closed') await inputAudioContextRef.current?.close();
+        if (outputAudioContextRef.current?.state !== 'closed') await outputAudioContextRef.current?.close();
+        inputAudioContextRef.current = null;
+        outputAudioContextRef.current = null;
         
-        audioSourcesRef.current.forEach(source => {
-            try { source.stop(); } catch(e) {}
-        });
+        audioSourcesRef.current.forEach(source => source.stop());
         audioSourcesRef.current.clear();
 
         if (sessionPromiseRef.current) {
             try {
                 const session = await sessionPromiseRef.current;
                 session.close();
-            } catch (e) {
-                console.error("Error closing live session:", e);
-            }
+            } catch (e) {}
             sessionPromiseRef.current = null;
         }
 
@@ -79,17 +89,35 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
         setLiveTranscript({ user: '', model: '' });
     }, []);
 
-    const startLiveChat = useCallback(async () => {
-        if (isLive) return;
+    const sendTextMessage = useCallback(async (text: string) => {
+        if (!sessionPromiseRef.current) return;
+        const session = await sessionPromiseRef.current;
+        session.sendRealtimeInput({ text });
+    }, []);
+    
+    const sendFiles = useCallback(async (files: File[]) => {
+        if (!sessionPromiseRef.current || files.length === 0) return;
+        const session = await sessionPromiseRef.current;
+        const parts = await Promise.all(files.map(fileToPart));
+        session.sendRealtimeInput({ media: parts });
+    }, []);
 
-        if (!process.env.API_KEY) {
+    const sendToolResponse = useCallback(async (responses: any[]) => {
+        if (!sessionPromiseRef.current) return;
+        const session = await sessionPromiseRef.current;
+        session.sendToolResponse({ functionResponses: responses });
+    }, []);
+
+    const startLiveChat = useCallback(async () => {
+        if (!agent?.id || isLive) return;
+        const apiKey = getGeminiApiKey();
+        if (!apiKey) {
             console.error("Missing API Key for Live Session");
-            setConnectionState('error');
+            setConnectionState('ERROR');
             return;
         }
 
-        setConnectionState('connecting');
-
+        setConnectionState('CONNECTING');
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaStreamRef.current = stream;
@@ -99,8 +127,7 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
             nextStartTimeRef.current = 0;
             setIsLive(true);
 
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            
+            const ai = new GoogleGenAI({ apiKey });
             const systemInstructionWithTools = `${agent.systemPrompt}\n\nYou have access to your LOREPACK (memory). If you need to recall specific facts, events, or details about your history or knowledge, you MUST use the 'lorepack_search' tool to find relevant context before answering.`;
 
             sessionPromiseRef.current = ai.live.connect({
@@ -115,41 +142,21 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
                 },
                 callbacks: {
                     onopen: () => {
-                        console.log('Live Session Established');
-                        setConnectionState('connected');
-                        
-                        if (!inputAudioContextRef.current) return;
-                        
-                        const source = inputAudioContextRef.current.createMediaStreamSource(stream);
+                        setConnectionState('CONNECTED');
+                        const audioCtx = inputAudioContextRef.current;
+                        if (!audioCtx) return;
+                        const source = audioCtx.createMediaStreamSource(stream);
                         mediaStreamSourceRef.current = source;
-
-                        const scriptProcessor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
-                        scriptProcessorRef.current = scriptProcessor;
-
-                        scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
+                        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+                        scriptProcessorRef.current = processor;
+                        processor.onaudioprocess = (e) => {
                             if (isMicMutedRef.current) return;
-
-                            const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
-                            const int16 = new Int16Array(inputData.length);
-                            for (let i = 0; i < inputData.length; i++) {
-                                const s = Math.max(-1, Math.min(1, inputData[i]));
-                                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                            }
-                            const pcmBlob: GenAIBlob = {
-                                data: encode(new Uint8Array(int16.buffer)),
-                                mimeType: 'audio/pcm;rate=16000',
-                            };
-                            
-                            sessionPromiseRef.current?.then((session) => {
-                                try {
-                                    session.sendRealtimeInput({ media: pcmBlob });
-                                } catch (err) {
-                                    console.warn("Input streaming failure:", err);
-                                }
-                            });
+                            const inputData = e.inputBuffer.getChannelData(0);
+                            const pcmBlob: GenAIBlob = { data: encode(new Uint8Array(new Int16Array(inputData.map(s => s * 32767)).buffer)), mimeType: 'audio/pcm;rate=16000' };
+                            sessionPromiseRef.current?.then((s) => s.sendRealtimeInput({ media: pcmBlob }));
                         };
-                        source.connect(scriptProcessor);
-                        scriptProcessor.connect(inputAudioContextRef.current.destination);
+                        source.connect(processor);
+                        processor.connect(audioCtx.destination);
                     },
                     onmessage: async (message: LiveServerMessage) => {
                         if (message.serverContent?.inputTranscription) {
@@ -162,29 +169,14 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
                             transcriptBufferRef.current.model += text;
                             setLiveTranscript(prev => ({ ...prev, model: prev.model + text }));
                         }
-                        
+                        if (message.toolCall) {
+                            onToolCall(message.toolCall.functionCalls);
+                        }
                         if (message.serverContent?.turnComplete) {
-                            if (onTurnComplete && (transcriptBufferRef.current.user.trim() || transcriptBufferRef.current.model.trim())) {
-                                onTurnComplete({ ...transcriptBufferRef.current });
-                            }
+                            onTurnComplete(transcriptBufferRef.current);
                             transcriptBufferRef.current = { user: '', model: '' };
                             setLiveTranscript({ user: '', model: '' });
                         }
-
-                        if (message.toolCall) {
-                            const session = await sessionPromiseRef.current;
-                            if (!session) return;
-                            for (const fc of message.toolCall.functionCalls) {
-                                if (fc.name === 'lorepack_search' && fc.args.query) {
-                                    const experience = await retrieveLivedExperience(agent.id, fc.args.query);
-                                    const context = experience ? experience.text : "No relevant experience found.";
-                                    session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: context } } });
-                                } else {
-                                     session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: `Tool ${fc.name} not implemented in voice.` } } });
-                                }
-                            }
-                        }
-
                         const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
                         if (base64Audio && outputAudioContextRef.current && !isSpeakerMuted) {
                             const audioCtx = outputAudioContextRef.current;
@@ -198,23 +190,29 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
                             nextStartTimeRef.current += audioBuffer.duration;
                             audioSourcesRef.current.add(source);
                         }
-
                         if (message.serverContent?.interrupted) {
-                            audioSourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
+                            audioSourcesRef.current.forEach(s => s.stop());
                             audioSourcesRef.current.clear();
                             nextStartTimeRef.current = 0;
                         }
                     },
-                    onerror: (e: any) => { console.error('Live chat error:', e); setConnectionState('error'); stopLiveChat(); },
-                    onclose: () => { console.log('Live Session Closed'); setConnectionState('idle'); setIsLive(false); },
+                    onerror: (e: any) => { console.error('Live chat error:', e); setConnectionState('ERROR'); stopLiveChat(); },
+                    onclose: () => { setConnectionState('IDLE'); setIsLive(false); },
                 },
             });
         } catch (err) {
             console.error('Failed to start live chat:', err);
-            setConnectionState('error');
+            setConnectionState('ERROR');
             setIsLive(false);
         }
-    }, [isLive, agent.id, agent.voice, agent.systemPrompt, stopLiveChat, onTurnComplete, isSpeakerMuted]);
-
-    return { isLive, connectionState, liveTranscript, startLiveChat, stopLiveChat };
+    }, [agent.id, agent.voice, agent.systemPrompt, isLive, stopLiveChat, onTurnComplete, onToolCall, isSpeakerMuted]);
+    
+    useEffect(() => {
+        // Cleanup on unmount
+        return () => {
+            stopLiveChat();
+        };
+    }, [stopLiveChat]);
+    
+    return { isLive, connectionState, liveTranscript, startLiveChat, stopLiveChat, sendTextMessage, sendFiles, sendToolResponse };
 };
