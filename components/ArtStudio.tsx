@@ -8,10 +8,10 @@ import { ImageIcon } from './icons.tsx';
 interface ArtStudioProps {
     agent: Agent;
     onNavigate: (view: ActiveView) => void;
-    onCallAgent: (agent: Agent) => void;
+    onOpenChat: (mode: 'chat' | 'call') => void;
 }
 
-export const ArtStudio: React.FC<ArtStudioProps> = ({ agent, onNavigate, onCallAgent }) => {
+export const ArtStudio: React.FC<ArtStudioProps> = ({ agent, onNavigate, onOpenChat }) => {
     return (
         <div className="flex-col h-full w-full bg-primary flex">
             <StudioHeader 
@@ -20,7 +20,7 @@ export const ArtStudio: React.FC<ArtStudioProps> = ({ agent, onNavigate, onCallA
                     { label: "The Atelier (Canvas)" }
                 ]}
                 agent={agent}
-                onCallAgent={() => onCallAgent(agent)}
+                onOpenChat={onOpenChat}
             />
 
             <main className="flex-grow overflow-hidden flex flex-col relative">

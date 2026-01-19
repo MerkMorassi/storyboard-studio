@@ -8,10 +8,10 @@ import { PencilIcon } from './icons/PencilIcon.tsx';
 interface DesignStudioProps {
     agent: Agent;
     onNavigate: (view: ActiveView) => void;
-    onCallAgent: (agent: Agent) => void;
+    onOpenChat: (mode: 'chat' | 'call') => void;
 }
 
-export const DesignStudio: React.FC<DesignStudioProps> = ({ agent, onNavigate, onCallAgent }) => {
+export const DesignStudio: React.FC<DesignStudioProps> = ({ agent, onNavigate, onOpenChat }) => {
     return (
         <div className="flex flex-col h-full w-full bg-primary">
             <StudioHeader 
@@ -20,7 +20,7 @@ export const DesignStudio: React.FC<DesignStudioProps> = ({ agent, onNavigate, o
                     { label: "VisDev Lab (Stylus)" }
                 ]}
                 agent={agent}
-                onCallAgent={() => onCallAgent(agent)}
+                onOpenChat={onOpenChat}
             />
 
             <main className="flex-grow overflow-hidden flex flex-col relative">

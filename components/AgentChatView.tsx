@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Agent } from '../services/agentService';
 import { GoogleGenAI, FunctionCall, Part } from '@google/genai';
@@ -5,7 +6,7 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInterface } from './ChatInterface';
 import { vectorDb } from '../services/vectorDbService';
 import { useLiveChat } from '../hooks/useLiveChat';
-import { MicIcon, MicOffIcon, SpeakerIcon, SpeakerOffIcon, LoadingSpinner, DatabaseIcon, TrashIcon } from './icons.tsx';
+import { MicIcon, MicOffIcon, SpeakerIcon, SpeakerOffIcon, LoadingSpinner, DatabaseIcon, TrashIcon, CloseIcon } from './icons.tsx';
 import { TELEPORTER } from '../utils/numMarkX';
 import { getGeminiApiKey, getHfApiKey } from '../services/apiKeyService';
 import { generateImageSDXL } from '../services/huggingFaceService';
@@ -16,6 +17,8 @@ import { generateImageMCP } from '../services/gradioService';
 
 interface AgentChatViewProps {
   agent: Agent;
+  initialMode?: 'chat' | 'call';
+  onClose?: () => void;
 }
 
 interface ChatMessagePart {
@@ -26,14 +29,14 @@ interface ChatMessagePart {
   toolResult?: { result: any; };
 }
 
-export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent }) => {
+export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent, initialMode, onClose }) => {
   const [chatHistory, setChatHistory] = useState<{ id: string; role: 'user' | 'model'; parts: ChatMessagePart[] }[]>([]);
   const [chatMessage, setChatMessage] = useState<string>('');
   const [isSending, setIsSending] = useState<boolean>(false);
   const [hasLorepack, setHasLorepack] = useState(false);
   
-  const [isMicMuted, setIsMicMuted] = useState(true);
-  const [isSpeakerMuted, setIsSpeakerMuted] = useState(true);
+  const [isMicMuted, setIsMicMuted] = useState(initialMode !== 'call');
+  const [isSpeakerMuted, setIsSpeakerMuted] = useState(initialMode !== 'call');
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   
@@ -190,6 +193,7 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent }) => {
                     {isSpeakerMuted ? <SpeakerOffIcon className="w-5 h-5"/> : <SpeakerIcon className="w-5 h-5"/>}
                 </button>
                  <button onClick={async () => { if (confirm(`Clear history for ${agent.name}?`)) { await vectorDb.deleteAgentChat(agent.id); setChatHistory([]); } }} className="p-2 bg-secondary border border-accent text-text-secondary hover:text-red-400 rounded-xl transition-colors"><TrashIcon className="w-5 h-5" /></button>
+                 {onClose && <button onClick={onClose} className="p-2 bg-secondary border border-accent text-text-secondary hover:text-white rounded-xl transition-colors"><CloseIcon className="w-5 h-5" /></button>}
             </div>
         </div>
 

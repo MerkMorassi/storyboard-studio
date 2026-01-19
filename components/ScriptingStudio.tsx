@@ -10,7 +10,7 @@ import { ScriptViewer } from './ScriptViewer.tsx';
 interface ScriptingStudioProps {
     agent: Agent;
     onNavigate: (view: ActiveView) => void;
-    onCallAgent: (agent: Agent) => void;
+    onOpenChat: (mode: 'chat' | 'call') => void;
     scriptText: string;
     scriptsBin: ScriptFile[];
     onDeleteScript: (id: string) => void;
@@ -19,7 +19,7 @@ interface ScriptingStudioProps {
 }
 
 export const ScriptingStudio: React.FC<ScriptingStudioProps> = ({ 
-    agent, onNavigate, onCallAgent, scriptText, scriptsBin, onDeleteScript, onScriptUpload, defaultTab = 'chat' 
+    agent, onNavigate, onOpenChat, scriptText, scriptsBin, onDeleteScript, onScriptUpload, defaultTab = 'chat' 
 }) => {
     const [activeTab, setActiveTab] = useState<'chat' | 'viewer' | 'bin'>(defaultTab);
     const [selectedScript, setSelectedScript] = useState<ScriptFile | null>(null);
@@ -42,7 +42,7 @@ export const ScriptingStudio: React.FC<ScriptingStudioProps> = ({
                     { label: "Writers' Room (Scribe)" }
                 ]}
                 agent={agent}
-                onCallAgent={() => onCallAgent(agent)}
+                onOpenChat={onOpenChat}
             />
 
             <div className="flex items-center px-6 pt-2 bg-neutral-900 border-b border-neutral-800 gap-1 z-10">

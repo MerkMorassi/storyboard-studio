@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { WanimateState } from '../types';
 // FIX: Added missing import for RefreshCwIcon.

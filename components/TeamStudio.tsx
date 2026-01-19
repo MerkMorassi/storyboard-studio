@@ -329,7 +329,7 @@ export const TeamStudio: React.FC<TeamStudioProps> = ({ team, images, onUpdateAg
     const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
 
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full space-y-8 h-full overflow-y-auto">
+        <div className="p-8 max-w-7xl mx-auto w-full space-y-8 h-full overflow-y-auto">
             <div className="mb-8">
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Production Team</h2>
                 <p className="text-neutral-400">The core MythOS agent team responsible for project execution.</p>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardStudio } from './components/DashboardStudio';
@@ -53,6 +54,7 @@ import { TeamStudio } from './components/TeamStudio.tsx';
 import { WanimateStudio } from './components/WanimateStudio.tsx';
 import { DubbingStudio } from './components/DubbingStudio.tsx';
 import { factoryService as lorepackService } from './services/lorepack.ts';
+import { AgentChatView } from './components/AgentChatView.tsx';
 
 const DEFAULT_PROJECT_ID = 'project-alpha';
 
@@ -149,6 +151,11 @@ export const App = () => {
     const [projects, setProjects] = useState<Project[]>([INITIAL_PROJECT]);
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
     const [viewingImage, setViewingImage] = useState<ImageState | null>(null);
+    const [chatModalState, setChatModalState] = useState<{ isOpen: boolean; agent: Agent | null; initialMode: 'chat' | 'call' }>({
+        isOpen: false,
+        agent: null,
+        initialMode: 'chat'
+    });
 
     // Load initial data & set up periodic sync
     useEffect(() => {
@@ -237,8 +244,13 @@ export const App = () => {
         setActiveView(view);
         if (agentId) setSelectedAgentId(agentId);
     };
+    
+    const openChatModal = (agent: Agent, mode: 'chat' | 'call') => {
+        setChatModalState({ isOpen: true, agent, initialMode: mode });
+    };
 
     const renderContent = () => {
+        const coreAgent = (id: string) => project.data.agents.find(a => a.id === id)!;
         switch (activeView) {
             case 'dashboard': return <DashboardStudio project={project} onUpdateProject={(u) => setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, ...u } : p))} images={project.data.images} stats={{ storyboardFrames: project.data.storyboard.length, agents: project.data.agents.length, loreEntries: project.data.lore.length, inspirationImages: project.data.inspirationImages.length, dynamicPromptLists: project.data.dynamicPromptLists.length, promptTemplates: project.data.promptTemplates.length, imagesGenerated: project.data.images.length, totalProjects: projects.length, scriptsCount: project.data.scriptsBin.length }} onNavigate={handleNavigate} />;
             case 'projects': return <ProjectsStudio projects={projects} activeProjectId={activeProjectId} onSelectProject={setActiveProjectId} onCreateProject={(d) => setProjects(prev => [...prev, { ...INITIAL_PROJECT, id: `proj_${Date.now()}`, name: d.name, tagline: d.tagline, thumbnail: d.thumbnail }])} onRenameProject={(id, name) => setProjects(prev => prev.map(p => p.id === id ? { ...p, name } : p))} onDeleteProject={(id) => { setProjects(prev => prev.filter(p => p.id !== id)); if (activeProjectId === id && projects.length > 1) setActiveProjectId(projects[0].id); }} />;
@@ -248,32 +260,18 @@ export const App = () => {
                onUpdateAgent={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} 
                onUpdateAgentAvatar={async (id, file) => { const b64 = await fileToBase64(file); updateProjectData({ agents: project.data.agents.map(a => a.id === id ? {...a, avatar: b64} : a) }) }}
                onNavigate={handleNavigate} 
-               onCallAgent={(a) => { 
-                   const coreViews: {[key: string]: ActiveView} = {
-                       'agent-core': 'core',
-                       'agent-ideation': 'ideation',
-                       'agent-scripting': 'scripting',
-                       'agent-design': 'design',
-                       'agent-art': 'art'
-                   };
-                   if (a.id in coreViews) {
-                       handleNavigate(coreViews[a.id]);
-                   } else {
-                       setSelectedAgentId(a.id);
-                       setActiveView('agent-workspace'); 
-                   }
-               }} 
+               onCallAgent={(agent) => openChatModal(agent, 'call')} 
                onViewImage={setViewingImage}
            />;
-            case 'agents': return <AgentsStudio agents={project.data.agents} images={project.data.images} onCreateEntity={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}`, media: [] } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }} onViewImage={setViewingImage} onUpdateEntity={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} onDeleteEntity={(id) => updateProjectData({ agents: project.data.agents.filter(a => a.id !== id) })} onImageUpload={async (id, file) => { const b64 = await fileToBase64(file); updateProjectData({ agents: project.data.agents.map(a => a.id === id ? {...a, avatar: b64} : a) }) }} onCallEntity={(a) => { setSelectedAgentId(a.id); setActiveView('agent-workspace'); }} />;
-            case 'agent-workspace': return selectedAgentId ? <GenericAgentStudio agent={project.data.agents.find(a => a.id === selectedAgentId)!} onNavigate={handleNavigate} onCallAgent={() => {}} /> : <div className="p-10 text-center text-neutral-500">Agent Not Found</div>;
+            case 'agents': return <AgentsStudio agents={project.data.agents} images={project.data.images} onCreateEntity={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}`, media: [] } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }} onViewImage={setViewingImage} onUpdateEntity={(id, u) => updateProjectData({ agents: project.data.agents.map(a => a.id === id ? { ...a, ...u } : a) })} onDeleteEntity={(id) => updateProjectData({ agents: project.data.agents.filter(a => a.id !== id) })} onImageUpload={async (id, file) => { const b64 = await fileToBase64(file); updateProjectData({ agents: project.data.agents.map(a => a.id === id ? {...a, avatar: b64} : a) }) }} onCallEntity={(agent) => openChatModal(agent, 'call')} />;
+            case 'agent-workspace': return selectedAgentId ? <GenericAgentStudio agent={project.data.agents.find(a => a.id === selectedAgentId)!} onNavigate={handleNavigate} onOpenChat={(mode) => openChatModal(project.data.agents.find(a => a.id === selectedAgentId)!, mode)} /> : <div className="p-10 text-center text-neutral-500">Agent Not Found</div>;
             
             // Core Agents
-            case 'core': return <CoreStudio agent={project.data.agents.find(a => a.id === 'agent-core')!} onNavigate={handleNavigate} onCallAgent={() => {}} />;
-            case 'ideation': return <IdeationStudio agent={project.data.agents.find(a => a.id === 'agent-ideation')!} onNavigate={handleNavigate} onCallAgent={() => {}} />;
-            case 'scripting': return <ScriptingStudio agent={project.data.agents.find(a => a.id === 'agent-scripting')!} onNavigate={handleNavigate} onCallAgent={() => {}} scriptText={project.data.scriptText} scriptsBin={project.data.scriptsBin} onDeleteScript={(id) => updateProjectData({ scriptsBin: project.data.scriptsBin.filter(s => s.id !== id) })} onScriptUpload={(f) => { const r = new FileReader(); r.onload = e => updateProjectData({ scriptText: e.target?.result as string }); r.readAsText(f); }} />;
-            case 'design': return <DesignStudio agent={project.data.agents.find(a => a.id === 'agent-design')!} onNavigate={handleNavigate} onCallAgent={() => {}} />;
-            case 'art': return <ArtStudio agent={project.data.agents.find(a => a.id === 'agent-art')!} onNavigate={handleNavigate} onCallAgent={() => {}} />;
+            case 'core': return <CoreStudio agent={coreAgent('agent-core')} onNavigate={handleNavigate} onOpenChat={(mode) => openChatModal(coreAgent('agent-core'), mode)} />;
+            case 'ideation': return <IdeationStudio agent={coreAgent('agent-ideation')} onNavigate={handleNavigate} onOpenChat={(mode) => openChatModal(coreAgent('agent-ideation'), mode)} />;
+            case 'scripting': return <ScriptingStudio agent={coreAgent('agent-scripting')} onNavigate={handleNavigate} onOpenChat={(mode) => openChatModal(coreAgent('agent-scripting'), mode)} scriptText={project.data.scriptText} scriptsBin={project.data.scriptsBin} onDeleteScript={(id) => updateProjectData({ scriptsBin: project.data.scriptsBin.filter(s => s.id !== id) })} onScriptUpload={(f) => { const r = new FileReader(); r.onload = e => updateProjectData({ scriptText: e.target?.result as string }); r.readAsText(f); }} />;
+            case 'design': return <DesignStudio agent={coreAgent('agent-design')} onNavigate={handleNavigate} onOpenChat={(mode) => openChatModal(coreAgent('agent-design'), mode)} />;
+            case 'art': return <ArtStudio agent={coreAgent('agent-art')} onNavigate={handleNavigate} onOpenChat={(mode) => openChatModal(coreAgent('agent-art'), mode)} />;
             
             // Tools
             case 'director': return <DirectorStudio onNavigate={handleNavigate} />;
@@ -310,7 +308,7 @@ export const App = () => {
             case 'grid': return <ImageGrid images={project.data.images} isLoading={false} error={null} onViewImage={() => {}} gridOverlay='none' onGridOverlayChange={() => {}} onEditImage={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onUpscaleImage={() => {}} agents={project.data.agents} onAssignAgentToImage={(iid, aid) => updateProjectData({ images: project.data.images.map(i => i.id === iid ? { ...i, agentId: aid || undefined } : i) })} onCreateAgent={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}` } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }} agentFilter='' onAgentFilterChange={() => {}} awaitingExternalGeneration={false} showGridSelectors={false} />;
             case 'story': return <Storyboard frames={project.data.storyboard} onUpdateNote={(id, notes) => updateProjectData({ storyboard: project.data.storyboard.map(f => f.id === id ? { ...f, notes } : f) })} onRemove={(id) => updateProjectData({ storyboard: project.data.storyboard.filter(f => f.id !== id) })} onReorder={(s, e) => { const list = [...project.data.storyboard]; const [removed] = list.splice(s, 1); list.splice(e, 0, removed); updateProjectData({ storyboard: list }); }} />;
             case 'inspiration': return <InspirationBoard images={project.data.inspirationImages} onUpload={(f) => { const r = new FileReader(); r.onload = e => handleAddToInspiration((e.target?.result as string).split(',')[1]); r.readAsDataURL(f); }} onRemove={(id) => updateProjectData({ inspirationImages: project.data.inspirationImages.filter(i => i.id !== id) })} onUseAsGuide={() => {}} />;
-            case 'scripts-bin': return <ScriptingStudio agent={project.data.agents.find(a => a.id === 'agent-scripting')!} onNavigate={handleNavigate} onCallAgent={() => {}} scriptText={project.data.scriptText} scriptsBin={project.data.scriptsBin} onDeleteScript={(id) => updateProjectData({ scriptsBin: project.data.scriptsBin.filter(s => s.id !== id) })} onScriptUpload={(f) => { const r = new FileReader(); r.onload = e => updateProjectData({ scriptText: e.target?.result as string }); r.readAsText(f); }} defaultTab="bin" />;
+            case 'scripts-bin': return <ScriptingStudio agent={coreAgent('agent-scripting')} onNavigate={handleNavigate} onOpenChat={(mode) => openChatModal(coreAgent('agent-scripting'), mode)} scriptText={project.data.scriptText} scriptsBin={project.data.scriptsBin} onDeleteScript={(id) => updateProjectData({ scriptsBin: project.data.scriptsBin.filter(s => s.id !== id) })} onScriptUpload={(f) => { const r = new FileReader(); r.onload = e => updateProjectData({ scriptText: e.target?.result as string }); r.readAsText(f); }} defaultTab="bin" />;
             
             // Knowledge
             case 'characters': return <CharactersStudio characters={project.data.characters} onCreate={(c) => updateProjectData({ characters: [...project.data.characters, { ...c, id: `char_${Date.now()}` } as any] })} onUpdate={(id, u) => updateProjectData({ characters: project.data.characters.map(c => c.id === id ? { ...c, ...u } : c) })} onDelete={(id) => updateProjectData({ characters: project.data.characters.filter(c => c.id !== id) })} />;
@@ -344,6 +342,25 @@ export const App = () => {
                     onAssignAgentToImage={(iid, aid) => updateProjectData({ images: project.data.images.map(i => i.id === iid ? { ...i, agentId: aid || undefined } : i) })}
                     onCreateAgent={(d) => { const newAgent = { ...d, id: `agent_${Date.now()}` } as Agent; updateProjectData({ agents: [...project.data.agents, newAgent] }); return newAgent; }}
                 />
+            )}
+            {chatModalState.isOpen && chatModalState.agent && (
+                <div className="fixed inset-0 z-50 flex justify-end">
+                    <style>{`
+                        @keyframes slideInRight {
+                            from { transform: translateX(100%); }
+                            to { transform: translateX(0); }
+                        }
+                        .animate-slide-in-right { animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+                    `}</style>
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setChatModalState({ ...chatModalState, isOpen: false })}></div>
+                    <div className={`relative w-full ${chatModalState.initialMode === 'call' ? 'max-w-lg' : 'max-w-md'} bg-neutral-900 border-l border-neutral-700 shadow-2xl h-full flex flex-col animate-slide-in-right`}>
+                        <AgentChatView 
+                            agent={chatModalState.agent}
+                            initialMode={chatModalState.initialMode}
+                            onClose={() => setChatModalState({ ...chatModalState, isOpen: false })}
+                        />
+                    </div>
+                </div>
             )}
         </div>
     );

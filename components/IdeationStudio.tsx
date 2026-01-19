@@ -8,10 +8,10 @@ import { MagicIcon } from './icons.tsx';
 interface IdeationStudioProps {
     agent: Agent;
     onNavigate: (view: ActiveView) => void;
-    onCallAgent: (agent: Agent) => void;
+    onOpenChat: (mode: 'chat' | 'call') => void;
 }
 
-export const IdeationStudio: React.FC<IdeationStudioProps> = ({ agent, onNavigate, onCallAgent }) => {
+export const IdeationStudio: React.FC<IdeationStudioProps> = ({ agent, onNavigate, onOpenChat }) => {
     return (
         <div className="flex flex-col h-full w-full bg-primary">
             <StudioHeader 
@@ -20,7 +20,7 @@ export const IdeationStudio: React.FC<IdeationStudioProps> = ({ agent, onNavigat
                     { label: "The Think Tank (Spark)" }
                 ]}
                 agent={agent}
-                onCallAgent={() => onCallAgent(agent)}
+                onOpenChat={onOpenChat}
             />
 
             <main className="flex-grow overflow-hidden flex flex-col relative">

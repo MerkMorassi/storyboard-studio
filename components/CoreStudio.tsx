@@ -8,10 +8,10 @@ import { AutomationIcon } from './icons.tsx';
 interface CoreStudioProps {
     agent: Agent;
     onNavigate: (view: ActiveView) => void;
-    onCallAgent: (agent: Agent) => void;
+    onOpenChat: (mode: 'chat' | 'call') => void;
 }
 
-export const CoreStudio: React.FC<CoreStudioProps> = ({ agent, onNavigate, onCallAgent }) => {
+export const CoreStudio: React.FC<CoreStudioProps> = ({ agent, onNavigate, onOpenChat }) => {
     return (
         <div className="flex flex-col h-full w-full bg-primary">
             <StudioHeader 
@@ -20,7 +20,7 @@ export const CoreStudio: React.FC<CoreStudioProps> = ({ agent, onNavigate, onCal
                     { label: "Producer's Office (Nexus)" }
                 ]}
                 agent={agent}
-                onCallAgent={() => onCallAgent(agent)}
+                onOpenChat={onOpenChat}
             />
 
             <main className="flex-grow overflow-hidden flex flex-col relative">

@@ -7,10 +7,10 @@ import { StudioHeader } from './StudioHeader.tsx';
 interface GenericAgentStudioProps {
     agent: Agent;
     onNavigate: (view: ActiveView) => void;
-    onCallAgent: (agent: Agent) => void;
+    onOpenChat: (mode: 'chat' | 'call') => void;
 }
 
-export const GenericAgentStudio: React.FC<GenericAgentStudioProps> = ({ agent, onNavigate, onCallAgent }) => {
+export const GenericAgentStudio: React.FC<GenericAgentStudioProps> = ({ agent, onNavigate, onOpenChat }) => {
     return (
         <div className="flex flex-col h-full w-full bg-primary">
             <StudioHeader 
@@ -19,7 +19,7 @@ export const GenericAgentStudio: React.FC<GenericAgentStudioProps> = ({ agent, o
                     { label: agent.name }
                 ]}
                 agent={agent}
-                onCallAgent={() => onCallAgent(agent)}
+                onOpenChat={onOpenChat}
             />
 
             <main className="flex-grow overflow-hidden flex flex-col relative">
