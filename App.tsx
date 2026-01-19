@@ -134,7 +134,7 @@ const INITIAL_PROJECT: Project = {
             sourceAudio: null,
             resultUrl: null,
         },
-        // FIX: 'string' is a type, not a value. Initialized to an empty string.
+    // FIX: 'string' is a type, not a value. Initialized to an empty string.
         mythosPrompt: '',
     }
 };

@@ -153,9 +153,9 @@ export const getCinematicCoreUrl = (): string | null => {
 
     try {
         const stored = localStorage.getItem(CINEMATIC_CORE_URL_STORAGE_KEY);
-        return stored || "https://merkmorassi-mythos-engine.hf.space";
+        return stored || "https://merkmorassi-mythos-cinematic-core.hf.space";
     } catch (error) {
-        return "https://merkmorassi-mythos-engine.hf.space";
+        return "https://merkmorassi-mythos-cinematic-core.hf.space";
     }
 };
 

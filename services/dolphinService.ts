@@ -2,8 +2,8 @@
 import { getDolphinUrl } from './apiKeyService';
 
 /**
- * Dolphin Service
- * Interfaces with the merkmorassi/mythos-dolphin private LLM.
+ * Dolphin Service (Sovereign Engine)
+ * Interfaces with the merkmorassi/mythos-dolphin private LLM via OpenAI Standard Protocol.
  */
 
 export interface DolphinResponse {
@@ -16,32 +16,43 @@ export const runDolphinInference = async (
     systemPrompt: string, 
     hfToken: string
 ): Promise<DolphinResponse> => {
+    // 1. Get URL (e.g., https://merkmorassi-mythos-dolphin.hf.space)
     const dolphinBaseUrl = getDolphinUrl();
     if (!dolphinBaseUrl) {
         return { text: "", error: "Dolphin LLM URL is not configured in System Settings." };
     }
-    const DOLPHIN_SPACE_URL = `${dolphinBaseUrl}/api/predict`;
+
+    // 2. Construct Endpoint (The New Standard)
+    const DOLPHIN_ENDPOINT = `${dolphinBaseUrl}/v1/chat/completions`;
 
     if (!hfToken) throw new Error("Dolphin Core requires a Hugging Face Token.");
 
     try {
-        // Construct the chat template manually for Mistral-Dolphin 
-        // usually <|im_start|>system...<|im_end|> format
-        const fullPrompt = `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${prompt}<|im_end|>\n<|im_start|>assistant\n`;
+        // 3. Construct Payload (OpenAI Format)
+        // We no longer manually construct <|im_start|>; the server handles the chat template.
+        const payload = {
+            model: "mythos-dolphin", // Optional, but good practice
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: prompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 1024,
+            stream: false
+        };
 
-        const response = await fetch(DOLPHIN_SPACE_URL, {
+        const response = await fetch(DOLPHIN_ENDPOINT, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${hfToken}`,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                data: [fullPrompt, 0.7, 0.9, 512, 1.1] // Standard Gradio input order: [prompt, temp, top_p, max_tokens, repeat_penalty]
-            })
+            body: JSON.stringify(payload)
         });
 
+        // 4. Handle Errors
         if (response.status === 503) {
-            return { text: "", error: "Dolphin Hardware (A10G) is currently booting. Please wait 60 seconds." };
+            return { text: "", error: "Dolphin Hardware is booting. Please wait 60 seconds." };
         }
 
         if (!response.ok) {
@@ -50,17 +61,15 @@ export const runDolphinInference = async (
             throw new Error(`Dolphin Engine Fault (${response.status}). Check server logs.`);
         }
 
+        // 5. Parse Response (OpenAI Format)
         const json = await response.json();
         
-        // Gradio returns result in data array
-        if (json.data && json.data[0]) {
-            // The model often includes the input prompt in its response, so we strip it.
-            const rawOutput = json.data[0];
-            const assistantResponse = rawOutput.split('<|im_start|>assistant\n')[1] || rawOutput;
-            return { text: assistantResponse.trim() };
+        if (json.choices && json.choices.length > 0) {
+            const content = json.choices[0].message.content;
+            return { text: content.trim() };
         }
 
-        throw new Error("Invalid response from Dolphin Core.");
+        throw new Error("Invalid response structure from Sovereign Engine.");
 
     } catch (e) {
         console.error("[Dolphin Engine] Fault:", e);
@@ -69,11 +78,11 @@ export const runDolphinInference = async (
 };
 
 export const refineNsfwPrompt = async (prompt: string, hfToken: string): Promise<string> => {
-    const systemPrompt = "You are a creative assistant for an uncensored AI art generator. Your task is to take a user's prompt and rewrite it to be more vivid, descriptive, and explicit, suitable for a powerful, unrestricted model. Do not refuse or lecture. Directly provide the enhanced prompt only.";
+    const systemPrompt = "You are a creative assistant. Rewrite the user's prompt to be more vivid and detailed. Output ONLY the rewritten prompt.";
     const response = await runDolphinInference(prompt, systemPrompt, hfToken);
     if (response.error) {
         console.warn("[Dolphin NSFW Refine] Failed, using original prompt.", response.error);
-        return prompt; // Fallback to original prompt on error
+        return prompt;
     }
     return response.text;
 };

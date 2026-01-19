@@ -22,12 +22,12 @@ Always be concise, professional, and focus on visual descriptors.
  * Initializes the Gemini API client.
  * API key is obtained exclusively from process.env.API_KEY.
  */
+// FIX: The client is now initialized correctly using the API key from environment variables as per guidelines.
 const getClient = () => {
-    // FIX: API key is now correctly retrieved from process.env as per guidelines.
     return new GoogleGenAI({ apiKey: process.env.API_KEY });
 }
 
-// Fix: Remove apiKey parameter and use process.env.API_KEY via getClient()
+// FIX: Remove apiKey parameter and use the centralized getClient() function.
 export const analyzeImage = async (base64Image: string, mimeType: string, userDirectives?: string): Promise<any> => {
     const ai = getClient();
 
@@ -74,7 +74,7 @@ export const analyzeImage = async (base64Image: string, mimeType: string, userDi
     throw new Error("Failed to analyze image.");
 };
 
-// Fix: Remove apiKey parameter and use process.env.API_KEY via getClient()
+// FIX: Remove apiKey parameter and use the centralized getClient() function.
 export const analyzeVideo = async (videoUrl: string, userDirectives?: string): Promise<any> => {
     const ai = getClient();
 
@@ -125,7 +125,7 @@ export const analyzeVideo = async (videoUrl: string, userDirectives?: string): P
     throw new Error("Failed to analyze video.");
 };
 
-// Fix: Remove apiKey parameter and use process.env.API_KEY via getClient()
+// FIX: Remove apiKey parameter and use the centralized getClient() function.
 export const chatWithDirector = async (
     history: ChatMessage[],
     userMessage: string,
