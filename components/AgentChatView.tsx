@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Agent } from '../services/agentService';
 import { GoogleGenAI, FunctionCall, Part } from '@google/genai';
@@ -11,7 +10,6 @@ import { TELEPORTER } from '../utils/numMarkX';
 import { getGeminiApiKey, getHfApiKey } from '../services/apiKeyService';
 import { generateImageSDXL } from '../services/huggingFaceService';
 import { blobToBase64 } from '../utils/imageUtils';
-// FIX: `lorepackService` does not have `retrieveLivedExperience`, it is in `localRagService`.
 import { factoryService as lorepackService } from '../services/lorepack';
 import { retrieveLivedExperience } from '../services/localRagService';
 import { generateImageMCP } from '../services/gradioService';
@@ -80,7 +78,6 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent }) => {
                   }]);
                   result = { result: "Image generated and displayed successfully." };
               } else if (fc.name === 'lorepack_search') {
-                  // FIX: Changed lorepackService.retrieveLivedExperience to the correct retrieveLivedExperience function.
                   const experience = await retrieveLivedExperience(agent.id, fc.args.query);
                   result = { result: experience ? experience.text : "No relevant experience found in LOREPACK." };
               }
@@ -136,7 +133,6 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent }) => {
   useEffect(() => { saveHistory(chatHistory); }, [chatHistory, saveHistory]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [chatHistory, isSending, liveTranscript]);
   
-  // FIX: Updated function signature to accept the optional isToolCommand boolean to align with prop types.
   const handleSendMessage = async (files?: File[], isToolCommand?: boolean) => {
     if ((!chatMessage.trim() && (!files || files.length === 0)) || isSending) return;
     
@@ -163,7 +159,6 @@ export const AgentChatView: React.FC<AgentChatViewProps> = ({ agent }) => {
     const commandMessage = `Use the ${toolName} tool with this prompt: "${prompt}"`;
     setChatMessage(commandMessage);
     setTimeout(() => {
-        // FIX: The second argument is now valid due to the updated handleSendMessage signature.
         handleSendMessage([], true);
     }, 0);
   };
