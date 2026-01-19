@@ -328,8 +328,7 @@ export interface VectorRecord {
   text: string;
   vector: number[];
   source: string;
-// FIX: Made agent optional to align with the definition in `vectorDbService.ts` and prevent type errors during retrieval.
-  agent?: string; // The "handle" or author
+  agent?: string; 
   timestamp: number;
   permissions?: string; 
   agentId?: string;
@@ -634,15 +633,11 @@ export type StreamChunk =
   | { type: 'text'; content: string }
   | { type: 'tool_call'; toolCall: { id: string; name: string; args: any; } };
   
-// FIX: Resolved "subsequent property declaration" error by defining the `AIStudio` interface
-// directly within the `declare global` block. This ensures a single, non-conflicting
-// global type definition that is applied across the entire project.
 declare global {
     interface AIStudio {
         hasSelectedApiKey: () => Promise<boolean>;
         openSelectKey: () => Promise<void>;
     }
-
     interface Window {
         aistudio?: AIStudio;
     }

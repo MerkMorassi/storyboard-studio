@@ -1,5 +1,7 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Agent, ActiveView, ImageState } from '../types.ts';
+// FIX: Imported the missing ChatIcon component.
 import { CloseIcon, PhoneIcon, EditIcon, CameraLensIcon, UploadIcon, UserIcon, AgentsIcon, ChatIcon } from './icons.tsx';
 import { getAvailableVoices } from '../services/agentService.ts';
 
@@ -315,7 +317,6 @@ const AgentCard: React.FC<{
                     <button 
                         className="flex-1 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 font-bold text-xs uppercase rounded transition-colors flex items-center justify-center gap-2 border border-neutral-600"
                     >
-                        {/* FIX: Imported the missing ChatIcon component. */}
                         <ChatIcon className="w-3 h-3" /> Enter Office
                     </button>
                 </div>

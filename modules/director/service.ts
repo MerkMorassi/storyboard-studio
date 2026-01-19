@@ -43,7 +43,7 @@ export const analyzeImage = async (base64Image: string, mimeType: string, userDi
     - extractedPrompt: A highly optimized, comma-separated text prompt to recreate this style and image in an AI generator.`;
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: {
             parts: [
                 { inlineData: { mimeType, data: base64Image } },
@@ -99,7 +99,7 @@ export const analyzeVideo = async (videoUrl: string, userDirectives?: string): P
     ];
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash', // Supports multimodal input
+        model: 'gemini-3-flash-preview', // Supports multimodal input
         contents: { parts },
         config: {
             responseMimeType: 'application/json',

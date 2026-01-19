@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { UserIcon } from './icons/UserIcon';
 import { Agent } from '../services/agentService';
@@ -19,6 +18,7 @@ interface ChatMessagePart {
     fileName?: string;
   };
   toolCode?: { code: string; };
+  toolResult?: { result: any; }; // Added to display tool output
 }
 
 interface AudioState {
@@ -178,6 +178,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, agent, audioS
                  {part.toolCode && (
                     <div className="bg-black/40 border border-accent/50 rounded-lg p-3 my-2">
                         <p className="font-mono text-xs text-blue-300 whitespace-pre-wrap">{part.toolCode.code}</p>
+                    </div>
+                 )}
+                 {part.toolResult && (
+                    <div className="bg-black/40 border border-accent/50 rounded-lg p-3 my-2">
+                        <pre className="font-mono text-xs text-green-300 whitespace-pre-wrap">[TOOL RESULT]: {JSON.stringify(part.toolResult.result, null, 2)}</pre>
                     </div>
                  )}
                  {part.inlineData && (

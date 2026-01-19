@@ -9,6 +9,16 @@ interface ModelInfo {
     displayName: string;
 }
 
+// FIX: Define FormField locally to provide a valid component for use and wrap inputs correctly.
+const FormField: React.FC<{ label: string; children: React.ReactNode, description?: string }> = ({ label, children, description }) => (
+    <div>
+        <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-2">{label}</label>
+        {children}
+        {description && <p className="text-[10px] text-neutral-600 mt-2 italic px-1">{description}</p>}
+    </div>
+);
+
+
 export const ModelSettingsStudio: React.FC = () => {
     // State for external service configs
     const [hfApiKey, setHfApiKey] = useState('');
@@ -88,14 +98,6 @@ export const ModelSettingsStudio: React.FC = () => {
             setTimeout(() => setSaveStatus('idle'), 2000);
         }, 500);
     };
-
-    const FormField = ({ label, children, description }: { label: string, children: React.ReactNode, description?: string }) => (
-        <div>
-            <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-2">{label}</label>
-            {children}
-            {description && <p className="text-[10px] text-neutral-600 mt-2 italic px-1">{description}</p>}
-        </div>
-    );
     
     const renderGeminiKeyStatus = () => {
         switch (geminiKeyValidation) {
@@ -148,27 +150,27 @@ export const ModelSettingsStudio: React.FC = () => {
                     <h2 className="text-xl font-black text-white uppercase tracking-tight border-b border-neutral-800 pb-4 mb-4">External Services & Keys</h2>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* FIX: Wrapped the input element in the Control component. */}
+                        {/* FIX: Wrapped the input element in the FormField component. */}
                         <FormField label="Hugging Face Access Token" description="Required for specialized GPU tasks (Flux, Video, Outpainting, Private Models).">
                             <input type={showKeys ? "text" : "password"} value={hfApiKey} onChange={e => setHfApiKey(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
-                        {/* FIX: Wrapped the input element in the Control component. */}
+                        {/* FIX: Wrapped the input element in the FormField component. */}
                         <FormField label="Topaz Labs API Key" description="Required for professional-grade upscaling and video enhancement.">
                             <input type={showKeys ? "text" : "password"} value={topazApiKey} onChange={e => setTopazApiKey(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
-                        {/* FIX: Wrapped the input element in the Control component. */}
+                        {/* FIX: Wrapped the input element in the FormField component. */}
                         <FormField label="Voice Lab URL (Chatterbox)">
                             <input type="text" value={voiceLabUrl} onChange={e => setVoiceLabUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
-                        {/* FIX: Wrapped the input element in the Control component. */}
+                        {/* FIX: Wrapped the input element in the FormField component. */}
                         <FormField label="Mythos Dolphin URL">
                             <input type="text" value={dolphinUrl} onChange={e => setDolphinUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
-                        {/* FIX: Wrapped the input element in the Control component. */}
+                        {/* FIX: Wrapped the input element in the FormField component. */}
                         <FormField label="MythOS Cinematic Core URL">
                             <input type="text" value={cinematicCoreUrl} onChange={e => setCinematicCoreUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
-                        {/* FIX: Wrapped the input element in the Control component. */}
+                        {/* FIX: Wrapped the input element in the FormField component. */}
                         <FormField label="Camera Dolly (LTX) URL">
                             <input type="text" value={cameraDollyUrl} onChange={e => setCameraDollyUrl(e.target.value)} className="w-full bg-black border border-neutral-700 p-3 rounded-lg text-sm font-mono" />
                         </FormField>
