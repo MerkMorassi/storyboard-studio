@@ -128,9 +128,9 @@ export const getDolphinUrl = (): string | null => {
 
     try {
         const stored = localStorage.getItem(DOLPHIN_URL_STORAGE_KEY);
-        return stored || "https://merkmorassi-mythos-dolphin.hf.space";
+        return stored || "https://merkmorassi-mythos-dolphin.hf.space/";
     } catch (error) {
-        return "https://merkmorassi-mythos-dolphin.hf.space";
+        return "https://merkmorassi-mythos-dolphin.hf.space/";
     }
 };
 

@@ -36,15 +36,6 @@ export const ScriptingStudio: React.FC<ScriptingStudioProps> = ({
 
     return (
         <div className="flex flex-col h-full w-full bg-primary">
-            <StudioHeader 
-                breadcrumbs={[
-                    { label: 'Production Team', onClick: () => onNavigate('team') }, 
-                    { label: "Writers' Room (Scribe)" }
-                ]}
-                agent={agent}
-                onOpenChat={onOpenChat}
-            />
-
             <div className="flex items-center px-6 pt-2 bg-neutral-900 border-b border-neutral-800 gap-1 z-10">
                 <button
                     onClick={() => setActiveTab('chat')}

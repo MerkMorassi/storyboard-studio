@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { WanimateState } from '../types';
 // FIX: Add missing imports for RefreshCwIcon and extractFramesFromVideo.
 import { LoadingSpinner, ClapperboardIcon, CameraLensIcon, RefreshCwIcon, ChevronDownIcon } from './icons';
@@ -49,7 +49,7 @@ const ImageInput: React.FC<{
     );
 }
 
-// FIX: Define the Control component to wrap form fields for consistent styling and layout.
+// FIX: Update Control component to accept and render children.
 const Control = ({ label, value, children }: { label: string, value?: string|number, children: React.ReactNode }) => (
     <div>
         <div className="flex justify-between items-center mb-1">
@@ -67,6 +67,19 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
     const [progress, setProgress] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
+    
+    // Video player controls state
+    const [playbackRate, setPlaybackRate] = useState(1);
+    const [isLooping, setIsLooping] = useState(true);
+
+    // Effect to control video playback properties
+    useEffect(() => {
+        if (videoRef.current) {
+            videoRef.current.playbackRate = playbackRate;
+            videoRef.current.loop = isLooping;
+        }
+    }, [playbackRate, isLooping, state.resultUrl]);
+
 
     const handleUpload = (type: 'start' | 'end', file: File) => {
         const reader = new FileReader();
@@ -172,15 +185,15 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
+        <div className="p-6 max-w-4xl mx-auto w-full h-full flex flex-col space-y-6 overflow-y-auto">
             <div>
                 <h2 className="text-3xl font-bold text-neutral-200 mb-2">Wanimate Sequencer <span className="text-sm font-normal text-neutral-500 bg-surface px-2 py-1 rounded ml-2">Wan 2.2 I2V</span></h2>
                 <p className="text-neutral-400">Generate continuous video sequences by chaining generations from start to end frames.</p>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-grow">
-                {/* Left Column: Controls & Inputs */}
-                <div className="space-y-4 bg-surface p-6 border border-accent rounded-xl h-fit">
-                    <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-8">
+                {/* Top Section: Controls & Inputs */}
+                <div className="space-y-4 bg-surface p-6 border border-accent rounded-xl">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <ImageInput title="Start Frame" image={state.inputImage} onUpload={(f) => handleUpload('start', f)} onClear={() => onStateUpdate({...state, inputImage: null})} />
                         <ImageInput title="End Frame (Optional)" image={state.lastImage} onUpload={(f) => handleUpload('end', f)} onClear={() => onStateUpdate({...state, lastImage: null})} />
                     </div>
@@ -202,7 +215,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
 
                     {showAdvanced && (
                         <div className="space-y-4 animate-fade-in pt-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 {/* FIX: Wrap form elements within the Control component to satisfy the 'children' prop requirement. */}
                                 <Control label="Steps" value={state.steps}><input type="range" min="1" max="25" value={state.steps} onChange={e => onStateUpdate({...state, steps: parseInt(e.target.value)})} className="w-full" /></Control>
                                 {/* FIX: Wrap form elements within the Control component to satisfy the 'children' prop requirement. */}
@@ -242,7 +255,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
                         </div>
                     )}
                 </div>
-                {/* Right Column: Result */}
+                {/* Bottom Section: Result */}
                 <div className="bg-surface border border-accent rounded-xl flex flex-col relative min-h-[500px]">
                     <div className="flex-grow flex items-center justify-center bg-black/50 p-4">
                          {isLoading ? (
@@ -251,7 +264,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
                                 <p className="font-mono text-sm animate-pulse">{progress}</p>
                             </div>
                         ) : state.resultUrl ? (
-                            <video ref={videoRef} src={state.resultUrl} controls autoPlay loop className="max-w-full max-h-full" crossOrigin="anonymous" />
+                            <video ref={videoRef} src={state.resultUrl} controls autoPlay playsInline loop={isLooping} className="max-w-full max-h-full" crossOrigin="anonymous" />
                         ) : (
                             <div className="text-neutral-600 text-center">
                                 <ClapperboardIcon className="w-16 h-16 mx-auto mb-2 opacity-20" />
@@ -259,7 +272,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
                             </div>
                         )}
                     </div>
-                    <div className="p-4 border-t border-accent bg-secondary/90 flex justify-center items-center gap-4">
+                    <div className="p-4 border-t border-accent bg-secondary/90 flex justify-between items-center gap-2 flex-wrap">
                         <button
                             onClick={handleGenerate}
                             disabled={isLoading}
@@ -269,15 +282,28 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
                             {isLoading ? 'Generating...' : 'Generate Video'}
                         </button>
                         {state.resultUrl && !isLoading && (
-                            <>
+                            <div className="flex items-center gap-2">
                                 <button
                                     onClick={handleExtractLastFrame}
                                     disabled={isExtracting}
-                                    className="px-4 py-3 bg-neutral-700 hover:bg-neutral-600 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
+                                    className="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
                                     title="Use last frame of this video as the new start frame for the next generation."
                                 >
                                    {isExtracting ? <LoadingSpinner className="w-5 h-5" /> : <RefreshCwIcon className="w-5 h-5"/> }
                                 </button>
+                                {/* Player Controls */}
+                                <div className="flex items-center gap-2 bg-neutral-700 rounded-lg p-1">
+                                     <label className="flex items-center gap-1 text-xs font-bold text-neutral-300 cursor-pointer px-2">
+                                        <input type="checkbox" checked={isLooping} onChange={(e) => setIsLooping(e.target.checked)} className="accent-brand w-3 h-3"/>
+                                        Loop
+                                    </label>
+                                    <select value={playbackRate} onChange={(e) => setPlaybackRate(Number(e.target.value))} className="bg-neutral-800 text-xs font-bold text-neutral-200 border border-neutral-600 rounded p-1 outline-none">
+                                        <option value="0.5">0.5x</option>
+                                        <option value="1">1x</option>
+                                        <option value="1.5">1.5x</option>
+                                        <option value="2">2x</option>
+                                    </select>
+                                </div>
                                 <AssetActions 
                                     asset={{ type: 'video', url: state.resultUrl }}
                                     onSaveToGrid={(pid) => onAddAssetToGrid({ type: 'video', url: state.resultUrl! }, pid)}
@@ -285,7 +311,7 @@ export const WanimateStudio: React.FC<WanimateStudioProps> = ({ state, onStateUp
                                     projects={projects}
                                     activeProjectId={activeProjectId}
                                 />
-                            </>
+                            </div>
                         )}
                     </div>
                     {error && <div className="p-2 text-xs text-center text-red-400 bg-red-900/20">{error}</div>}

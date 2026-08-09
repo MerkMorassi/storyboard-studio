@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ActiveView } from '../types.ts';
 import { 
@@ -7,7 +6,7 @@ import {
     BlenderIcon, LayersIcon, PuzzleIcon, SwapIcon, FaceSparkleIcon, PhotoRealismIcon, 
     ExpandIcon, ScissorsIcon, GridIcon, StoryboardIcon, PinIcon, LoreIcon, 
     LibraryIcon, ShuffleIcon, SettingsIcon, WritersRoomIcon, EditIcon, CharacterIcon,
-    TransitionIcon, DollyIcon, WarningIcon, SpeakerIcon, ChevronLeftIcon, UserIcon
+    TransitionIcon, DollyIcon, WarningIcon, SpeakerIcon, ChevronLeftIcon, UserIcon, AudioSparkIcon
 } from './icons.tsx';
 import { hasCriticalKeys } from '../services/apiKeyService';
 
@@ -62,6 +61,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
     { id: 'topaz', type: 'link', label: 'Enhance (Topaz)', view: 'topaz', icon: MagicIcon },
 
     { id: 'header-audio', type: 'header', label: 'Audio' },
+    { id: 'live-studio', type: 'link', label: 'Live Conversation', view: 'live-studio', icon: AudioSparkIcon },
     { id: 'voice-lab', type: 'link', label: 'Voice Lab', view: 'voice-lab', icon: SpeakerIcon },
     { id: 'dubbing-studio', type: 'link', label: 'Dubbing Studio', view: 'dubbing-studio', icon: SpeakerIcon },
 

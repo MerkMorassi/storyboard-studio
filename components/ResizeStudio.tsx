@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { ResizeState } from '../types.ts';
 import { LoadingSpinner, ExpandIcon, ImageIcon } from './icons.tsx';
@@ -73,30 +72,29 @@ export const ResizeStudio: React.FC<ResizeStudioProps> = ({
         
         try {
             const imgBlob = await base64ToBlob(state.source.base64, state.source.mimeType);
-            const client = await getGradioClient("VIDraft/ReSize-Image-Outpainting", { hfToken });
+            // FIX: Update Gradio client to point to the new merkmorassi/mythos-image-outpaint space.
+            const client = await getGradioClient("merkmorassi/mythos-image-outpaint", { hfToken });
             
             setProgress("Outpainting image...");
             
-            // API Signature: 
-            // image, width, height, overlap_percentage, num_inference_steps, 
-            // resize_option, custom_resize_percentage, prompt_input, alignment, 
-            // overlap_left, overlap_right, overlap_top, overlap_bottom
+            // FIX: Update the payload to a named object format as specified in the new API documentation for the /infer endpoint.
+            const payload = {
+                image: imgBlob,
+                width: state.width,
+                height: state.height,
+                overlap_percentage: state.overlap,
+                num_inference_steps: state.steps,
+                resize_option: "Full",
+                custom_resize_percentage: 100, // Hardcoded as per the new API's default behavior for "Full" resize.
+                prompt_input: state.prompt,
+                alignment: state.alignment,
+                overlap_left: state.directions.left,
+                overlap_right: state.directions.right,
+                overlap_top: state.directions.top,
+                overlap_bottom: state.directions.bottom,
+            };
             
-            const result = await client.predict("/infer", [
-                imgBlob,
-                state.width,
-                state.height,
-                state.overlap, // Overlap percentage
-                state.steps,   // Steps
-                "Full",        // Resize Option (Default from docs)
-                100,           // Custom resize % (Assuming 100 for Full)
-                state.prompt,
-                state.alignment,
-                state.directions.left,
-                state.directions.right,
-                state.directions.top,
-                state.directions.bottom
-            ]);
+            const result = await client.predict("/infer", payload);
 
             if (result && result.data && result.data.length > 0) {
                 const output = result.data[0];

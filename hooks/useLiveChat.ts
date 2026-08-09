@@ -70,6 +70,18 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
     const isSpeakerMutedRef = useRef(isSpeakerMuted);
     useEffect(() => { isSpeakerMutedRef.current = isSpeakerMuted; }, [isSpeakerMuted]);
 
+    const onTurnCompleteRef = useRef(onTurnComplete);
+    useEffect(() => { onTurnCompleteRef.current = onTurnComplete; }, [onTurnComplete]);
+
+    const onToolCallRef = useRef(onToolCall);
+    useEffect(() => { onToolCallRef.current = onToolCall; }, [onToolCall]);
+
+    const agentRef = useRef(agent);
+    useEffect(() => { agentRef.current = agent; }, [agent]);
+
+    const isLiveRef = useRef(isLive);
+    useEffect(() => { isLiveRef.current = isLive; }, [isLive]);
+
     const stopLiveChat = useCallback(async () => {
         setIsLive(false);
         setConnectionState('IDLE');
@@ -78,18 +90,20 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
         mediaStreamRef.current = null;
 
         if (scriptProcessorRef.current && mediaStreamSourceRef.current) {
-            mediaStreamSourceRef.current.disconnect();
-            scriptProcessorRef.current.disconnect();
+            try {
+                mediaStreamSourceRef.current.disconnect();
+                scriptProcessorRef.current.disconnect();
+            } catch (e) {}
         }
         scriptProcessorRef.current = null;
         mediaStreamSourceRef.current = null;
 
-        if (inputAudioContextRef.current?.state !== 'closed') await inputAudioContextRef.current?.close();
-        if (outputAudioContextRef.current?.state !== 'closed') await outputAudioContextRef.current?.close();
+        if (inputAudioContextRef.current?.state !== 'closed') await inputAudioContextRef.current?.close().catch(() => {});
+        if (outputAudioContextRef.current?.state !== 'closed') await outputAudioContextRef.current?.close().catch(() => {});
         inputAudioContextRef.current = null;
         outputAudioContextRef.current = null;
         
-        audioSourcesRef.current.forEach(source => source.stop());
+        audioSourcesRef.current.forEach(source => { try { source.stop(); } catch(e){} });
         audioSourcesRef.current.clear();
 
         if (sessionPromiseRef.current) {
@@ -125,12 +139,13 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
     }, []);
 
     const startLiveChat = useCallback(async () => {
-        if (!agent?.id || isLive) return;
+        const currentAgent = agentRef.current;
+        if (!currentAgent?.id || isLiveRef.current) return null;
         const apiKey = getGeminiApiKey();
         if (!apiKey) {
             console.error("Missing API Key for Live Session");
             setConnectionState('ERROR');
-            return;
+            return null;
         }
 
         setConnectionState('CONNECTING');
@@ -144,13 +159,13 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
             setIsLive(true);
 
             const ai = new GoogleGenAI({ apiKey });
-            const systemInstructionWithTools = `${agent.systemPrompt}\n\nYou have access to your LOREPACK (memory). If you need to recall specific facts, events, or details about your history or knowledge, you MUST use the 'lorepack_search' tool to find relevant context before answering.`;
+            const systemInstructionWithTools = `${currentAgent.systemPrompt}\n\nYou have access to your LOREPACK (memory). If you need to recall specific facts, events, or details about your history or knowledge, you MUST use the 'lorepack_search' tool to find relevant context before answering.`;
 
             sessionPromiseRef.current = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-12-2025',
                 config: {
                     responseModalities: [Modality.AUDIO],
-                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: agent.voice || 'Kore' } } },
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: currentAgent.voice || 'Kore' } } },
                     systemInstruction: systemInstructionWithTools,
                     tools: [{ functionDeclarations: mythosTools }],
                     outputAudioTranscription: {},
@@ -187,10 +202,10 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
                         }
                         if (message.toolCall) {
                             transcriptBufferRef.current.toolCalls = message.toolCall.functionCalls;
-                            onToolCall(message.toolCall.functionCalls);
+                            onToolCallRef.current?.(message.toolCall.functionCalls);
                         }
                         if (message.serverContent?.turnComplete) {
-                            onTurnComplete(transcriptBufferRef.current);
+                            onTurnCompleteRef.current?.(transcriptBufferRef.current);
                             transcriptBufferRef.current = { user: '', model: '' };
                             setLiveTranscript({ user: '', model: '' });
                         }
@@ -208,7 +223,7 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
                             audioSourcesRef.current.add(source);
                         }
                         if (message.serverContent?.interrupted) {
-                            audioSourcesRef.current.forEach(s => s.stop());
+                            audioSourcesRef.current.forEach(s => { try { s.stop(); } catch(e){} });
                             audioSourcesRef.current.clear();
                             nextStartTimeRef.current = 0;
                         }
@@ -217,12 +232,14 @@ export const useLiveChat = (agent: Agent, { isMicMuted, isSpeakerMuted, onTurnCo
                     onclose: () => { setConnectionState('IDLE'); setIsLive(false); },
                 },
             });
+            return stream;
         } catch (err) {
             console.error('Failed to start live chat:', err);
             setConnectionState('ERROR');
             setIsLive(false);
+            return null;
         }
-    }, [agent.id, agent.voice, agent.systemPrompt, stopLiveChat, onTurnComplete, onToolCall]);
+    }, [stopLiveChat]);
     
     useEffect(() => {
         // Cleanup on unmount

@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, FunctionDeclaration, Type, Content, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import { GemmaConfig, Message, StreamChunk } from '../../types.ts';
+import { fetchModels } from '../../services/geminiService.ts';
 
 const getToolDefinitions = (allowedTools: string[]): { functionDeclarations: FunctionDeclaration[] }[] | undefined => {
     if (allowedTools.length === 0) return undefined;
@@ -130,29 +131,14 @@ class GeminiClient {
         if (!apiKey) {
             throw new Error("API Key is required to fetch models.");
         }
-    
-        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-    
+        
         try {
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error?.message || response.statusText);
-            }
-    
-            const data = await response.json();
-    
-            const compatibleModels = data.models
-                .filter((model: any) => model.supportedGenerationMethods?.includes("generateContent"))
-                .map((model: any) => ({
-                    // The SDK expects the model name without the 'models/' prefix.
-                    name: model.name.replace('models/', ''),
-                    displayName: model.displayName
-                }));
-    
-            return compatibleModels;
-    
+            // FIX: Replaced the failing raw `fetch` call with the stable, hardcoded model provider
+            // from `geminiService.ts`. This resolves the "invalid argument" error and unifies
+            // the source of available models within the application.
+            const models = await fetchModels();
+            // Map the format from { id, name } to the expected { name, displayName }.
+            return models.map(m => ({ name: m.id, displayName: m.name }));
         } catch (error) {
             console.error("Failed to list Gemini models:", error);
             throw error;

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardStudio } from './components/DashboardStudio';
@@ -45,12 +46,15 @@ import { ArtStudio } from './components/ArtStudio';
 import { RosterStudio } from './components/RosterStudio';
 import { VoiceLab } from './components/VoiceLab.tsx';
 import { ImageModal } from './components/ImageModal.tsx';
+import { LiveStudio } from './components/LiveStudio.tsx';
 import { Agent, Project, ActiveView, ImageState } from './types';
 import { getHfApiKey, getTopazApiKey, saveHfApiKey, saveTopazApiKey, getVoiceLabUrl, saveVoiceLabUrl, getDolphinUrl, saveDolphinUrl, getCinematicCoreUrl, saveCinematicCoreUrl, getCameraDollyUrl, saveCameraDollyUrl } from './services/apiKeyService';
 import { getAnimAgentsTeam } from './services/agentService';
 import { vectorDb } from './services/vectorDbService';
 import { TeamStudio } from './components/TeamStudio.tsx';
 import { WanimateStudio } from './components/WanimateStudio.tsx';
+import { StudioHeader } from './components/StudioHeader.tsx';
+import { SaveStatus } from './components/AutoSaveIndicator.tsx';
 import { DubbingStudio } from './components/DubbingStudio.tsx';
 import { factoryService as lorepackService } from './services/lorepack.ts';
 import { AgentChatView } from './components/AgentChatView.tsx';
@@ -158,26 +162,76 @@ export const App = () => {
         initialMode: 'chat'
     });
 
+    const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
+    const [lastSavedTime, setLastSavedTime] = useState<Date | null>(new Date());
+    const isInitialLoadRef = React.useRef(true);
+
+    const STORAGE_KEY = 'mythos_projects_v2';
+
     // Load initial data & set up periodic sync
     useEffect(() => {
-        const loadData = async () => {
-            // Here you would load from DB/Storage
-            // For now, using in-memory default
-        };
-        loadData();
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setProjects(parsed);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load projects from localStorage:", e);
+        }
+        setLastSavedTime(new Date());
+        setSaveStatus('saved');
 
         // Set up periodic sync to the server
         const syncInterval = setInterval(() => {
-            lorepackService.syncLorepackToServer();
+            lorepackService.syncLorepackToServer().catch(() => {});
         }, 5 * 60 * 1000); // Sync every 5 minutes
 
         // Initial sync on app load
-        lorepackService.syncLorepackToServer();
+        lorepackService.syncLorepackToServer().catch(() => {});
 
         return () => {
-            clearInterval(syncInterval); // Cleanup on component unmount
+            clearInterval(syncInterval);
         };
     }, []);
+
+    // Auto-save whenever projects state changes
+    useEffect(() => {
+        if (isInitialLoadRef.current) {
+            isInitialLoadRef.current = false;
+            return;
+        }
+
+        setSaveStatus('saving');
+
+        const timer = setTimeout(() => {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+                lorepackService.syncLorepackToServer().catch(() => {});
+                setLastSavedTime(new Date());
+                setSaveStatus('saved');
+            } catch (err) {
+                console.error('Auto-save error:', err);
+                setSaveStatus('error');
+            }
+        }, 600);
+
+        return () => clearTimeout(timer);
+    }, [projects]);
+
+    const handleRetrySave = () => {
+        setSaveStatus('saving');
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+            lorepackService.syncLorepackToServer().catch(() => {});
+            setLastSavedTime(new Date());
+            setSaveStatus('saved');
+        } catch (err) {
+            setSaveStatus('error');
+        }
+    };
 
     const project = projects.find(p => p.id === activeProjectId) || projects[0];
 
@@ -303,6 +357,7 @@ export const App = () => {
             case 'topaz': return <TopazStudio topazState={project.data.topazState} isLoading={false} error={null} onStateUpdate={s => updateProjectData({ topazState: s })} onGenerate={() => {}} onAddToStoryboard={handleAddToStoryboard} onAddToInspiration={handleAddToInspiration} onAddAssetToGrid={handleAddAssetToGrid} progress="" />;
             
             // Audio
+            case 'live-studio': return <LiveStudio agents={project.data.agents} />;
             case 'voice-lab': return <VoiceLab agents={project.data.agents} />;
             case 'dubbing-studio': return <DubbingStudio state={project.data.dubbingState} onStateUpdate={s => updateProjectData({ dubbingState: s })} onAddAssetToGrid={handleAddAssetToGrid} onAddToStoryboard={handleAddToStoryboard} projects={[{ id: project.id, name: project.name }]} activeProjectId={project.id} />;
 
@@ -327,11 +382,83 @@ export const App = () => {
         }
     };
 
+    const getHeaderConfig = () => {
+        const pBreadcrumb = { label: project.name, onClick: () => handleNavigate('dashboard') };
+        const tBreadcrumb = { label: 'Production Team', onClick: () => handleNavigate('team') };
+
+        const coreAgent = (id: string) => project.data.agents.find(a => a.id === id);
+
+        switch (activeView) {
+            case 'dashboard': return { breadcrumbs: [pBreadcrumb, { label: 'Dashboard' }] };
+            case 'projects': return { breadcrumbs: [pBreadcrumb, { label: 'Projects' }] };
+            case 'team': return { breadcrumbs: [pBreadcrumb, { label: 'Production Team' }] };
+            case 'core': return { breadcrumbs: [tBreadcrumb, { label: "Producer's Office (Nexus)" }], agent: coreAgent('agent-core') };
+            case 'ideation': return { breadcrumbs: [tBreadcrumb, { label: "The Think Tank (Spark)" }], agent: coreAgent('agent-ideation') };
+            case 'scripting': return { breadcrumbs: [tBreadcrumb, { label: "Writers' Room (Scribe)" }], agent: coreAgent('agent-scripting') };
+            case 'design': return { breadcrumbs: [tBreadcrumb, { label: "VisDev Lab (Stylus)" }], agent: coreAgent('agent-design') };
+            case 'art': return { breadcrumbs: [tBreadcrumb, { label: "The Atelier (Chroma)" }], agent: coreAgent('agent-art') };
+            case 'agent-workspace': {
+                const ag = selectedAgentId ? project.data.agents.find(a => a.id === selectedAgentId) : undefined;
+                return { breadcrumbs: [tBreadcrumb, { label: ag?.name || 'Agent Workspace' }], agent: ag };
+            }
+            case 'director': return { breadcrumbs: [pBreadcrumb, { label: 'Director Suite' }] };
+            case 'script-writer': return { breadcrumbs: [pBreadcrumb, { label: 'Script Writer' }] };
+            case 'image-generator': return { breadcrumbs: [pBreadcrumb, { label: 'Image Generator' }] };
+            case 'one-shot-cinematic': return { breadcrumbs: [pBreadcrumb, { label: 'One-Shot Cinematic' }] };
+            case 'mythos-cinematic-engine': return { breadcrumbs: [pBreadcrumb, { label: 'MythOS Engine' }] };
+            case 'generative-video': return { breadcrumbs: [pBreadcrumb, { label: 'Generative Video' }] };
+            case 'ltx-studio': return { breadcrumbs: [pBreadcrumb, { label: 'LTX Studio' }] };
+            case 'wanimate-studio': return { breadcrumbs: [pBreadcrumb, { label: 'Wanimate Studio' }] };
+            case 'transition-studio': return { breadcrumbs: [pBreadcrumb, { label: 'Transition Studio' }] };
+            case 'camera-movement': return { breadcrumbs: [pBreadcrumb, { label: 'Camera Movement' }] };
+            case 'camera-moves': return { breadcrumbs: [pBreadcrumb, { label: 'Camera Moves' }] };
+            case 'blender': return { breadcrumbs: [pBreadcrumb, { label: '3D Blender Studio' }] };
+            case 'scene-compositor': return { breadcrumbs: [pBreadcrumb, { label: 'Scene Compositor' }] };
+            case 'composite': return { breadcrumbs: [pBreadcrumb, { label: 'Composite Studio' }] };
+            case 'face-swap': return { breadcrumbs: [pBreadcrumb, { label: 'Face Swap' }] };
+            case 'face-repair': return { breadcrumbs: [pBreadcrumb, { label: 'Face Repair' }] };
+            case 'photorealism': return { breadcrumbs: [pBreadcrumb, { label: 'Photorealism' }] };
+            case 'resize': return { breadcrumbs: [pBreadcrumb, { label: 'Resize & Expand' }] };
+            case 'green-screen': return { breadcrumbs: [pBreadcrumb, { label: 'Green Screen' }] };
+            case 'background-removal': return { breadcrumbs: [pBreadcrumb, { label: 'Background Removal' }] };
+            case 'qwen-image-edit': return { breadcrumbs: [pBreadcrumb, { label: 'Qwen Image Edit' }] };
+            case 'topaz': return { breadcrumbs: [pBreadcrumb, { label: 'Topaz Enhancement' }] };
+            case 'live-studio': return { breadcrumbs: [pBreadcrumb, { label: 'Live Studio' }] };
+            case 'voice-lab': return { breadcrumbs: [pBreadcrumb, { label: 'Voice Lab' }] };
+            case 'dubbing-studio': return { breadcrumbs: [pBreadcrumb, { label: 'Dubbing Studio' }] };
+            case 'grid': return { breadcrumbs: [pBreadcrumb, { label: 'Asset Vault' }] };
+            case 'story': return { breadcrumbs: [pBreadcrumb, { label: 'Storyboard' }] };
+            case 'inspiration': return { breadcrumbs: [pBreadcrumb, { label: 'Inspiration Board' }] };
+            case 'scripts-bin': return { breadcrumbs: [pBreadcrumb, { label: 'Scripts Bin' }] };
+            case 'characters': return { breadcrumbs: [pBreadcrumb, { label: 'Characters' }] };
+            case 'lore': return { breadcrumbs: [pBreadcrumb, { label: 'Lore Engine' }] };
+            case 'prompt-library': return { breadcrumbs: [pBreadcrumb, { label: 'Prompt Library' }] };
+            case 'dynamic-prompts': return { breadcrumbs: [pBreadcrumb, { label: 'Dynamic Prompts' }] };
+            case 'agent-chat': return { breadcrumbs: [pBreadcrumb, { label: 'Agent Chat' }] };
+            case 'knowledge': return { breadcrumbs: [pBreadcrumb, { label: 'Knowledge Base' }] };
+            case 'automation': return { breadcrumbs: [pBreadcrumb, { label: 'Automation' }] };
+            case 'model-settings': return { breadcrumbs: [pBreadcrumb, { label: 'Model Settings' }] };
+            default: return { breadcrumbs: [pBreadcrumb, { label: 'Studio' }] };
+        }
+    };
+
+    const headerConfig = getHeaderConfig();
+
     return (
         <div className="flex h-screen bg-primary text-text-primary overflow-hidden">
             <Sidebar activeView={activeView} onNavigate={handleNavigate} />
-            <div className="flex-grow flex flex-col min-w-0 bg-secondary/20">
-                {renderContent()}
+            <div className="flex-grow flex flex-col min-w-0 bg-secondary/20 h-screen overflow-hidden">
+                <StudioHeader 
+                    breadcrumbs={headerConfig.breadcrumbs}
+                    agent={headerConfig.agent}
+                    onOpenChat={headerConfig.agent ? (mode) => openChatModal(headerConfig.agent!, mode) : undefined}
+                    saveStatus={saveStatus}
+                    lastSavedTime={lastSavedTime}
+                    onRetrySave={handleRetrySave}
+                />
+                <div className="flex-1 overflow-y-auto min-h-0">
+                    {renderContent()}
+                </div>
             </div>
              {viewingImage && (
                 <ImageModal 

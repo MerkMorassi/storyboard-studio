@@ -14,15 +14,6 @@ interface DesignStudioProps {
 export const DesignStudio: React.FC<DesignStudioProps> = ({ agent, onNavigate, onOpenChat }) => {
     return (
         <div className="flex flex-col h-full w-full bg-primary">
-            <StudioHeader 
-                breadcrumbs={[
-                    { label: 'Production Team', onClick: () => onNavigate('team') }, 
-                    { label: "VisDev Lab (Stylus)" }
-                ]}
-                agent={agent}
-                onOpenChat={onOpenChat}
-            />
-
             <main className="flex-grow overflow-hidden flex flex-col relative">
                 <div className="p-6 pb-0 max-w-6xl mx-auto w-full">
                     <div className="flex items-center gap-4 mb-6">

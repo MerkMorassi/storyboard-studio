@@ -14,15 +14,6 @@ interface CoreStudioProps {
 export const CoreStudio: React.FC<CoreStudioProps> = ({ agent, onNavigate, onOpenChat }) => {
     return (
         <div className="flex flex-col h-full w-full bg-primary">
-            <StudioHeader 
-                breadcrumbs={[
-                    { label: 'Production Team', onClick: () => onNavigate('team') }, 
-                    { label: "Producer's Office (Nexus)" }
-                ]}
-                agent={agent}
-                onOpenChat={onOpenChat}
-            />
-
             <main className="flex-grow overflow-hidden flex flex-col relative">
                 {/* Office Header */}
                 <div className="p-6 pb-0 max-w-6xl mx-auto w-full">

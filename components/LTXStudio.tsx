@@ -167,6 +167,117 @@ export const LTXStudio: React.FC<LTXStudioProps> = ({
 
                     {showAdvanced && (
                         <div className="space-y-4 animate-fade-in bg-secondary/50 p-3 rounded-lg border border-accent/50">
-                             <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
+                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1">Width</label>
+                                    <input 
+                                        type="number" 
+                                        value={videoState.width || 768} 
+                                        onChange={(e) => onStateUpdate({ ...videoState, width: parseInt(e.target.value) || 768 })}
+                                        className="w-full bg-secondary border border-accent p-2 rounded text-xs text-neutral-200" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1">Height</label>
+                                    <input 
+                                        type="number" 
+                                        value={videoState.height || 512} 
+                                        onChange={(e) => onStateUpdate({ ...videoState, height: parseInt(e.target.value) || 512 })}
+                                        className="w-full bg-secondary border border-accent p-2 rounded text-xs text-neutral-200" 
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-medium text-neutral-300">Enhance Prompt</label>
+                                <input 
+                                    type="checkbox" 
+                                    checked={videoState.enhancePrompt ?? true} 
+                                    onChange={(e) => onStateUpdate({ ...videoState, enhancePrompt: e.target.checked })} 
+                                    className="accent-brand rounded" 
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-bold text-neutral-400 uppercase">Seed</label>
+                                    <label className="text-xs text-neutral-400 flex items-center gap-1 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={videoState.randomizeSeed} 
+                                            onChange={(e) => onStateUpdate({ ...videoState, randomizeSeed: e.target.checked })} 
+                                            className="accent-brand" 
+                                        />
+                                        Randomize
+                                    </label>
+                                </div>
+                                {!videoState.randomizeSeed && (
+                                    <input 
+                                        type="number" 
+                                        value={videoState.seed} 
+                                        onChange={(e) => onStateUpdate({ ...videoState, seed: parseInt(e.target.value) || 0 })} 
+                                        className="w-full bg-secondary border border-accent p-2 rounded text-xs text-neutral-200" 
+                                    />
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={handleGenerate}
+                        disabled={isLoading || !videoState.image}
+                        className="w-full py-3 bg-brand hover:bg-brand-hover disabled:bg-neutral-800 disabled:text-neutral-600 font-bold rounded-lg text-white text-sm transition-all flex items-center justify-center gap-2 shadow-lg"
+                    >
+                        {isLoading ? <LoadingSpinner className="w-5 h-5" /> : <ClapperboardIcon className="w-5 h-5" />}
+                        {isLoading ? 'Generating Video...' : 'Generate Video'}
+                    </button>
+
+                    {error && (
+                        <div className="p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-red-400 text-xs flex items-start gap-2">
+                            <WarningIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <span>{error}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Right Column: Video Output */}
+                <div className="lg:col-span-2 bg-surface p-6 border border-accent rounded-lg flex flex-col justify-between min-h-[400px]">
+                    <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-accent/50 rounded-lg p-4 bg-secondary/30 relative">
+                        {isLoading ? (
+                            <div className="flex flex-col items-center gap-3 text-center">
+                                <LoadingSpinner className="w-10 h-10 text-brand" />
+                                <span className="text-sm font-medium text-neutral-300">{progress || 'Processing with LTX-2...'}</span>
+                                <span className="text-xs text-neutral-500">This may take up to a minute depending on GPU load.</span>
+                            </div>
+                        ) : videoState.resultUrl ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+                                <video 
+                                    src={videoState.resultUrl} 
+                                    controls 
+                                    autoPlay 
+                                    loop 
+                                    className="max-h-[500px] w-auto rounded-lg shadow-2xl border border-accent" 
+                                />
+                            </div>
+                        ) : (
+                            <div className="text-center text-neutral-500 space-y-2">
+                                <CameraLensIcon className="w-12 h-12 mx-auto text-neutral-600" />
+                                <p className="text-sm">Generated LTX-2 video will appear here.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {videoState.resultUrl && (
+                        <div className="mt-4 pt-4 border-t border-accent flex justify-end">
+                            <AssetActions
+                                asset={{ type: 'video', url: videoState.resultUrl }}
+                                onSaveToGrid={onAddAssetToGrid ? (pid) => onAddAssetToGrid({ type: 'video', url: videoState.resultUrl! }, pid) : undefined}
+                                projects={projects}
+                                activeProjectId={activeProjectId}
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
                                     

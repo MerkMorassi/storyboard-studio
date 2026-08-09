@@ -13,15 +13,6 @@ interface GenericAgentStudioProps {
 export const GenericAgentStudio: React.FC<GenericAgentStudioProps> = ({ agent, onNavigate, onOpenChat }) => {
     return (
         <div className="flex flex-col h-full w-full bg-primary">
-            <StudioHeader 
-                breadcrumbs={[
-                    { label: 'Production Team', onClick: () => onNavigate('team') }, 
-                    { label: agent.name }
-                ]}
-                agent={agent}
-                onOpenChat={onOpenChat}
-            />
-
             <main className="flex-grow overflow-hidden flex flex-col relative">
                 {/* Agent "Home" Content */}
                 <div className="flex-grow flex flex-col h-full">
